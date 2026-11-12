@@ -53,7 +53,8 @@ export interface ProjectItem {
   githubUrl?: string;
   startDate?: string;
   endDate?: string;
-  description: string;
+  current?: boolean;
+  description?: string;
   highlights: string[];
 }
 
@@ -90,6 +91,8 @@ export interface AwardItem {
   date: string;
   description?: string;
 }
+
+export type AchievementItem = AwardItem;
 
 export interface LeadershipItem {
   id: string;

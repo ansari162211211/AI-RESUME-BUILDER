@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
@@ -9,21 +9,27 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const port = parseInt(process.env.PORT || '3000', 10);
+// AI Studio requires listening on port 3000
+const portArgIndex = process.argv.indexOf('--port');
+const port = portArgIndex !== -1 && process.argv[portArgIndex + 1]
+  ? parseInt(process.argv[portArgIndex + 1], 10)
+  : 3000;
 
 // Increase JSON body limit to support base64-encoded PDF uploads
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Shared Gemini AI Client instance
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Helper to get Gemini AI Client instance dynamically
+function getGeminiClient(): GoogleGenAI {
+  return new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY || '',
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+}
 
 /* ========================================================================== */
 /* ENDPOINT 1: EXTRACT CV FROM PDF (OR RAW TEXT) VIA GEMINI AI                */
@@ -96,6 +102,7 @@ CRITICAL EXTRACTION RULES:
       ];
     }
 
+    const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents,
@@ -163,6 +170,7 @@ Return a valid JSON object matching:
   "explanation": "..."
 }`;
 
+    const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
@@ -259,6 +267,7 @@ Return ONLY a valid JSON object.`;
       },
     ];
 
+    const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: formattedMessages,
@@ -337,6 +346,7 @@ Return a valid JSON object matching:
   ]
 }`;
 
+    const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: auditPrompt,

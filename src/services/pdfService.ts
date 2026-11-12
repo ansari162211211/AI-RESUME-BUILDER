@@ -27,7 +27,8 @@ export async function downloadAcademicCvPdf(
       fontFamily,
     });
 
-    const instance = pdf(docElement);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const instance = pdf(docElement as any);
     const blob = await instance.toBlob();
 
     if (!blob || blob.size === 0) {
@@ -77,7 +78,8 @@ export async function generateCvPdfBlobUrl(
     fontFamily,
   });
 
-  const instance = pdf(docElement);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const instance = pdf(docElement as any);
   const blob = await instance.toBlob();
   const url = URL.createObjectURL(blob);
 

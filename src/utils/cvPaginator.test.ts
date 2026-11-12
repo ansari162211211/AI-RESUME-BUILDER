@@ -22,6 +22,7 @@ const minimalResume: Resume = {
       degree: 'B.S. Computer Science',
       startDate: '2022',
       endDate: '2026',
+      current: false,
     },
   ],
   skills: [
@@ -31,6 +32,10 @@ const minimalResume: Resume = {
       skills: ['Python', 'TypeScript', 'Java'],
     },
   ],
+  experience: [],
+  projects: [],
+  achievements: [],
+  certifications: [],
 };
 
 const fullAcademicResume: Resume = {
@@ -63,6 +68,7 @@ const fullAcademicResume: Resume = {
       specialization: 'Artificial Intelligence & Computational Biology',
       startDate: '2019',
       endDate: '2024',
+      current: false,
       grade: 'GPA: 3.96 / 4.0',
       achievements: 'Dissertation: Equivariant Graph Neural Networks for Protein Dynamics',
     },
@@ -72,6 +78,7 @@ const fullAcademicResume: Resume = {
       degree: 'B.S. in Electrical Engineering and Computer Science',
       startDate: '2015',
       endDate: '2019',
+      current: false,
       grade: 'GPA: 4.9 / 5.0 (Summa Cum Laude)',
     },
   ],
@@ -81,6 +88,7 @@ const fullAcademicResume: Resume = {
       company: 'Stanford AI Lab',
       position: 'Postdoctoral Research Fellow',
       startDate: '2024',
+      endDate: 'Present',
       current: true,
       highlights: [
         'Lead investigator on an NIH R01 grant exploring diffusion models.',
@@ -94,6 +102,7 @@ const fullAcademicResume: Resume = {
       position: 'Research Scientist Intern',
       startDate: 'Jun 2022',
       endDate: 'Dec 2022',
+      current: false,
       highlights: [
         'Collaborated with AlphaFold core science team on conformational flexibility modeling.',
         'Engineered GPU-accelerated invariant coordinate transforms in JAX, accelerating runtime by 3.2x.',
@@ -103,6 +112,7 @@ const fullAcademicResume: Resume = {
   publications: [
     {
       id: 'pub1',
+      type: 'journal',
       title: 'SE(3)-Equivariant Flow Matching for Flexible Protein-Small Molecule Binding',
       authors: 'Chen, E. V., Vance, M., Thorne, S. R., and Alvarez, J.',
       journalOrConference: 'Nature Machine Intelligence',
@@ -114,6 +124,7 @@ const fullAcademicResume: Resume = {
     },
     {
       id: 'pub2',
+      type: 'conference',
       title: 'Geometric Diffusion Models for Multi-State Allosteric Protein Prediction',
       authors: 'Chen, E. V., and Vance, M.',
       journalOrConference: 'Thirty-seventh Conference on Neural Information Processing Systems (NeurIPS 2023, Oral)',
@@ -181,6 +192,7 @@ const fullAcademicResume: Resume = {
       email: 'm.vance@stanford.edu',
     },
   ],
+  certifications: [],
 };
 
 test('paginateResume correctly leaves short CV on 1 page', () => {

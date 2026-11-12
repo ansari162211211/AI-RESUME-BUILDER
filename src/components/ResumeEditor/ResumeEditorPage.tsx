@@ -1662,7 +1662,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                 type="button"
                                 onClick={() =>
                                   handleOpenImprove(
-                                    proj.description,
+                                    proj.description || '',
                                     'Project Summary',
                                     `Project: ${proj.title}`,
                                     (improved) => updateProject(proj.id, { description: improved })
