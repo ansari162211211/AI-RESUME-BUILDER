@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "Resume": {
+      "title": "Resume",
+      "description": "A structured resume document containing personal info, objective, education, experience, skills, projects, certifications, and achievements.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Unique identifier of the resume document."
+        },
+        "userId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the owner."
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Title or label for this resume."
+        },
+        "personalInfo": {
+          "type": "object",
+          "description": "Personal contact details, name, and headline."
+        },
+        "objective": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Career objective or executive summary."
+        },
+        "education": {
+          "type": "array",
+          "description": "List of education history entries."
+        },
+        "skills": {
+          "type": "array",
+          "description": "List of technical skills and competencies."
+        },
+        "projects": {
+          "type": "array",
+          "description": "List of key projects."
+        },
+        "experience": {
+          "type": "array",
+          "description": "List of professional work experiences."
+        },
+        "certifications": {
+          "type": "array",
+          "description": "List of certifications and licenses."
+        },
+        "achievements": {
+          "type": "array",
+          "description": "List of honors and achievements."
+        },
+        "template": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Visual layout template identifier."
+        },
+        "themeColor": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Accent color choice."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated timestamp."
+        }
+      },
+      "required": ["userId", "title"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/resumes/{resumeId}": {
+      "schema": "Resume",
+      "description": "User created resumes isolated by owner user account."
+    }
+  }
+}

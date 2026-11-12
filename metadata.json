@@ -1,0 +1,6 @@
+{
+  "name": "Minimalist Resume Builder",
+  "description": "A clean, functional resume builder featuring customizable forms, professional A4 PDF preview, and resume management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

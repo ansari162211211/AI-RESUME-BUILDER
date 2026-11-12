@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #f8fafc;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Academic Serif font class for formal CV styling */
+.font-cv-serif {
+  font-family: "Times New Roman", Times, "TeX Gyre Termes", Georgia, Cambria, serif;
+}
+
+.font-cv-sans {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 14mm 16mm 14mm 16mm;
+}
+
+@media print {
+  /* Hide non-printable app UI */
+  header,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Academic CV container in print takes full page with proper margins */
+  .academic-cv-document {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Avoid orphan headings and broken blocks */
+  .cv-heading {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .cv-entry {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure links print cleanly */
+  a {
+    color: #000000 !important;
+    text-decoration: none !important;
+  }
+}
