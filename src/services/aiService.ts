@@ -49,7 +49,8 @@ export async function extractCvWithGemini(
 export async function improveTextWithGemini(
   text: string,
   sectionType: string = 'general',
-  context: string = ''
+  context: string = '',
+  templateId: string = 'academic-cv'
 ): Promise<AiImproveResult> {
   try {
     const res = await fetch('/api/gemini/improve-text', {
@@ -61,6 +62,7 @@ export async function improveTextWithGemini(
         text,
         sectionType,
         context,
+        template: templateId,
       }),
     });
 

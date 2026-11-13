@@ -10,7 +10,11 @@ import {
 } from './validation.ts';
 import {
   SAMPLE_ACADEMIC_CV,
+  SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_JAKES_CV,
+  SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
+  SAMPLE_TWO_COLUMN_CV,
 } from '../data/sampleResumes.ts';
 
 test('validateEmail correctly checks valid and invalid emails', () => {
@@ -91,4 +95,120 @@ test('analyzeResumeSections evaluates all 14 sections without penalizing optiona
   assert.ok(studentEdu);
   assert.equal(studentEdu.status, 'complete');
 });
+
+test("analyzeResumeSections evaluates Jake's Resume sections accurately without altering Academic CV", () => {
+  const jakesReport = analyzeResumeSections(SAMPLE_JAKES_CV);
+  assert.equal(jakesReport.sections.length, 7);
+  assert.equal(jakesReport.overallScore, 100);
+  assert.equal(jakesReport.overallStatus, 'excellent');
+
+  const cwSection = jakesReport.sections.find((s) => s.sectionId === 'coursework');
+  assert.ok(cwSection);
+  assert.equal(cwSection.statusLabel, 'Completed');
+  assert.equal(cwSection.status, 'complete');
+
+  const partialJakes = {
+    ...SAMPLE_JAKES_CV,
+    coursework: [],
+    projects: [],
+    experience: [],
+  };
+  const partialReport = analyzeResumeSections(partialJakes);
+  const partialCw = partialReport.sections.find((s) => s.sectionId === 'coursework');
+  const partialExp = partialReport.sections.find((s) => s.sectionId === 'experience');
+  assert.equal(partialCw?.statusLabel, 'Not started (Optional)');
+  assert.equal(partialCw?.status, 'optional_empty');
+  assert.equal(partialExp?.statusLabel, 'Not started');
+  assert.ok(partialReport.overallScore < 100);
+});
+
+test('analyzeResumeSections evaluates Classic Professional across 11 sections including Skill Matrix unrated check and References modes', () => {
+  const classicReport = analyzeResumeSections(SAMPLE_CLASSIC_PROFESSIONAL_CV);
+  assert.equal(classicReport.sections.length, 11);
+  assert.equal(classicReport.overallScore, 100);
+  assert.equal(classicReport.overallStatus, 'excellent');
+
+  // Profile with unrated Skill Matrix row (no auto-rating) and on-request references & no experience (fresher)
+  const fresherClassic = {
+    ...SAMPLE_CLASSIC_PROFESSIONAL_CV,
+    experience: [],
+    thesis: undefined,
+    references: [],
+    referencesDisplayMode: 'on-request' as const,
+    skillMatrix: [
+      {
+        id: 'm1',
+        category: 'Languages',
+        skill: 'TypeScript',
+        level: null,
+      },
+    ],
+  };
+  const fresherReport = analyzeResumeSections(fresherClassic);
+  const expSec = fresherReport.sections.find((s) => s.sectionId === 'experience');
+  const matSec = fresherReport.sections.find((s) => s.sectionId === 'skill-matrix');
+  const refSec = fresherReport.sections.find((s) => s.sectionId === 'references');
+  assert.equal(expSec?.status, 'optional_empty');
+  assert.equal(matSec?.status, 'needs_details');
+  assert.equal(refSec?.status, 'complete');
+  assert.equal(refSec?.statusLabel, 'Available on request');
+});
+
+test('analyzeResumeSections evaluates Two Column Professional across 12 sections and catches >24h daily activities', () => {
+  const twoColReport = analyzeResumeSections(SAMPLE_TWO_COLUMN_CV);
+  assert.equal(twoColReport.sections.length, 12);
+  assert.equal(twoColReport.overallScore, 100);
+  assert.equal(twoColReport.overallStatus, 'excellent');
+
+  const overHours = analyzeResumeSections({
+    ...SAMPLE_TWO_COLUMN_CV,
+    dailyActivities: [
+      { id: 'd1', activity: 'Research', hours: 14 },
+      { id: 'd2', activity: 'Sleep', hours: 12 },
+    ],
+  });
+  const dailySec = overHours.sections.find((s) => s.sectionId === 'daily-life');
+  assert.equal(dailySec?.status, 'needs_review');
+  assert.ok(dailySec?.statusLabel.includes('Exceeds 24h'));
+  assert.ok(dailySec?.issues[0]?.includes('26h'));
+
+  const fresherMinimal = analyzeResumeSections({
+    ...SAMPLE_TWO_COLUMN_CV,
+    dailyActivities: [],
+    personalQuote: '',
+    achievements: [],
+    publications: [],
+    references: [],
+    referencesDisplayMode: 'hidden',
+  });
+  assert.equal(fresherMinimal.sections.find((s) => s.sectionId === 'daily-life')?.status, 'optional_empty');
+  assert.equal(fresherMinimal.sections.find((s) => s.sectionId === 'philosophy')?.status, 'optional_empty');
+  assert.equal(fresherMinimal.sections.find((s) => s.sectionId === 'references')?.statusLabel, 'Skipped');
+});
+
+test('analyzeResumeSections evaluates Software Developer across 11 sections without penalizing optional ADDITIONAL subsections or CS student projects', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_SOFTWARE_DEVELOPER_CV);
+  assert.equal(fullReport.sections.length, 11);
+  assert.equal(fullReport.overallScore, 100);
+  assert.equal(fullReport.overallStatus, 'excellent');
+
+  // CS student / fresher profile: no formal experience, no coursework/leadership/certifications/awards, has education + projects + skills
+  const csStudentReport = analyzeResumeSections({
+    ...SAMPLE_SOFTWARE_DEVELOPER_CV,
+    experience: [],
+    coursework: [],
+    leadership: [],
+    certifications: [],
+    achievements: [],
+  });
+  assert.equal(csStudentReport.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
+  assert.equal(csStudentReport.sections.find((s) => s.sectionId === 'coursework')?.status, 'optional_empty');
+  assert.equal(csStudentReport.sections.find((s) => s.sectionId === 'leadership')?.status, 'optional_empty');
+  assert.equal(csStudentReport.sections.find((s) => s.sectionId === 'certifications')?.status, 'optional_empty');
+  assert.equal(csStudentReport.sections.find((s) => s.sectionId === 'awards')?.status, 'optional_empty');
+  assert.ok(csStudentReport.overallScore >= 75);
+});
+
+
+
 

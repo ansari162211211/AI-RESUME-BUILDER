@@ -3,6 +3,13 @@ export interface PersonalInfo {
   jobTitle?: string;
   email: string;
   phone: string;
+  secondaryPhone?: string;
+  additionalPhone?: string;
+  dateOfBirth?: string;
+  additionalInfo?: string;
+  photoUrl?: string;
+  photoShape?: 'portrait' | 'square' | 'circle';
+  streetAddress?: string;
   city?: string;
   state?: string;
   postalCode?: string;
@@ -11,7 +18,20 @@ export interface PersonalInfo {
   website?: string;
   linkedin?: string;
   github?: string;
+  twitter?: string;
+  orcid?: string;
+  gitlab?: string;
+  mastodon?: string;
+  customLinks?: Array<{ id: string; label: string; url: string }>;
   otherProfiles?: string; // Google Scholar, ORCID, ResearchGate, etc.
+}
+
+export type ExperienceCategory = 'Vocational' | 'Professional' | 'Other';
+
+export interface ExperienceSubHighlights {
+  id: string;
+  parentIndex: number;
+  items: string[];
 }
 
 export interface ExperienceItem {
@@ -20,23 +40,57 @@ export interface ExperienceItem {
   position: string;
   location?: string;
   employmentType?: string; // Full-time, Internship, Postdoctoral Fellow, Graduate Assistant, etc.
+  category?: ExperienceCategory;
+  description?: string;
   startDate: string;
   endDate: string;
   current: boolean;
   highlights: string[];
+  subHighlights?: ExperienceSubHighlights[];
 }
 
 export interface EducationItem {
   id: string;
   institution: string;
   degree: string;
-  specialization?: string; // Field of Study / Major
+  specialization?: string; // Field of Study / Major / Concentration
   location?: string;
   startDate: string;
   endDate: string;
   current: boolean;
   grade?: string; // GPA / CGPA / Grade
-  achievements?: string; // Thesis title, Advisor, Honors
+  thesisTitle?: string; // Optional Thesis title (Harvard & Academic)
+  coursework?: string; // Optional per-entry relevant coursework
+  honors?: string; // Optional academic awards and honors
+  achievements?: string; // Thesis title, Advisor, Honors (legacy / combined)
+  description?: string;
+}
+
+export interface StudyAbroadItem {
+  id: string;
+  institution: string;
+  location?: string; // City and country
+  coursework?: string; // Coursework or academic description
+  startDate: string;
+  endDate: string;
+}
+
+export interface HighSchoolItem {
+  id: string;
+  schoolName: string;
+  location?: string; // City and state / country
+  graduationDate: string;
+  gpa?: string;
+  testScores?: string; // Optional SAT / ACT scores
+  honors?: string; // Optional academic honors
+}
+
+export interface MasterThesisInfo {
+  title: string;
+  supervisors?: string;
+  institution?: string;
+  year?: string;
+  description?: string;
 }
 
 export interface SkillCategory {
@@ -45,26 +99,70 @@ export interface SkillCategory {
   skills: string[];
 }
 
+export type SkillMatrixLevel = 1 | 2 | 3 | 4 | 5;
+
+export interface SkillMatrixItem {
+  id: string;
+  category: string;
+  skill: string;
+  level: SkillMatrixLevel | null;
+  yearsOfExperience?: string;
+  comment?: string;
+}
+
+export interface InterestItem {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface CustomSectionItem {
+  id: string;
+  title: string;
+  bullets: string[];
+}
+
+export interface DailyActivityItem {
+  id: string;
+  activity: string;
+  hours: number;
+}
+
+export type ReferencesDisplayMode = 'detailed' | 'on-request' | 'hidden';
+
 export interface ProjectItem {
   id: string;
   title: string;
+  projectType?: string; // Personal, Academic, Open Source, Client, Hackathon, Capstone
+  institution?: string; // Funding agency / institution
   technologies: string[];
+  frameworks?: string[];
+  database?: string;
+  tools?: string[];
   link?: string;
   githubUrl?: string;
   startDate?: string;
   endDate?: string;
   current?: boolean;
   description?: string;
+  problemSolved?: string;
+  contribution?: string;
+  technicalChallenges?: string;
+  keyFeatures?: string[];
+  achievements?: string[];
   highlights: string[];
 }
 
 export type PublicationType =
+  | 'book'
   | 'journal'
   | 'conference'
+  | 'research_paper'
   | 'patent'
   | 'manuscript'
   | 'book_chapter'
-  | 'thesis';
+  | 'thesis'
+  | 'other';
 
 export interface PublicationItem {
   id: string;
@@ -78,6 +176,8 @@ export interface PublicationItem {
   issue?: string;
   pages?: string;
   doi?: string;
+  url?: string;
+  description?: string;
   location?: string;
   patentNumber?: string;
   publicationDate?: string;
@@ -90,6 +190,7 @@ export interface AwardItem {
   issuer: string;
   date: string;
   description?: string;
+  icon?: 'trophy' | 'heart' | 'award' | 'star';
 }
 
 export type AchievementItem = AwardItem;
@@ -139,7 +240,8 @@ export interface CertificationItem {
 export interface LanguageItem {
   id: string;
   language: string;
-  proficiency: string; // Native, Fluent, Professional, Intermediate, Elementary
+  proficiency: string; // Beginner, Elementary, Intermediate, Upper Intermediate, Advanced, Fluent, Native, 1..5, or '' if unconfirmed
+  comment?: string;
 }
 
 export interface ReferenceItem {
@@ -150,10 +252,62 @@ export interface ReferenceItem {
   organization: string;
   email: string;
   phone?: string;
+  address?: string;
   relationship?: string;
 }
 
 export type CvFontFamily = 'serif' | 'sans';
+
+export type TemplateId =
+  | 'academic-cv'
+  | 'jakes-resume'
+  | 'classic-professional'
+  | 'modern-minimalist'
+  | 'two-column-professional'
+  | 'software-developer'
+  | 'harvard-style'
+  | 'elegant-serif'
+  | 'modern-corporate'
+  | 'fresher-resume'
+  | 'internship-resume'
+  | 'engineering-resume'
+  | 'creative-professional'
+  | 'executive-resume'
+  | 'research-scholar'
+  | 'simple-one-page';
+
+export type TemplateCategory =
+  | 'All Templates'
+  | 'Academic CV'
+  | 'Professional'
+  | 'ATS-Friendly'
+  | 'Student & Fresher'
+  | 'Technical & Developer'
+  | 'Research'
+  | 'Creative';
+
+export type TemplateFontSize = 'compact' | 'standard' | 'large';
+export type TemplateSpacing = 'tight' | 'balanced' | 'relaxed';
+export type TemplateMarginSize = 'narrow' | 'standard' | 'wide';
+export type TemplateHeadingStyle =
+  | 'uppercase-rule'
+  | 'title-rule'
+  | 'classic-blue-rule'
+  | 'burgundy-gold-rule'
+  | 'left-accent'
+  | 'filled-band'
+  | 'clean-caps'
+  | 'italic-serif';
+
+export interface TemplateCustomization {
+  fontFamily: CvFontFamily;
+  fontSize: TemplateFontSize;
+  textColor: string;
+  accentColor: string;
+  sectionSpacing: TemplateSpacing;
+  pageMargins: TemplateMarginSize;
+  headingStyle: TemplateHeadingStyle;
+}
 
 export interface Resume {
   id: string;
@@ -161,27 +315,42 @@ export interface Resume {
   title: string;
   targetRole?: string;
   personalInfo: PersonalInfo;
+  personalQuote?: string;
   objective?: string;
   education: EducationItem[];
+  thesis?: MasterThesisInfo;
+  studyAbroad?: StudyAbroadItem[];
+  highSchool?: HighSchoolItem[];
+  coursework?: string[];
   experience: ExperienceItem[];
   projects: ProjectItem[];
+  dailyActivities?: DailyActivityItem[];
+  showDailyActivityChart?: boolean;
   publications?: PublicationItem[];
   skills: SkillCategory[];
+  labSkills?: string[];
+  skillMatrix?: SkillMatrixItem[];
+  strengths?: string[];
   achievements: AwardItem[];
   leadership?: LeadershipItem[];
+  harvardLeadershipFirst?: boolean;
+  targetBackground?: 'student' | 'fresher' | 'experienced';
   volunteer?: VolunteerItem[];
   memberships?: MembershipItem[];
   certifications: CertificationItem[];
   languages?: LanguageItem[];
   interests?: string;
+  interestItems?: InterestItem[];
+  customSections?: CustomSectionItem[];
   references?: ReferenceItem[];
+  referencesDisplayMode?: ReferencesDisplayMode;
   fontFamily?: CvFontFamily;
   hiddenSections?: string[];
   createdAt: string;
   updatedAt: string;
-  // Legacy fields kept for backward compatibility:
-  template?: string;
+  template?: TemplateId | string;
   themeColor?: string;
+  customization?: TemplateCustomization;
 }
 
 export interface AuthUser {

@@ -58,13 +58,14 @@ CRITICAL EXTRACTION RULES:
 1. Extract ALL factual details exactly as they appear in the document: names, degrees, institutions, companies, locations, dates, titles, citations, and bullet points.
 2. DO NOT invent, hallucinate, or fabricate missing details or numbers. If an item or section is not in the CV, leave it as an empty array or empty string.
 3. Categorize information cleanly into these 14 sections:
-   - personalInfo: fullName, jobTitle, email, phone, city, state, postalCode, country, website, linkedin, github, otherProfiles (e.g. ORCID, Google Scholar, ResearchGate)
+   - personalInfo: fullName, jobTitle, email, phone, streetAddress, city, state, postalCode, country, website, linkedin, github, otherProfiles (e.g. ORCID, Google Scholar, ResearchGate)
    - objective: career objective or professional summary paragraph
    - education: array of { institution, degree, specialization, startDate, endDate, current, grade, achievements, location }
+   - coursework: string[] (relevant university courses if listed)
    - experience: array of { company, position, location, employmentType, startDate, endDate, current, highlights: string[] }
    - publications: array of { type ('journal' | 'conference' | 'patent' | 'manuscript' | 'thesis'), title, authors, journalOrConference, publisher, year, volume, issue, pages, doi, patentNumber, location }
-   - projects: array of { title, description, startDate, endDate, technologies: string[], link, highlights: string[] }
-   - skills: array of { category, skills: string[] } (organize into standard categories like 'Programming Languages', 'Web Technologies', 'Database Systems', 'Data Science & Machine Learning', 'Cloud & DevOps', 'Research & Tools')
+   - projects: array of { title, description, startDate, endDate, technologies: string[], link, githubUrl, highlights: string[] }
+   - skills: array of { category, skills: string[] } (organize into standard categories like 'Languages', 'Developer Tools', 'Technologies/Frameworks', or 'Programming Languages', 'Web Technologies', 'Cloud & DevOps')
    - achievements: array of { title, issuer, date, description } (honors, awards, scholarships, fellowships)
    - leadership: array of { role, organization, startDate, endDate, current, location, highlights: string[] }
    - volunteer: array of { role, organization, startDate, endDate, current, location, highlights: string[] }
@@ -104,7 +105,7 @@ CRITICAL EXTRACTION RULES:
 
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents,
       config: {
         responseMimeType: 'application/json',
@@ -138,29 +139,60 @@ CRITICAL EXTRACTION RULES:
 /* ========================================================================== */
 app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
   try {
-    const { text, sectionType = 'general', context = '' } = req.body;
+    const { text, sectionType = 'general', context = '', template = 'academic-cv' } = req.body;
 
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return res.status(400).json({ error: 'Text to improve is required.' });
     }
 
-    const prompt = `You are a distinguished academic editor and career communication specialist.
+    const isJakesTemplate = template === 'jakes-resume';
+    const isClassicTemplate = template === 'classic-professional';
+    const isTwoColumnTemplate = template === 'two-column-professional';
+    const isSoftwareDevTemplate = template === 'software-developer';
+    const roleLabel = isJakesTemplate
+      ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
+      : isSoftwareDevTemplate
+      ? 'senior software engineering hiring editor (systems impact, crisp action-led technical bullets specialist)'
+      : isClassicTemplate
+      ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
+      : isTwoColumnTemplate
+      ? 'modern two-column executive and academic CV editor (AltaCV & clarity specialist)'
+      : 'academic editor and career communication specialist';
+    const defaultContext = isJakesTemplate
+      ? "Jake's Resume Technical Software Developer Resume"
+      : isSoftwareDevTemplate
+      ? 'Software Developer Single-Column Resume'
+      : isClassicTemplate
+      ? 'Classic Professional Multi-Page CV'
+      : isTwoColumnTemplate
+      ? 'Two Column Professional Multi-Page CV'
+      : 'Formal Academic Curriculum Vitae';
+
+    const prompt = `You are a distinguished ${roleLabel}.
 Improve the following CV / resume content for section "${sectionType}".
 
 CONTEXT / ROLE:
-${context || 'Formal Academic Curriculum Vitae'}
+${context || defaultContext}
 
 ORIGINAL TEXT:
 "${text}"
 
 REQUIREMENTS:
-1. Elevate the tone to be formal, scholarly, precise, and impactful.
-2. Use strong action verbs (e.g., "Engineered", "Investigated", "Pioneered", "Synthesized", "Orchestrated", "Published").
+1. ${
+      isJakesTemplate || isSoftwareDevTemplate
+        ? 'Make each bullet crisp, high-impact, action-verb-led, and ATS-friendly (ideal 1-2 lines).'
+        : isClassicTemplate
+        ? 'Keep phrasing crisp, clear, factual, and professional—ideal for a classic structured CV.'
+        : isTwoColumnTemplate
+        ? 'Keep phrasing sharp, scannable, achievement-oriented, and concise for clean two-column layout readability.'
+        : 'Elevate the tone to be formal, scholarly, precise, and impactful.'
+    }
+2. Use strong action verbs (e.g., "Developed", "Engineered", "Implemented", "Architected", "Investigated", "Orchestrated").
 3. Eliminate passive voice, vague wording, repetition, and filler words.
 4. ABSOLUTE RULE: DO NOT FABRICATE OR INVENT any metrics, numbers, technologies, qualifications, dates, or results that were not in the original text. Preserve 100% of the underlying facts.
 5. Provide:
    - "improved": the best primary refined version.
-   - "alternative": a second stylistic variation (e.g. more concise or more research-focused).
+   - "alternative": a second stylistic variation (e.g. more concise or more results-focused).
    - "explanation": a concise 1-2 sentence explanation of what was improved (grammar, impact, conciseness).
 
 Return a valid JSON object matching:
@@ -172,7 +204,7 @@ Return a valid JSON object matching:
 
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -215,44 +247,101 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       userMessage,
     } = req.body;
 
-    const systemPrompt = `You are "Academic CV Advisor", a warm, encouraging, and deeply knowledgeable career consultant helping the user build their complete Academic CV step-by-step.
+    const isJakesTemplate = currentResume?.template === 'jakes-resume';
+    const isClassicTemplate = currentResume?.template === 'classic-professional';
+    const isTwoColumnTemplate = currentResume?.template === 'two-column-professional';
+    const isSoftwareDevTemplate = currentResume?.template === 'software-developer';
+    const advisorName = isJakesTemplate
+      ? 'Technical Resume Advisor'
+      : isSoftwareDevTemplate
+      ? 'Software Developer Resume Advisor'
+      : isClassicTemplate
+      ? 'Classic Professional CV Advisor'
+      : isTwoColumnTemplate
+      ? 'Two Column Professional CV Advisor'
+      : 'Academic CV Advisor';
+    const templateLabel = isJakesTemplate
+      ? "Jake's Resume"
+      : isSoftwareDevTemplate
+      ? 'Software Developer Resume'
+      : isClassicTemplate
+      ? 'Classic Professional CV'
+      : isTwoColumnTemplate
+      ? 'Two Column Professional CV'
+      : 'Academic CV';
+    const templateIdStr = isJakesTemplate
+      ? 'jakes-resume'
+      : isSoftwareDevTemplate
+      ? 'software-developer'
+      : isClassicTemplate
+      ? 'classic-professional'
+      : isTwoColumnTemplate
+      ? 'two-column-professional'
+      : 'academic-cv';
 
+    const systemPrompt = `You are "${advisorName}", a warm, encouraging, and deeply knowledgeable career consultant helping the user build their complete ${templateLabel} step-by-step.
+
+ACTIVE TEMPLATE: "${templateIdStr}"
 CURRENT SECTION BEING INTERVIEWED: "${activeSection}"
 
 USER'S CURRENT RESUME STATE SUMMARY:
 ${JSON.stringify({
   personalInfo: currentResume.personalInfo,
+  personalQuote: currentResume.personalQuote ? 'Present' : 'Empty',
   objective: currentResume.objective ? 'Present' : 'Empty',
   educationCount: currentResume.education?.length || 0,
+  thesis: currentResume.thesis?.title ? 'Present' : 'Empty',
+  courseworkCount: currentResume.coursework?.length || 0,
   experienceCount: currentResume.experience?.length || 0,
   projectsCount: currentResume.projects?.length || 0,
+  dailyActivitiesCount: currentResume.dailyActivities?.length || 0,
   publicationsCount: currentResume.publications?.length || 0,
   skillsCategories: (currentResume.skills || []).map((s: any) => s.category),
+  skillMatrixCount: currentResume.skillMatrix?.length || 0,
+  strengthsCount: currentResume.strengths?.length || 0,
   awardsCount: currentResume.achievements?.length || 0,
   leadershipCount: currentResume.leadership?.length || 0,
   volunteerCount: currentResume.volunteer?.length || 0,
   membershipsCount: currentResume.memberships?.length || 0,
   certificationsCount: currentResume.certifications?.length || 0,
   languagesCount: currentResume.languages?.length || 0,
+  interestsCount: currentResume.interestItems?.length || (currentResume.interests ? 1 : 0),
+  customSectionsCount: currentResume.customSections?.length || 0,
+  referencesDisplayMode: currentResume.referencesDisplayMode,
   referencesCount: currentResume.references?.length || 0,
 })}
 
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
-2. Probe for DEPTH and academic specificity:
-   - For Work Experience: ask for organization name, job title, start/end dates, specific duties, technologies/tools used, key challenges, quantifiable results, or recognitions.
-   - For Projects: ask for project name, purpose/problem solved, technologies used, individual contributions, outcomes, and GitHub or demo links.
-   - For Education: ask for institution name, degree & specialization, duration/graduation year, CGPA/percentage, thesis title, advisors, and honors.
-   - For Publications: ask for authors, publication title, journal/conference name, year, volume/issue, and DOI.
-   - For Skills: organize into categories (Programming, Tools, ML/Data, Cloud, Research).
-3. If the user indicates they want to skip a question, section, or doesn't have experience in that area (e.g. "I don't have publications" or "skip"), gracefully accept it, acknowledge it, and seamlessly transition to the next logical section.
-4. NEVER invent or hallucinate metrics, dates, or titles. Extract only what the user has provided.
+2. Probe for DEPTH and specificity matching the active template:
+   - For Personal Info: name, professional headline/tagline (\`jobTitle\`), street/city/state/ZIP/country address, email, phone, LinkedIn, GitHub, website (plus optional twitter, orcid, gitlab, mastodon for Two Column Professional, or secondaryPhone / dateOfBirth for Classic Professional).
+   - For Objective / Summary: professional summary paragraph (\`objective\`) and optional opening personal quote (\`personalQuote\`).
+   - For Education: institution name, degree & specialization, start/graduation dates, location, GPA/grade, and optional short description (\`description\`).
+   - For Master's Thesis ("thesis", Classic Professional optional): \`thesis: { title, supervisors, institution, year, description }\`.
+   - For Coursework ("coursework"): relevant university courses as string array \`coursework: string[]\`.
+   - For Work Experience: organization/company name, job title, optional \`category\` ('Vocational' | 'Professional' | 'Other'), location, start/end dates, optional short role \`description\`, bullet \`highlights\`, and optional nested \`subHighlights: [{ id, parentIndex, items }]\`.
+   - For Projects: project name, optional \`projectType\` ('Personal' | 'Academic' | 'Open Source' | 'Work' | 'Hackathon'), \`institution\` / funding agency, technologies used (\`technologies: string[]\`), optional \`frameworks\`, \`database\`, \`tools\`, \`keyFeatures\`, \`technicalChallenges\`, date, GitHub or live URL (\`githubUrl\`, \`link\`), and technical implementation bullets (\`highlights\`).
+   - For A Day of My Life ("daily-life", Two Column Professional optional): \`dailyActivities: [{ id, activity, hours }]\`. Total hours MUST NOT exceed 24 hours; if the user's numbers exceed 24h, politely ask them to adjust; NEVER invent or estimate hours. Accept skipping cleanly.
+   - For Publications ("publications"): categorize by \`type\` ('book' | 'journal' | 'conference' | 'research_paper' | 'patent' | 'other'), \`title\`, \`authors\`, \`year\`, \`journalOrConference\` or \`publisher\`, \`doi\`, optional \`url\`.
+   - For My Life Philosophy ("philosophy", Two Column Professional optional): \`personalQuote\`.
+   - For Most Proud Of / Achievements ("achievements", optional): \`achievements: [{ id, title, issuer, date, description, icon ('trophy'|'heart'|'award'|'star') }]\`.
+   - For Certifications ("certifications", optional): \`certifications: [{ id, name, issuer, issueDate, credentialId, link }]\`.
+   - For Strengths ("strengths", Two Column Professional): \`strengths: string[]\` — extract ONLY strengths explicitly named by the user; NEVER auto-assign or fabricate strengths.
+   - For Languages ("languages"): \`[{ id, language, proficiency, comment }]\` — set \`proficiency\` ONLY if explicitly stated by the user (use \`""\` if unconfirmed; NEVER invent language dot ratings).
+   - For Skills: organize into clear categories (Jake's: \`Languages\`, \`Developer Tools\`, \`Technologies/Frameworks\`; Software Developer: \`Programming Languages\`, \`Developer Tools\`, \`Technologies & Frameworks\`; Classic Professional: \`Programming Languages\`, \`Operating Systems\`, \`Frameworks\`, \`Databases\`, \`Developer Tools\`).
+   - For Skill Matrix ("skill-matrix", Classic Professional): \`skillMatrix: [{ id, category, skill, level, yearsOfExperience, comment }]\` where \`level\` is 1–5 ONLY IF explicitly stated by the user; NEVER invent or auto-assign a 1–5 rating if the user didn't give one (use \`null\` and ask the user to choose 1–5).
+   - For Interests ("interests"): \`interestItems: [{ id, name, description }]\` and/or \`interests\` string.
+   - For Additional Info / Custom Sections ("custom-sections"): \`customSections: [{ id, title, bullets: string[] }]\`.
+   - For References / Referees ("references"): either \`referencesDisplayMode: 'on-request' | 'hidden' | 'detailed'\` and/or \`references: [{ id, fullName, jobTitle, organization, email, phone, address, relationship }]\`.
+   - For Leadership / Extracurricular: organization name, role, location, dates, and impact bullets.
+3. If the user indicates they want to skip a question, section, or doesn't have experience in that area (e.g. "skip" or "none"), gracefully accept it and transition to the next logical section.
+4. NEVER invent or hallucinate metrics, dates, skills, strengths, daily activity hours, language ratings, or titles. Extract ONLY factual details the user provided.
 5. In your response JSON, return:
    - "reply": The friendly conversational message to display to the user, with your follow-up question or transition.
    - "structuredUpdates": Any new or updated fields to merge into the resume based on the user's latest answer. Use the matching Resume schema properties.
    - "isSectionCompleted": boolean indicating if enough details for the current section have been collected.
    - "nextSection": string indicating the next section to focus on (or same section if more details needed).
-   - "suggestedChips": array of 2 to 4 quick button options (e.g. ["Skip this section", "Add another project", "Next: Education", "That is all"]).
+   - "suggestedChips": array of 2 to 4 quick button options.
 
 Return ONLY a valid JSON object.`;
 
@@ -263,13 +352,13 @@ Return ONLY a valid JSON object.`;
       })),
       {
         role: 'user',
-        parts: [{ text: userMessage || 'Hello, please help me build my CV step by step.' }],
+        parts: [{ text: userMessage || 'Hello, please help me build my resume step by step.' }],
       },
     ];
 
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: formattedMessages,
       config: {
         systemInstruction: systemPrompt,
@@ -313,7 +402,141 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
       return res.status(400).json({ error: 'Resume data is required for analysis.' });
     }
 
-    const auditPrompt = `You are a senior academic hiring committee chair and CV evaluator.
+    const isJakesTemplate = resume?.template === 'jakes-resume';
+    const isClassicTemplate = resume?.template === 'classic-professional';
+    const isTwoColumnTemplate = resume?.template === 'two-column-professional';
+    const isSoftwareDevTemplate = resume?.template === 'software-developer';
+    const auditPrompt = isJakesTemplate
+      ? `You are a senior software engineering hiring manager and technical resume reviewer.
+Analyze this Jake's Resume layout for thoroughness, clarity, and completeness across its sections:
+(personalInfo, education, coursework [optional], experience, projects [optional], skills, leadership [optional]).
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+2. Mark optional sections (coursework, projects, leadership) as 'optional_empty' if unprovided, rather than penalizing the overall score.
+3. Calculate overallScore (0 to 100) and top 3-4 concrete, non-fabricated recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isSoftwareDevTemplate
+      ? `You are a senior staff software engineer and technical resume evaluator reviewing a Software Developer Resume.
+Analyze this Software Developer Resume across its sections:
+(header, education, experience [optional for students], projects [optional], coursework [optional], programming-languages [optional], developer-tools [optional], technologies-frameworks [optional], leadership [optional], certifications [optional], awards [optional]).
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Use the exact sectionId values: 'header', 'education', 'experience', 'projects', 'coursework', 'programming-languages', 'developer-tools', 'technologies-frameworks', 'leadership', 'certifications', 'awards'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. Do NOT penalize empty optional sections (coursework, leadership, certifications, awards, or experience for students with projects). Empty ADDITIONAL subsections are omitted cleanly from the resume.
+4. Check technical clarity, concrete implementation details in Projects/Experience, and valid contact links without fabricating metrics.
+5. Calculate overallScore (0 to 100) and top 3-4 concise recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isTwoColumnTemplate
+      ? `You are a senior executive & academic career advisor reviewing a Two Column Professional CV (AltaCV style).
+Analyze this Two Column Professional CV across its 12 sections:
+(header, experience [optional], projects [optional], daily-life [optional], publications [optional], philosophy [optional], achievements [optional], strengths [optional], languages [optional], education, references [optional], custom-sections [optional]).
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use the exact sectionId values: 'header', 'experience', 'projects', 'daily-life', 'publications', 'philosophy', 'achievements', 'strengths', 'languages', 'education', 'references', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. Do NOT penalize empty optional sections (experience for students/freshers, daily-life, philosophy, achievements, publications, references, custom-sections).
+4. If dailyActivities sums to more than 24 hours, flag 'daily-life' as 'needs_review'.
+5. Calculate overallScore (0 to 100) and top 3-4 non-fabricated recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isClassicTemplate
+      ? `You are a senior international career consultant and Classic Professional CV reviewer.
+Analyze this Classic Professional CV across its 11 sections:
+(header, objective, education, thesis [optional], experience [optional], languages [optional], skills, skill-matrix [optional], interests [optional], custom-sections [optional], references [optional]).
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use the exact sectionId values: 'header', 'objective', 'education', 'thesis', 'experience', 'languages', 'skills', 'skill-matrix', 'interests', 'custom-sections', 'references'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. Do NOT penalize empty optional sections (thesis, experience for freshers, skill-matrix, interests, custom-sections, references).
+4. If skillMatrix has rows with level === null, flag as 'needs_details' asking the user to pick a 1-5 rating manually.
+5. Calculate overallScore (0 to 100) and top 3-4 concrete recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : `You are a senior academic hiring committee chair and CV evaluator.
 Analyze this academic CV for thoroughness, completeness, and missing high-value details across all 14 sections.
 
 RESUME DATA:
@@ -348,7 +571,7 @@ Return a valid JSON object matching:
 
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+      model: 'gemini-4-hydrogen',
       contents: auditPrompt,
       config: {
         responseMimeType: 'application/json',

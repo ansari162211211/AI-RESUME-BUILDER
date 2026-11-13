@@ -11,11 +11,11 @@ import {
   Loader2,
   CheckCircle2,
   Search,
-  UploadCloud,
   MessageSquare,
-  TrendingUp,
+  LayoutTemplate,
 } from 'lucide-react';
 import type { Resume, AuthUser } from '../../types/resume';
+import { getTemplateById } from '../../data/templates';
 import {
   getUserResumes,
   deleteResume,
@@ -24,26 +24,26 @@ import {
 } from '../../services/resumeService';
 import { calculateResumeCompleteness } from '../../utils/validation';
 import { ConfirmModal } from '../Common/ConfirmModal';
-import { UploadCvModal } from '../AiExtraction/UploadCvModal';
 import { AiInterviewModal } from '../AiAssistant/AiInterviewModal';
 
 interface DashboardPageProps {
   user: AuthUser;
   onSelectResumeForEdit: (resume: Resume) => void;
   onSelectResumeForPreview: (resume: Resume) => void;
+  onOpenTemplates?: () => void;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   user,
   onSelectResumeForEdit,
   onSelectResumeForPreview,
+  onOpenTemplates,
 }) => {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteCandidate, setDeleteCandidate] = useState<Resume | null>(null);
   const [creating, setCreating] = useState(false);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isInterviewOpen, setIsInterviewOpen] = useState(false);
   const [interviewDraft, setInterviewDraft] = useState<Resume | null>(null);
 
@@ -62,16 +62,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       setIsInterviewOpen(true);
     } catch (e) {
       console.error('Failed to init AI interview:', e);
-    }
-  };
-
-  const handleCvExtracted = async (extracted: Resume) => {
-    try {
-      await saveResume(user.uid, extracted);
-      setResumes((prev) => [extracted, ...prev]);
-      onSelectResumeForEdit(extracted);
-    } catch (e) {
-      console.error('Failed to save extracted CV:', e);
     }
   };
 
@@ -185,20 +175,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         {/* Quick Creation CTA Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
-            onClick={() => setIsUploadOpen(true)}
-            className="inline-flex items-center justify-center px-4 py-2.5 border border-indigo-200 rounded text-sm font-semibold text-indigo-900 bg-indigo-50 hover:bg-indigo-100 transition-colors shadow-xs cursor-pointer"
-          >
-            <UploadCloud className="w-4 h-4 mr-2 text-indigo-700" />
-            <span>Upload Existing CV (PDF)</span>
-          </button>
-
-          <button
             onClick={handleStartAiInterview}
             className="inline-flex items-center justify-center px-4 py-2.5 border border-purple-200 rounded text-sm font-semibold text-purple-900 bg-purple-50 hover:bg-purple-100 transition-colors shadow-xs cursor-pointer"
           >
             <MessageSquare className="w-4 h-4 mr-2 text-purple-700" />
             <span>Build My CV with AI</span>
           </button>
+
+          {onOpenTemplates && (
+            <button
+              onClick={onOpenTemplates}
+              className="inline-flex items-center justify-center px-3.5 py-2.5 border border-blue-200 rounded text-sm font-semibold text-[#0f2b5c] bg-blue-50 hover:bg-blue-100 transition-colors shadow-xs cursor-pointer"
+            >
+              <LayoutTemplate className="w-4 h-4 mr-1.5 text-[#0f2b5c]" />
+              <span>Browse Templates</span>
+            </button>
+          )}
 
           <button
             onClick={() => handleCreateNew('blank')}
@@ -207,19 +199,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           >
             <Plus className="w-4 h-4 mr-1.5 text-slate-500" />
             <span>Blank CV</span>
-          </button>
-
-          <button
-            onClick={() => handleCreateNew('academic')}
-            disabled={creating}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded text-sm font-semibold text-white bg-slate-900 hover:bg-black transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
-          >
-            {creating ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 mr-2 text-amber-300" />
-            )}
-            <span>Create Academic CV</span>
           </button>
         </div>
       </div>
@@ -264,17 +243,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
             {searchQuery
               ? 'Try adjusting your search query or clear the filter.'
-              : 'Upload an existing CV, interview with our AI advisor, or choose a profile template to get started.'}
+              : 'Interview with our AI advisor or choose a profile template to get started.'}
           </p>
           {!searchQuery && (
             <div className="mt-6 flex flex-wrap justify-center gap-2.5 max-w-2xl mx-auto">
-              <button
-                onClick={() => setIsUploadOpen(true)}
-                className="px-4 py-2 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-900 text-xs font-bold rounded shadow-xs flex items-center cursor-pointer"
-              >
-                <UploadCloud className="w-3.5 h-3.5 mr-1.5 text-indigo-700" />
-                Upload Existing CV (PDF)
-              </button>
               <button
                 onClick={handleStartAiInterview}
                 className="px-4 py-2 bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-900 text-xs font-bold rounded shadow-xs flex items-center cursor-pointer"
@@ -347,7 +319,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     </div>
 
                     <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 uppercase tracking-wide">
-                      {resume.fontFamily ? `Academic (${resume.fontFamily})` : 'Academic CV'}
+                      {getTemplateById(resume.template).name}
                     </span>
                   </div>
 
@@ -426,14 +398,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         isDestructive={true}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteCandidate(null)}
-      />
-
-      {/* Upload Existing CV Modal */}
-      <UploadCvModal
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        onExtracted={handleCvExtracted}
-        userId={user.uid}
       />
 
       {/* AI Interview Modal */}

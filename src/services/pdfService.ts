@@ -1,7 +1,7 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
-import type { Resume, CvFontFamily } from '../types/resume';
-import { AcademicCvPdfDocument } from '../components/ResumePreview/AcademicCvPdfDocument';
+import type { Resume, CvFontFamily, TemplateCustomization } from '../types/resume';
+import { TemplatePdfDocument } from '../components/ResumePreview/pdf/TemplatePdfDocument';
 import { formatCvPdfFileName } from '../utils/pdfHelpers';
 
 export interface DownloadPdfResult {
@@ -13,18 +13,31 @@ export interface DownloadPdfResult {
 
 /**
  * Generates a real vector text A4 multi-page PDF using @react-pdf/renderer
- * and triggers an automatic browser download.
+ * for the selected template and customization, and triggers an automatic browser download.
  */
 export async function downloadAcademicCvPdf(
   resume: Resume,
-  fontFamily: CvFontFamily = 'serif'
+  fontFamily?: CvFontFamily,
+  templateOverride?: string,
+  customizationOverride?: TemplateCustomization
 ): Promise<DownloadPdfResult> {
   const fileName = formatCvPdfFileName(resume.personalInfo?.fullName);
 
   try {
-    const docElement = React.createElement(AcademicCvPdfDocument, {
-      resume,
-      fontFamily,
+    const mergedResume: Resume = fontFamily
+      ? {
+          ...resume,
+          fontFamily,
+          customization: resume.customization
+            ? { ...resume.customization, fontFamily }
+            : undefined,
+        }
+      : resume;
+
+    const docElement = React.createElement(TemplatePdfDocument, {
+      resume: mergedResume,
+      templateOverride,
+      customizationOverride,
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,20 +48,25 @@ export async function downloadAcademicCvPdf(
       throw new Error('Generated PDF file is empty.');
     }
 
-    // Trigger browser file download
-    const blobUrl = URL.createObjectURL(blob);
+    const pdfBlob =
+      blob.type === 'application/pdf'
+        ? blob
+        : new Blob([blob], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
     link.href = blobUrl;
     link.download = fileName;
+    link.rel = 'noopener';
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
 
-    // Clean up DOM and memory
     setTimeout(() => {
-      document.body.removeChild(link);
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
       URL.revokeObjectURL(blobUrl);
-    }, 1500);
+    }, 5000);
 
     return {
       success: true,
@@ -57,7 +75,7 @@ export async function downloadAcademicCvPdf(
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown PDF generation error';
-    console.error('Failed to generate Academic CV PDF:', err);
+    console.error('Failed to generate Resume PDF:', err);
     return {
       success: false,
       fileName,
@@ -66,16 +84,24 @@ export async function downloadAcademicCvPdf(
   }
 }
 
+export const downloadResumePdf = downloadAcademicCvPdf;
+
 /**
  * Generates an in-memory blob URL for embedding or previewing the generated PDF.
  */
 export async function generateCvPdfBlobUrl(
   resume: Resume,
-  fontFamily: CvFontFamily = 'serif'
+  fontFamily?: CvFontFamily
 ): Promise<{ url: string; revoke: () => void }> {
-  const docElement = React.createElement(AcademicCvPdfDocument, {
-    resume,
-    fontFamily,
+  const mergedResume: Resume = fontFamily
+    ? {
+        ...resume,
+        fontFamily,
+      }
+    : resume;
+
+  const docElement = React.createElement(TemplatePdfDocument, {
+    resume: mergedResume,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

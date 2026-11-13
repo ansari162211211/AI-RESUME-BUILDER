@@ -13,9 +13,13 @@ import {
 import type { Resume } from '../types/resume';
 import {
   SAMPLE_ACADEMIC_CV,
+  SAMPLE_CLASSIC_PROFESSIONAL_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
+  SAMPLE_JAKES_CV,
+  SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
+  SAMPLE_TWO_COLUMN_CV,
   BLANK_ACADEMIC_CV,
 } from '../data/sampleResumes';
 
@@ -153,7 +157,17 @@ export async function deleteResume(userId: string, resumeId: string): Promise<vo
     }
   }
 }
-export type TemplateProfileType = 'academic' | 'experienced' | 'fresher' | 'student' | 'blank' | 'sample';
+export type TemplateProfileType =
+  | 'academic'
+  | 'classic'
+  | 'jakes'
+  | 'two-column'
+  | 'software-developer'
+  | 'experienced'
+  | 'fresher'
+  | 'student'
+  | 'blank'
+  | 'sample';
 
 export async function createNewResume(
   userId: string,
@@ -169,6 +183,18 @@ export async function createNewResume(
   switch (templateType) {
     case 'academic':
       base = SAMPLE_ACADEMIC_CV;
+      break;
+    case 'classic':
+      base = SAMPLE_CLASSIC_PROFESSIONAL_CV;
+      break;
+    case 'jakes':
+      base = SAMPLE_JAKES_CV;
+      break;
+    case 'two-column':
+      base = SAMPLE_TWO_COLUMN_CV;
+      break;
+    case 'software-developer':
+      base = SAMPLE_SOFTWARE_DEVELOPER_CV;
       break;
     case 'experienced':
       base = SAMPLE_EXPERIENCED_CV;

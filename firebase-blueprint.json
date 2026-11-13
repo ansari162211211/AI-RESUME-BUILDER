@@ -22,7 +22,12 @@
         },
         "personalInfo": {
           "type": "object",
-          "description": "Personal contact details, name, and headline."
+          "description": "Personal contact details, name, headline, optional cropped photo, and metadata."
+        },
+        "personalQuote": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "Optional personal motto or statement."
         },
         "objective": {
           "type": "string",
@@ -33,17 +38,84 @@
           "type": "array",
           "description": "List of education history entries."
         },
+        "thesis": {
+          "type": "object",
+          "description": "Optional Master's thesis or research project details."
+        },
+        "studyAbroad": {
+          "type": "array",
+          "description": "Optional study-abroad academic entries."
+        },
+        "highSchool": {
+          "type": "array",
+          "description": "Optional high-school academic entries."
+        },
         "skills": {
           "type": "array",
-          "description": "List of technical skills and competencies."
+          "description": "List of technical/computer skills and competencies."
+        },
+        "labSkills": {
+          "type": "array",
+          "description": "Optional laboratory and research skills."
+        },
+        "harvardLeadershipFirst": {
+          "type": "boolean",
+          "description": "Optional preference to display Leadership & Activities above Experience in Harvard Style."
+        },
+        "targetBackground": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Adaptive profile focus: student, fresher, or experienced."
+        },
+        "skillMatrix": {
+          "type": "array",
+          "description": "Optional structured skill proficiency matrix (levels 1-5)."
         },
         "projects": {
           "type": "array",
           "description": "List of key projects."
         },
+        "dailyActivities": {
+          "type": "array",
+          "description": "Optional daily time breakdown items (total <= 24 hours)."
+        },
+        "showDailyActivityChart": {
+          "type": "boolean",
+          "description": "Whether the optional A Day of My Life donut chart is shown."
+        },
+        "strengths": {
+          "type": "array",
+          "description": "Optional custom strength tags."
+        },
         "experience": {
           "type": "array",
-          "description": "List of professional work experiences."
+          "description": "List of professional and vocational work experiences."
+        },
+        "languages": {
+          "type": "array",
+          "description": "Optional spoken languages and proficiency levels."
+        },
+        "interests": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Optional inline interests string."
+        },
+        "interestItems": {
+          "type": "array",
+          "description": "Optional structured interests with descriptions."
+        },
+        "customSections": {
+          "type": "array",
+          "description": "Optional custom additional information sections."
+        },
+        "references": {
+          "type": "array",
+          "description": "Optional professional or academic references."
+        },
+        "referencesDisplayMode": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Display mode for references: detailed, on-request, or hidden."
         },
         "certifications": {
           "type": "array",

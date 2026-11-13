@@ -1,176 +1,285 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Printer,
   Download,
   ArrowLeft,
   Edit3,
-  Check,
-  Type,
-  FileText,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  SlidersHorizontal,
+  RotateCcw,
+  LayoutTemplate,
 } from 'lucide-react';
-import type { Resume, CvFontFamily, PublicationItem } from '../../types/resume';
+import type {
+  CvFontFamily,
+  Resume,
+  TemplateCustomization,
+  TemplateFontSize,
+  TemplateHeadingStyle,
+  TemplateMarginSize,
+  TemplateSpacing,
+} from '../../types/resume';
+import {
+  ACCENT_COLOR_SWATCHES,
+  TEMPLATE_DEFINITIONS,
+  TEXT_COLOR_SWATCHES,
+  getTemplateById,
+  resolveTemplateCustomization,
+  resolveTemplateId,
+} from '../../data/templates';
 import { saveResume } from '../../services/resumeService';
+import { downloadAcademicCvPdf } from '../../services/pdfService';
+import { analyzeResumeSections } from '../../utils/validation';
+import { MultiPageTemplatePreview } from '../Templates/MultiPageTemplatePreview';
 
 interface ResumePreviewPageProps {
   resume: Resume;
   onEdit: () => void;
   onBackToDashboard: () => void;
+  onOpenTemplates?: () => void;
+  onResumeUpdate?: (updated: Resume) => void;
 }
+
+const HEADING_STYLE_OPTIONS: { value: TemplateHeadingStyle; label: string }[] = [
+  { value: 'uppercase-rule', label: 'Uppercase + Rule' },
+  { value: 'classic-blue-rule', label: 'Classic Blue + Rule' },
+  { value: 'burgundy-gold-rule', label: 'Burgundy + Gold Rule' },
+  { value: 'title-rule', label: 'Title Case + Thin Rule' },
+  { value: 'left-accent', label: 'Left Accent Bar' },
+  { value: 'filled-band', label: 'Filled Header Band' },
+  { value: 'clean-caps', label: 'Clean Minimal Caps' },
+  { value: 'italic-serif', label: 'Editorial Italic' },
+];
 
 export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
   resume: initialResume,
   onEdit,
   onBackToDashboard,
+  onOpenTemplates,
+  onResumeUpdate,
 }) => {
   const [currentResume, setCurrentResume] = useState<Resume>(initialResume);
-  const [fontFamily, setFontFamily] = useState<CvFontFamily>(
-    initialResume.fontFamily || 'serif'
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfSuccessMessage, setPdfSuccessMessage] = useState<string | null>(null);
+  const [pageCount, setPageCount] = useState(1);
+  const [showCustomize, setShowCustomize] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, []);
+
+  useEffect(() => {
+    setCurrentResume(initialResume);
+  }, [initialResume]);
+
+  useEffect(() => {
+    if (!pdfSuccessMessage) return;
+    const timer = setTimeout(() => setPdfSuccessMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [pdfSuccessMessage]);
+
+  const activeTemplate = useMemo(
+    () => getTemplateById(currentResume.template),
+    [currentResume.template]
   );
 
-  const handleFontChange = async (font: CvFontFamily) => {
-    setFontFamily(font);
-    const updated = { ...currentResume, fontFamily: font };
+  const custom = useMemo(
+    () => resolveTemplateCustomization(currentResume),
+    [currentResume]
+  );
+
+  const preflightReport = useMemo(
+    () => analyzeResumeSections(currentResume),
+    [currentResume]
+  );
+
+  const missingCoreSections = useMemo(
+    () =>
+      preflightReport.sections.filter(
+        (s) => !s.isOptional && s.status !== 'complete'
+      ),
+    [preflightReport]
+  );
+
+  const persistUpdate = async (updated: Resume) => {
     setCurrentResume(updated);
+    onResumeUpdate?.(updated);
     try {
       await saveResume(updated.userId, updated);
     } catch (e) {
-      console.error('Failed to save font preference', e);
+      console.error('Failed to save template customization', e);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleQuickTemplateSwitch = async (newTemplateId: string) => {
+    const nextTemplate = getTemplateById(newTemplateId);
+    const updated: Resume = {
+      ...currentResume,
+      template: nextTemplate.id,
+      fontFamily: nextTemplate.defaultCustomization.fontFamily,
+      themeColor: nextTemplate.defaultCustomization.accentColor,
+      customization: { ...nextTemplate.defaultCustomization },
+      updatedAt: new Date().toISOString(),
+    };
+    await persistUpdate(updated);
   };
 
-  const {
-    personalInfo = {
-      fullName: '',
-      email: '',
-      phone: '',
-    },
-    objective = '',
-    education = [],
-    experience = [],
-    projects = [],
-    publications = [],
-    skills = [],
-    achievements = [],
-    leadership = [],
-    volunteer = [],
-    memberships = [],
-    certifications = [],
-    languages = [],
-    interests = '',
-    references = [],
-    hiddenSections = [],
-  } = currentResume;
+  const handleCustomizationChange = async <K extends keyof TemplateCustomization>(
+    key: K,
+    value: TemplateCustomization[K]
+  ) => {
+    const nextCustom: TemplateCustomization = {
+      ...custom,
+      [key]: value,
+    };
+    const updated: Resume = {
+      ...currentResume,
+      fontFamily: nextCustom.fontFamily,
+      themeColor: nextCustom.accentColor,
+      customization: nextCustom,
+      updatedAt: new Date().toISOString(),
+    };
+    await persistUpdate(updated);
+  };
 
-  const isHidden = (sectionId: string) => hiddenSections.includes(sectionId);
+  const handleResetDefaults = async () => {
+    const defaults = { ...activeTemplate.defaultCustomization };
+    const updated: Resume = {
+      ...currentResume,
+      fontFamily: defaults.fontFamily,
+      themeColor: defaults.accentColor,
+      customization: defaults,
+      updatedAt: new Date().toISOString(),
+    };
+    await persistUpdate(updated);
+  };
 
-  // Format publication in formal academic citation style
-  const renderPublicationCitation = (pub: PublicationItem) => {
-    if (pub.type === 'patent') {
-      return (
-        <span>
-          <strong>{pub.authors}</strong> ({pub.year}). "{pub.title}."{' '}
-          <em>{pub.patentNumber || 'Patent Application'}</em>
-          {pub.status && ` (${pub.status})`}.
-          {pub.publicationDate && ` Issued ${pub.publicationDate}.`}
-        </span>
-      );
+  const handleDownloadPdf = async () => {
+    if (isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    setPdfError(null);
+    setPdfSuccessMessage(null);
+
+    try {
+      const result = await downloadAcademicCvPdf(currentResume, custom.fontFamily);
+      if (!result.success) {
+        setPdfError(result.error || 'Failed to generate PDF. Please try again.');
+      } else {
+        setPdfSuccessMessage(`Downloaded ${result.fileName}`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to generate PDF.';
+      setPdfError(msg);
+    } finally {
+      setIsDownloadingPdf(false);
     }
-
-    // Journal or conference paper citation
-    return (
-      <span>
-        <strong>{pub.authors}</strong> ({pub.year}). "{pub.title}."{' '}
-        <em>{pub.journalOrConference || pub.publisher}</em>
-        {pub.volume && `, ${pub.volume}`}
-        {pub.issue && `(${pub.issue})`}
-        {pub.pages && `, pp. ${pub.pages}`}.
-        {pub.location && ` ${pub.location}.`}
-        {pub.status && pub.status !== 'Published' && ` [${pub.status}]`}
-        {pub.doi && (
-          <span className="text-black ml-1">
-            DOI: {pub.doi}
-          </span>
-        )}
-      </span>
-    );
   };
-
-  // Build contact line items
-  const contactItems: string[] = [];
-  if (personalInfo.phone) contactItems.push(personalInfo.phone);
-  if (personalInfo.email) contactItems.push(personalInfo.email);
-  if (personalInfo.website) contactItems.push(personalInfo.website.replace(/^https?:\/\//, ''));
-  if (personalInfo.linkedin) {
-    contactItems.push(
-      personalInfo.linkedin.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, 'linkedin.com/in/')
-    );
-  }
-  if (personalInfo.github) {
-    contactItems.push(
-      personalInfo.github.replace(/^https?:\/\/(www\.)?github\.com\//, 'github.com/')
-    );
-  }
-
-  // Build location line
-  const locationParts: string[] = [];
-  if (personalInfo.city) locationParts.push(personalInfo.city);
-  if (personalInfo.state) locationParts.push(personalInfo.state);
-  if (personalInfo.postalCode) locationParts.push(personalInfo.postalCode);
-  if (personalInfo.country) locationParts.push(personalInfo.country);
-  const locationString =
-    locationParts.length > 0 ? locationParts.join(', ') : personalInfo.location || '';
-
-  const fontClass = fontFamily === 'serif' ? 'font-cv-serif' : 'font-cv-sans';
 
   return (
     <div className="min-h-screen bg-neutral-100 py-6 pb-20">
       {/* Top Controls Toolbar - Hidden during print */}
-      <div className="no-print max-w-4xl mx-auto px-4 mb-6">
-        <div className="bg-white border border-slate-200 rounded-lg p-3 sm:px-6 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="no-print max-w-6xl mx-auto px-4 mb-5">
+        <div className="bg-white border border-slate-200 rounded-lg p-3 sm:px-4 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           {/* Back & Title */}
-          <div className="flex items-center space-x-3 w-full sm:w-auto">
+          <div className="flex items-center space-x-2.5 min-w-0">
             <button
+              type="button"
               onClick={onBackToDashboard}
-              className="p-1.5 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition-colors"
-              title="Dashboard"
+              className="p-1.5 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-100 transition-colors shrink-0"
+              title="Back to Dashboard"
+              aria-label="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <div>
-              <h1 className="text-sm font-bold text-slate-900 truncate max-w-[280px]">
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-slate-900 truncate max-w-[190px] xl:max-w-[230px]">
                 {currentResume.title || 'Curriculum Vitae'}
               </h1>
-              <span className="text-[11px] text-slate-500">Formal Academic CV • A4 Multi-Page</span>
+              <span className="text-[11px] text-slate-500 block truncate">
+                {activeTemplate.name} · A4 ({pageCount}{' '}
+                {pageCount === 1 ? 'Page' : 'Pages'})
+              </span>
             </div>
           </div>
 
           {/* Controls & Actions */}
-          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
-            {/* Font Toggle */}
+          <div className="flex flex-wrap lg:flex-nowrap items-center gap-1.5 sm:gap-2 justify-end shrink-0">
+            {/* Quick Template Switcher */}
+            <div className="flex items-center space-x-1.5">
+              <label htmlFor="preview-template-select" className="sr-only">
+                Active Template
+              </label>
+              <select
+                id="preview-template-select"
+                value={resolveTemplateId(currentResume.template)}
+                onChange={(e) => handleQuickTemplateSwitch(e.target.value)}
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0f2b5c] cursor-pointer max-w-[175px]"
+                title="Switch template (preserves all resume data)"
+              >
+                {TEMPLATE_DEFINITIONS.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.name}
+                  </option>
+                ))}
+              </select>
+
+              {onOpenTemplates && (
+                <button
+                  type="button"
+                  onClick={onOpenTemplates}
+                  className="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-[#0f2b5c] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors cursor-pointer"
+                  title="Browse resume templates with previews"
+                >
+                  <LayoutTemplate className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Templates</span>
+                </button>
+              )}
+            </div>
+
+            {/* Customize Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowCustomize((prev) => !prev)}
+              aria-expanded={showCustomize}
+              className={`inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded border transition-colors cursor-pointer ${
+                showCustomize
+                  ? 'bg-[#0f2b5c] text-white border-[#0f2b5c]'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
+              <span>Customize</span>
+            </button>
+
+            {/* Quick Serif / Sans Toggle */}
             <div className="flex items-center bg-slate-100 p-0.5 rounded text-xs">
               <button
-                onClick={() => handleFontChange('serif')}
-                className={`px-2.5 py-1 rounded font-serif font-medium transition-colors ${
-                  fontFamily === 'serif'
+                type="button"
+                onClick={() =>
+                  handleCustomizationChange('fontFamily', 'serif' as CvFontFamily)
+                }
+                className={`px-2 py-1 rounded font-serif font-medium transition-colors cursor-pointer ${
+                  custom.fontFamily === 'serif'
                     ? 'bg-white text-slate-900 shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="Academic Serif (Times / LaTeX style)"
+                title="Serif Font"
               >
                 Serif
               </button>
               <button
-                onClick={() => handleFontChange('sans')}
-                className={`px-2.5 py-1 rounded font-sans font-medium transition-colors ${
-                  fontFamily === 'sans'
+                type="button"
+                onClick={() =>
+                  handleCustomizationChange('fontFamily', 'sans' as CvFontFamily)
+                }
+                className={`px-2 py-1 rounded font-sans font-medium transition-colors cursor-pointer ${
+                  custom.fontFamily === 'sans'
                     ? 'bg-white text-slate-900 shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="Formal Sans-Serif"
+                title="Sans-Serif Font"
               >
                 Sans
               </button>
@@ -178,8 +287,9 @@ export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
 
             {/* Edit Button */}
             <button
+              type="button"
               onClick={onEdit}
-              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
               <span>Edit CV</span>
@@ -187,483 +297,309 @@ export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
 
             {/* Download PDF button */}
             <button
-              onClick={handlePrint}
-              className="inline-flex items-center px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs transition-colors cursor-pointer"
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="inline-flex items-center px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black disabled:opacity-60 disabled:cursor-not-allowed rounded shadow-xs transition-colors cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 mr-1.5" />
-              <span>Download PDF (A4)</span>
+              {isDownloadingPdf ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  <span>Generating PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Download PDF (A4)</span>
+                </>
+              )}
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Main Academic CV Document Paper */}
-      <div className="max-w-4xl mx-auto px-2 sm:px-4">
-        <article
-          id="academic-cv-document"
-          className={`academic-cv-document ${fontClass} bg-white text-black shadow-lg mx-auto border border-neutral-300 p-8 sm:p-14 text-[10.5pt] leading-[1.38]`}
-          style={{
-            maxWidth: '210mm',
-            minHeight: '297mm',
-            color: '#000000',
-            backgroundColor: '#ffffff',
-          }}
-        >
-          {/* ============================================================== */}
-          {/* 1. PERSONAL HEADER (CENTERED, FORMAL ACADEMIC)                 */}
-          {/* ============================================================== */}
-          <header className="text-center pb-3 border-b-2 border-black">
-            {/* Full Name */}
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-widest uppercase text-black">
-              {personalInfo.fullName || 'FULL NAME'}
-            </h1>
-
-            {/* Job Title / Headline if provided */}
-            {personalInfo.jobTitle && (
-              <div className="text-xs sm:text-[11.5pt] font-semibold text-black tracking-wide uppercase mt-1">
-                {personalInfo.jobTitle}
-              </div>
-            )}
-
-            {/* Contact details line */}
-            {contactItems.length > 0 && (
-              <div className="text-xs sm:text-[9.5pt] text-black mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
-                {contactItems.map((item, idx) => (
-                  <React.Fragment key={idx}>
-                    {idx > 0 && <span className="text-neutral-500">•</span>}
-                    <span>{item}</span>
-                  </React.Fragment>
-                ))}
-              </div>
-            )}
-
-            {/* Location Line */}
-            {locationString && (
-              <div className="text-xs sm:text-[9.5pt] text-black mt-0.5">
-                {locationString}
-              </div>
-            )}
-
-            {/* Other Profiles / Google Scholar / ORCID */}
-            {personalInfo.otherProfiles && (
-              <div className="text-[9pt] text-neutral-800 mt-1 italic">
-                {personalInfo.otherProfiles}
-              </div>
-            )}
-          </header>
-
-          {/* ============================================================== */}
-          {/* 2. OBJECTIVE / PROFESSIONAL SUMMARY                            */}
-          {/* ============================================================== */}
-          {!isHidden('objective') && objective && objective.trim().length > 0 && (
-            <section className="mt-4 cv-entry">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                OBJECTIVE
-              </h2>
-              <p className="text-justify text-xs sm:text-[10pt] leading-relaxed text-black">
-                {objective}
-              </p>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 3. EDUCATION                                                   */}
-          {/* ============================================================== */}
-          {!isHidden('education') && education && education.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                EDUCATION
-              </h2>
-              <div className="space-y-3">
-                {education.map((edu) => (
-                  <div key={edu.id} className="cv-entry">
-                    {/* Line 1: Institution & Dates */}
-                    <div className="flex justify-between items-baseline font-bold text-xs sm:text-[10pt]">
-                      <span>{edu.institution}</span>
-                      <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                        {edu.startDate ? `${edu.startDate} – ` : ''}
-                        {edu.current ? 'Present' : edu.endDate}
-                      </span>
-                    </div>
-
-                    {/* Line 2: Degree, Specialization & Location */}
-                    <div className="flex justify-between items-baseline text-xs sm:text-[9.5pt] italic text-neutral-900">
-                      <span>
-                        {edu.degree}
-                        {edu.specialization ? `, ${edu.specialization}` : ''}
-                      </span>
-                      {edu.location && (
-                        <span className="not-italic text-[9pt] shrink-0 ml-2">
-                          {edu.location}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Line 3: GPA & Achievements / Thesis */}
-                    {(edu.grade || edu.achievements) && (
-                      <div className="text-[9pt] text-black mt-0.5">
-                        {edu.grade && <span className="font-medium">{edu.grade}</span>}
-                        {edu.grade && edu.achievements && <span> • </span>}
-                        {edu.achievements && <span>{edu.achievements}</span>}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 4. EXPERIENCE                                                  */}
-          {/* ============================================================== */}
-          {!isHidden('experience') && experience && experience.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                EXPERIENCE
-              </h2>
-              <div className="space-y-3.5">
-                {experience.map((exp) => (
-                  <div key={exp.id} className="cv-entry">
-                    {/* Line 1: Organization & Date Range */}
-                    <div className="flex justify-between items-baseline font-bold text-xs sm:text-[10pt]">
-                      <span>{exp.company}</span>
-                      <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                        {exp.startDate} – {exp.current ? 'Present' : exp.endDate}
-                      </span>
-                    </div>
-
-                    {/* Line 2: Job Title, Employment Type & Location */}
-                    <div className="flex justify-between items-baseline text-xs sm:text-[9.5pt] italic text-neutral-900 mb-1">
-                      <span>
-                        {exp.position}
-                        {exp.employmentType ? ` (${exp.employmentType})` : ''}
-                      </span>
-                      {exp.location && (
-                        <span className="not-italic text-[9pt] shrink-0 ml-2">
-                          {exp.location}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Bullet Points */}
-                    {exp.highlights && exp.highlights.length > 0 && (
-                      <ul className="list-disc list-outside ml-5 space-y-1 text-xs sm:text-[9.5pt] text-black leading-relaxed">
-                        {exp.highlights
-                          .filter((h) => h.trim().length > 0)
-                          .map((hl, i) => (
-                            <li key={i}>{hl.replace(/^[•\-*]\s*/, '')}</li>
-                          ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 5. PATENTS & PUBLICATIONS                                      */}
-          {/* ============================================================== */}
-          {!isHidden('publications') && publications && publications.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                PATENTS &amp; PUBLICATIONS
-              </h2>
-              <ol className="list-decimal list-outside ml-5 space-y-2 text-xs sm:text-[9.5pt] text-black leading-relaxed">
-                {publications.map((pub) => (
-                  <li key={pub.id} className="cv-entry pl-1">
-                    {renderPublicationCitation(pub)}
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 6. PROJECTS                                                    */}
-          {/* ============================================================== */}
-          {!isHidden('projects') && projects && projects.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                PROJECTS
-              </h2>
-              <div className="space-y-3">
-                {projects.map((proj) => (
-                  <div key={proj.id} className="cv-entry">
-                    {/* Line 1: Title and Date */}
-                    <div className="flex justify-between items-baseline font-bold text-xs sm:text-[10pt]">
-                      <span>{proj.title}</span>
-                      {(proj.startDate || proj.endDate) && (
-                        <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                          {proj.startDate}
-                          {proj.endDate && ` – ${proj.endDate}`}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Line 2: Technologies and Links */}
-                    <div className="text-xs sm:text-[9pt] italic text-neutral-800 mb-0.5">
-                      {proj.technologies && proj.technologies.length > 0 && (
-                        <span>Technologies: {proj.technologies.join(', ')}</span>
-                      )}
-                      {proj.link && (
-                        <span className="not-italic ml-2 text-black">
-                          [<a href={proj.link}>{proj.link.replace(/^https?:\/\//, '')}</a>]
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Overview description */}
-                    {proj.description && (
-                      <p className="text-xs sm:text-[9.5pt] text-black mb-1 leading-relaxed">
-                        {proj.description}
-                      </p>
-                    )}
-
-                    {/* Highlights bullets */}
-                    {proj.highlights && proj.highlights.length > 0 && (
-                      <ul className="list-disc list-outside ml-5 space-y-0.5 text-xs sm:text-[9.5pt] text-black leading-relaxed">
-                        {proj.highlights
-                          .filter((h) => h.trim().length > 0)
-                          .map((hl, i) => (
-                            <li key={i}>{hl.replace(/^[•\-*]\s*/, '')}</li>
-                          ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 7. SKILLS                                                      */}
-          {/* ============================================================== */}
-          {!isHidden('skills') && skills && skills.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                SKILLS
-              </h2>
-              <div className="space-y-1 text-xs sm:text-[9.5pt] text-black">
-                {skills.map((cat) => (
-                  <div key={cat.id} className="cv-entry flex flex-col sm:flex-row sm:items-baseline">
-                    <span className="font-bold sm:w-56 shrink-0 text-black">
-                      {cat.category}:
-                    </span>
-                    <span className="text-black">
-                      {(cat.skills || []).join(', ')}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 8. HONORS AND AWARDS                                           */}
-          {/* ============================================================== */}
-          {!isHidden('achievements') && achievements && achievements.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                HONORS &amp; AWARDS
-              </h2>
-              <div className="space-y-2">
-                {achievements.map((ach) => (
-                  <div key={ach.id} className="cv-entry">
-                    <div className="flex justify-between items-baseline font-bold text-xs sm:text-[10pt]">
-                      <span>{ach.title}</span>
-                      <span className="font-normal text-[9.5pt] shrink-0 ml-2">{ach.date}</span>
-                    </div>
-                    <div className="text-xs sm:text-[9pt] text-neutral-800">
-                      {ach.issuer && <span>{ach.issuer}</span>}
-                      {ach.issuer && ach.description && <span> — </span>}
-                      {ach.description && <span>{ach.description}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 9. LEADERSHIP EXPERIENCE                                       */}
-          {/* ============================================================== */}
-          {!isHidden('leadership') && leadership && leadership.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                LEADERSHIP EXPERIENCE
-              </h2>
-              <div className="space-y-3">
-                {leadership.map((lead) => (
-                  <div key={lead.id} className="cv-entry">
-                    <div className="flex justify-between items-baseline font-bold text-xs sm:text-[10pt]">
-                      <span>{lead.role}, {lead.organization}</span>
-                      <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                        {lead.startDate} – {lead.current ? 'Present' : lead.endDate}
-                      </span>
-                    </div>
-                    {lead.location && (
-                      <div className="text-xs sm:text-[9pt] italic text-neutral-800 mb-0.5">
-                        {lead.location}
-                      </div>
-                    )}
-                    {lead.highlights && lead.highlights.length > 0 && (
-                      <ul className="list-disc list-outside ml-5 space-y-0.5 text-xs sm:text-[9.5pt] text-black leading-relaxed">
-                        {lead.highlights
-                          .filter((h) => h.trim().length > 0)
-                          .map((hl, i) => (
-                            <li key={i}>{hl.replace(/^[•\-*]\s*/, '')}</li>
-                          ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 10. VOLUNTEER SERVICE                                          */}
-          {/* ============================================================== */}
-          {!isHidden('volunteer') && volunteer && volunteer.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                VOLUNTEER &amp; COMMUNITY SERVICE
-              </h2>
-              <div className="space-y-2.5">
-                {volunteer.map((vol) => (
-                  <div key={vol.id} className="cv-entry">
-                    <div className="flex justify-between items-baseline font-bold text-xs sm:text-[10pt]">
-                      <span>{vol.role}, {vol.organization}</span>
-                      <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                        {vol.startDate} – {vol.current ? 'Present' : vol.endDate}
-                      </span>
-                    </div>
-                    {vol.highlights && vol.highlights.length > 0 && (
-                      <ul className="list-disc list-outside ml-5 space-y-0.5 text-xs sm:text-[9.5pt] text-black leading-relaxed">
-                        {vol.highlights
-                          .filter((h) => h.trim().length > 0)
-                          .map((hl, i) => (
-                            <li key={i}>{hl.replace(/^[•\-*]\s*/, '')}</li>
-                          ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 11. PROFESSIONAL MEMBERSHIPS                                   */}
-          {/* ============================================================== */}
-          {!isHidden('memberships') && memberships && memberships.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                PROFESSIONAL MEMBERSHIPS
-              </h2>
-              <ul className="list-disc list-outside ml-5 space-y-1 text-xs sm:text-[9.5pt] text-black">
-                {memberships.map((mem) => (
-                  <li key={mem.id} className="cv-entry">
-                    <div className="flex justify-between items-baseline">
-                      <span>
-                        <strong>{mem.organization}</strong>
-                        {mem.membershipType ? ` — ${mem.membershipType}` : ''}
-                        {mem.membershipId ? ` (ID: ${mem.membershipId})` : ''}
-                      </span>
-                      <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                        {mem.startDate}
-                        {mem.endDate ? ` – ${mem.endDate}` : mem.current ? ' – Present' : ''}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 12. CERTIFICATIONS                                             */}
-          {/* ============================================================== */}
-          {!isHidden('certifications') && certifications && certifications.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                CERTIFICATIONS
-              </h2>
-              <div className="space-y-1.5 text-xs sm:text-[9.5pt]">
-                {certifications.map((c) => (
-                  <div key={c.id} className="cv-entry flex justify-between items-baseline">
-                    <span>
-                      <strong>{c.name}</strong> — {c.issuer}
-                      {c.credentialId && ` (ID: ${c.credentialId})`}
-                    </span>
-                    <span className="font-normal text-[9.5pt] shrink-0 ml-2">
-                      {c.issueDate}
-                      {c.expirationDate && ` – ${c.expirationDate}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ============================================================== */}
-          {/* 13. ADDITIONAL INFORMATION                                     */}
-          {/* ============================================================== */}
-          {!isHidden('additional') &&
-            ((languages && languages.length > 0) || (interests && interests.trim().length > 0)) && (
-              <section className="mt-4">
-                <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                  ADDITIONAL INFORMATION
+        {/* Template Customization Panel */}
+        {showCustomize && (
+          <div
+            className="mt-3 bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-xs"
+            aria-label="Template customization panel"
+          >
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Customize &ldquo;{activeTemplate.name}&rdquo;
                 </h2>
-                <div className="space-y-1 text-xs sm:text-[9.5pt] text-black">
-                  {languages && languages.length > 0 && (
-                    <div className="cv-entry flex flex-col sm:flex-row sm:items-baseline">
-                      <span className="font-bold sm:w-36 shrink-0">Languages:</span>
-                      <span>
-                        {languages.map((l) => `${l.language} (${l.proficiency})`).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                  {interests && interests.trim().length > 0 && (
-                    <div className="cv-entry flex flex-col sm:flex-row sm:items-baseline">
-                      <span className="font-bold sm:w-36 shrink-0">Interests:</span>
-                      <span>{interests}</span>
-                    </div>
+                <p className="text-[11px] text-slate-500">
+                  Typography, color, spacing, and margin changes apply live to both preview and A4 PDF.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                <span>Reset Defaults</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              {/* Font Size */}
+              <div>
+                <span className="block font-semibold text-slate-700 mb-1.5">
+                  Font Size
+                </span>
+                <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded">
+                  {(['compact', 'standard', 'large'] as TemplateFontSize[]).map(
+                    (size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => handleCustomizationChange('fontSize', size)}
+                        className={`py-1 rounded font-medium capitalize transition-colors cursor-pointer ${
+                          custom.fontSize === size
+                            ? 'bg-white text-slate-900 font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    )
                   )}
                 </div>
-              </section>
-            )}
-
-          {/* ============================================================== */}
-          {/* 14. REFERENCES                                                 */}
-          {/* ============================================================== */}
-          {!isHidden('references') && references && references.length > 0 && (
-            <section className="mt-4">
-              <h2 className="cv-heading text-xs sm:text-[10pt] font-bold uppercase tracking-widest text-black border-b border-black pb-0.5 mb-2">
-                REFERENCES
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-[9.5pt]">
-                {references.map((ref) => (
-                  <div key={ref.id} className="cv-entry">
-                    <div className="font-bold text-black">{ref.fullName}</div>
-                    <div className="text-neutral-900">{ref.jobTitle}</div>
-                    {ref.department && <div className="text-neutral-800">{ref.department}</div>}
-                    <div className="text-neutral-800">{ref.organization}</div>
-                    {ref.email && <div>Email: {ref.email}</div>}
-                    {ref.phone && <div>Phone: {ref.phone}</div>}
-                    {ref.relationship && (
-                      <div className="text-[9pt] text-neutral-600 italic">
-                        Relationship: {ref.relationship}
-                      </div>
-                    )}
-                  </div>
-                ))}
               </div>
-            </section>
+
+              {/* Section Spacing */}
+              <div>
+                <span className="block font-semibold text-slate-700 mb-1.5">
+                  Section Spacing
+                </span>
+                <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded">
+                  {(['tight', 'balanced', 'relaxed'] as TemplateSpacing[]).map(
+                    (sp) => (
+                      <button
+                        key={sp}
+                        type="button"
+                        onClick={() =>
+                          handleCustomizationChange('sectionSpacing', sp)
+                        }
+                        className={`py-1 rounded font-medium capitalize transition-colors cursor-pointer ${
+                          custom.sectionSpacing === sp
+                            ? 'bg-white text-slate-900 font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {sp}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Page Margins */}
+              <div>
+                <span className="block font-semibold text-slate-700 mb-1.5">
+                  Page Margins (A4)
+                </span>
+                <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded">
+                  {(['narrow', 'standard', 'wide'] as TemplateMarginSize[]).map(
+                    (mg) => (
+                      <button
+                        key={mg}
+                        type="button"
+                        onClick={() =>
+                          handleCustomizationChange('pageMargins', mg)
+                        }
+                        className={`py-1 rounded font-medium capitalize transition-colors cursor-pointer ${
+                          custom.pageMargins === mg
+                            ? 'bg-white text-slate-900 font-bold shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {mg}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Heading Style */}
+              <div>
+                <label
+                  htmlFor="customize-heading-style"
+                  className="block font-semibold text-slate-700 mb-1.5"
+                >
+                  Heading Style
+                </label>
+                <select
+                  id="customize-heading-style"
+                  value={custom.headingStyle}
+                  onChange={(e) =>
+                    handleCustomizationChange(
+                      'headingStyle',
+                      e.target.value as TemplateHeadingStyle
+                    )
+                  }
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-[#0f2b5c]"
+                >
+                  {HEADING_STYLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Color Row */}
+              <div className="sm:col-span-2 lg:col-span-4 flex flex-col md:flex-row md:items-start gap-4 md:gap-8">
+                {/* Primary Text Color */}
+                <div className="shrink-0">
+                  <span className="block font-semibold text-slate-700 mb-1.5">
+                    Primary Text Color
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {TEXT_COLOR_SWATCHES.map((sw) => {
+                      const selected =
+                        custom.textColor.toLowerCase() === sw.value.toLowerCase();
+                      return (
+                        <button
+                          key={sw.value}
+                          type="button"
+                          onClick={() =>
+                            handleCustomizationChange('textColor', sw.value)
+                          }
+                          className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded border text-[11px] font-medium cursor-pointer ${
+                            selected
+                              ? 'border-[#0f2b5c] bg-blue-50 text-slate-900 font-bold'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          }`}
+                          title={sw.label}
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
+                            style={{ backgroundColor: sw.value }}
+                          />
+                          <span className="whitespace-nowrap">{sw.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Accent Color */}
+                <div className="min-w-0 flex-1">
+                  <span className="block font-semibold text-slate-700 mb-1.5">
+                    Accent Color
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {ACCENT_COLOR_SWATCHES.map((sw) => {
+                      const selected =
+                        custom.accentColor.toLowerCase() ===
+                        sw.value.toLowerCase();
+                      return (
+                        <button
+                          key={sw.value}
+                          type="button"
+                          onClick={() =>
+                            handleCustomizationChange('accentColor', sw.value)
+                          }
+                          className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded border text-[11px] font-medium cursor-pointer ${
+                            selected
+                              ? 'border-[#0f2b5c] bg-blue-50 text-slate-900 font-bold'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          }`}
+                          title={sw.label}
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full border border-slate-300 shrink-0"
+                            style={{ backgroundColor: sw.value }}
+                          />
+                          <span className="whitespace-nowrap">{sw.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status / Error Feedback */}
+        {pdfError && (
+          <div
+            role="alert"
+            className="mt-3 bg-red-50 border border-red-200 text-red-800 px-4 py-2.5 rounded-lg flex items-center justify-between text-xs"
+          >
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{pdfError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPdfError(null)}
+              className="text-red-500 hover:text-red-700 p-0.5"
+              aria-label="Dismiss error"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {pdfSuccessMessage && !pdfError && (
+          <div
+            role="status"
+            className="mt-3 bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2 rounded-lg flex items-center justify-between text-xs"
+          >
+            <div className="flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{pdfSuccessMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPdfSuccessMessage(null)}
+              className="text-emerald-600 hover:text-emerald-800 p-0.5"
+              aria-label="Dismiss notification"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Non-blocking Pre-Download Validation Summary */}
+        <div className="mt-2.5 px-3.5 py-2 bg-white border border-slate-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+          <div className="flex items-center space-x-2">
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${
+                missingCoreSections.length === 0 ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
+            />
+            <span>
+              <strong className="text-slate-800">{activeTemplate.name}:</strong>{' '}
+              {preflightReport.overallScore}% complete · Selectable text &amp; active hyperlinks ready for A4 export.
+              {missingCoreSections.length > 0 && (
+                <span className="text-amber-700 ml-1">
+                  (Optional to review: {missingCoreSections.map((s) => s.name).join(', ')})
+                </span>
+              )}
+            </span>
+          </div>
+          {missingCoreSections.length > 0 && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="font-semibold text-[#0f2b5c] hover:underline cursor-pointer"
+            >
+              Complete in Editor
+            </button>
           )}
-        </article>
+        </div>
       </div>
+
+      {/* Multi-Page A4 Preview matching active template + customization */}
+      <MultiPageTemplatePreview
+        resume={currentResume}
+        onPageCountChange={setPageCount}
+      />
     </div>
   );
 };

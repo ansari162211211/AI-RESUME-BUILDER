@@ -9,6 +9,7 @@ interface AiImproveModalProps {
   originalText: string;
   sectionType: string;
   context?: string;
+  templateId?: string;
   onApply: (improvedText: string) => void;
 }
 
@@ -18,6 +19,7 @@ export const AiImproveModal: React.FC<AiImproveModalProps> = ({
   originalText,
   sectionType,
   context,
+  templateId,
   onApply,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -42,7 +44,12 @@ export const AiImproveModal: React.FC<AiImproveModalProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const res = await improveTextWithGemini(originalText, sectionType, context);
+      const res = await improveTextWithGemini(
+        originalText,
+        sectionType,
+        context,
+        templateId
+      );
       setResult(res);
       setEditedText(res.improved);
     } catch (err: any) {

@@ -1,0 +1,568 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  TEMPLATE_CATEGORIES,
+  TEMPLATE_DEFINITIONS,
+  getTemplateById,
+  getTypographyScale,
+  resolveTemplateCustomization,
+  resolveTemplateId,
+} from './templates';
+import {
+  SAMPLE_ACADEMIC_CV,
+  SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_JAKES_CV,
+  SAMPLE_SOFTWARE_DEVELOPER_CV,
+  SAMPLE_TWO_COLUMN_CV,
+} from './sampleResumes';
+import {
+  SKILL_MATRIX_LEGEND,
+  buildClassicPhoneList,
+  buildJakesAddressString,
+  buildSoftwareDevContactItems,
+  buildTwoColumnContactItems,
+  chunkRows,
+  getCourseworkItems,
+  getEffectiveInterests,
+  getOrderedVisibleSections,
+  getSectionDisplayTitle,
+  getSkillMatrixLevelLabel,
+  getSoftwareDevAdditionalSubsections,
+  getSoftwareDevSkillBucketItems,
+  groupExperienceByCategory,
+  groupPublicationsForTwoColumn,
+  isSectionVisibleAndPopulated,
+  matchSoftwareDevSkillBucket,
+} from '../utils/resumePresentation';
+import type { Resume } from '../types/resume';
+
+test('keeps Academic CV, Classic Professional, Jake\'s Resume, Two Column Professional, and Software Developer active in TEMPLATE_DEFINITIONS', () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 5);
+  assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
+  assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
+  assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
+  assert.equal(TEMPLATE_DEFINITIONS[1].name, 'Classic Professional');
+  assert.equal(TEMPLATE_DEFINITIONS[2].id, 'jakes-resume');
+  assert.equal(TEMPLATE_DEFINITIONS[2].name, "Jake's Resume");
+  assert.equal(TEMPLATE_DEFINITIONS[3].id, 'two-column-professional');
+  assert.equal(TEMPLATE_DEFINITIONS[3].name, 'Two Column Professional');
+  assert.equal(TEMPLATE_DEFINITIONS[4].id, 'software-developer');
+  assert.equal(TEMPLATE_DEFINITIONS[4].name, 'Software Developer');
+
+  const removedIds = [
+    'modern-minimalist',
+    'harvard-style',
+    'elegant-serif',
+    'modern-corporate',
+    'fresher-resume',
+    'internship-resume',
+    'engineering-resume',
+    'creative-professional',
+    'executive-resume',
+    'research-scholar',
+    'simple-one-page',
+  ];
+  for (const id of removedIds) {
+    assert.equal(
+      TEMPLATE_DEFINITIONS.some((t) => t.id === id),
+      false,
+      `Template ${id} should be removed from TEMPLATE_DEFINITIONS`
+    );
+  }
+});
+
+test('preserves reusable TEMPLATE_CATEGORIES for future templates and Academic CV categories', () => {
+  const expected = [
+    'All Templates',
+    'Academic CV',
+    'Professional',
+    'ATS-Friendly',
+    'Student & Fresher',
+    'Technical & Developer',
+    'Research',
+    'Creative',
+  ];
+  for (const cat of expected) {
+    assert.ok(TEMPLATE_CATEGORIES.includes(cat as never), `Missing category ${cat}`);
+  }
+  for (const tpl of TEMPLATE_DEFINITIONS) {
+    assert.ok(tpl.categories.length >= 1, `Template ${tpl.id} has no category`);
+  }
+});
+
+test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
+  assert.equal(resolveTemplateId(undefined), 'academic-cv');
+  assert.equal(resolveTemplateId('academic'), 'academic-cv');
+  assert.equal(resolveTemplateId('academic-cv'), 'academic-cv');
+  assert.equal(resolveTemplateId('classic-professional'), 'classic-professional');
+  assert.equal(resolveTemplateId('jakes-resume'), 'jakes-resume');
+  assert.equal(resolveTemplateId('two-column-professional'), 'two-column-professional');
+  assert.equal(resolveTemplateId('software-developer'), 'software-developer');
+  assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
+  assert.equal(getTemplateById('harvard-style').id, 'academic-cv');
+  assert.equal(getTemplateById('academic-cv').name, 'Academic CV');
+  assert.equal(getTemplateById('classic-professional').name, 'Classic Professional');
+  assert.equal(getTemplateById('jakes-resume').name, "Jake's Resume");
+  assert.equal(getTemplateById('two-column-professional').name, 'Two Column Professional');
+  assert.equal(getTemplateById('software-developer').name, 'Software Developer');
+});
+
+test('merges template defaults and user customization overrides cleanly', () => {
+  const merged = resolveTemplateCustomization({
+    template: 'academic-cv',
+    customization: {
+      fontFamily: 'sans',
+      fontSize: 'large',
+      textColor: '#000000',
+      accentColor: '#0f766e',
+      sectionSpacing: 'relaxed',
+      pageMargins: 'wide',
+      headingStyle: 'italic-serif',
+    },
+  });
+  assert.equal(merged.fontFamily, 'sans');
+  assert.equal(merged.fontSize, 'large');
+  assert.equal(merged.accentColor, '#0f766e');
+  assert.equal(merged.pageMargins, 'wide');
+  assert.equal(merged.headingStyle, 'italic-serif');
+
+  const scale = getTypographyScale(merged);
+  assert.equal(scale.marginTopPt, 62);
+  assert.ok(scale.baseFontPt > 9.5);
+});
+
+test('switching templates preserves all resume content and respects hidden & empty sections', () => {
+  const baseResume: Resume = {
+    ...SAMPLE_ACADEMIC_CV,
+    id: 'res_1',
+    userId: 'user_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    hiddenSections: ['volunteer'],
+    memberships: [],
+  };
+
+  for (const tpl of TEMPLATE_DEFINITIONS) {
+    const switched: Resume = {
+      ...baseResume,
+      template: tpl.id,
+      customization: { ...tpl.defaultCustomization },
+    };
+
+    assert.equal(switched.personalInfo.fullName, baseResume.personalInfo.fullName);
+    assert.equal(switched.experience.length, baseResume.experience.length);
+    assert.equal(switched.education.length, baseResume.education.length);
+    assert.equal(switched.publications?.length, baseResume.publications?.length);
+    assert.equal(switched.projects.length, baseResume.projects.length);
+    assert.equal(switched.skills.length, baseResume.skills.length);
+
+    const visible = getOrderedVisibleSections(switched, tpl);
+    assert.equal(
+      isSectionVisibleAndPopulated(switched, 'volunteer', tpl.id),
+      false,
+      `Hidden section volunteer should not appear in ${tpl.id}`
+    );
+    assert.equal(
+      isSectionVisibleAndPopulated(switched, 'memberships', tpl.id),
+      false,
+      `Empty section memberships should not appear in ${tpl.id}`
+    );
+    assert.ok(!visible.includes('volunteer'));
+    assert.ok(!visible.includes('memberships'));
+    assert.ok(visible.includes('experience'));
+    assert.ok(visible.includes('education'));
+  }
+});
+
+test('Academic CV preserves exact original typography, section order, margins, spacing, and citation style', () => {
+  const academic = getTemplateById('academic-cv');
+  assert.equal(academic.layout, 'single-column');
+  assert.equal(academic.headerVariant, 'centered-academic');
+  assert.equal(academic.bulletSymbol, '•');
+  assert.equal(academic.citationStyle, 'numbered');
+  assert.equal(academic.skillsLayout, 'rows');
+  assert.deepEqual(academic.sectionOrder, [
+    'objective',
+    'education',
+    'experience',
+    'publications',
+    'projects',
+    'skills',
+    'achievements',
+    'leadership',
+    'volunteer',
+    'memberships',
+    'certifications',
+    'additional',
+    'references',
+  ]);
+
+  const legacyCustom = resolveTemplateCustomization({
+    template: 'academic',
+    fontFamily: 'serif',
+  });
+  assert.equal(legacyCustom.fontFamily, 'serif');
+  assert.equal(legacyCustom.textColor, '#000000');
+  assert.equal(legacyCustom.accentColor, '#000000');
+  assert.equal(legacyCustom.headingStyle, 'uppercase-rule');
+
+  const scale = getTypographyScale(legacyCustom);
+  assert.equal(scale.baseFontPt, 9.5);
+  assert.equal(scale.namePt, 20);
+  assert.equal(scale.jobTitlePt, 10);
+  assert.equal(scale.headingPt, 10);
+  assert.equal(scale.entryTitlePt, 9.5);
+  assert.equal(scale.entrySubtitlePt, 9);
+  assert.equal(scale.bodyPt, 8.75);
+  assert.equal(scale.metaPt, 8.5);
+  assert.equal(scale.marginTopPt, 52);
+  assert.equal(scale.marginBottomPt, 52);
+  assert.equal(scale.marginHorizPt, 54);
+  assert.equal(scale.sectionGapPt, 9);
+  assert.equal(scale.entryGapPt, 7);
+  assert.equal(scale.lineHeight, 1.35);
+});
+
+test("Jake's Resume preserves reference structure, typography, 4-col coursework, and hides empty optional sections", () => {
+  const jakes = getTemplateById('jakes-resume');
+  assert.equal(jakes.layout, 'single-column');
+  assert.equal(jakes.headerVariant, 'jakes-centered');
+  assert.equal(jakes.defaultCustomization.textColor, '#000000');
+  assert.equal(jakes.defaultCustomization.accentColor, '#000000');
+  assert.equal(jakes.defaultCustomization.headingStyle, 'title-rule');
+  assert.deepEqual(jakes.sectionOrder, [
+    'education',
+    'coursework',
+    'experience',
+    'projects',
+    'skills',
+    'leadership',
+  ]);
+
+  assert.equal(getSectionDisplayTitle('education', 'jakes-resume'), 'Education');
+  assert.equal(getSectionDisplayTitle('coursework', 'jakes-resume'), 'Relevant Coursework');
+  assert.equal(getSectionDisplayTitle('experience', 'jakes-resume'), 'Experience');
+  assert.equal(getSectionDisplayTitle('projects', 'jakes-resume'), 'Projects');
+  assert.equal(getSectionDisplayTitle('skills', 'jakes-resume'), 'Technical Skills');
+  assert.equal(getSectionDisplayTitle('leadership', 'jakes-resume'), 'Leadership / Extracurricular');
+
+  const jakesScale = getTypographyScale(jakes.defaultCustomization, 'jakes-resume');
+  assert.equal(jakesScale.marginTopPt, 26);
+  assert.equal(jakesScale.marginHorizPt, 32);
+  assert.equal(jakesScale.namePt, 22);
+
+  // Sample Jake's Resume has address and 8 coursework items (2 rows of 4)
+  const fullSample: Resume = {
+    ...SAMPLE_JAKES_CV,
+    id: 'jakes_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+  assert.equal(
+    buildJakesAddressString(fullSample.personalInfo),
+    '123 Street Name, Town, State 12345'
+  );
+  const coursework = getCourseworkItems(fullSample);
+  assert.equal(coursework.length, 8);
+  assert.equal(chunkRows(coursework, 4).length, 2);
+  assert.deepEqual(getOrderedVisibleSections(fullSample, jakes), [
+    'education',
+    'coursework',
+    'experience',
+    'projects',
+    'skills',
+    'leadership',
+  ]);
+
+  // Student with Education + Projects only (empty coursework/experience/leadership are hidden)
+  const studentJakes: Resume = {
+    ...fullSample,
+    coursework: [],
+    experience: [],
+    leadership: [],
+  };
+  assert.deepEqual(getOrderedVisibleSections(studentJakes, jakes), [
+    'education',
+    'projects',
+    'skills',
+  ]);
+
+  // Fresher with Skills + Coursework + Education (no experience/leadership)
+  const fresherJakes: Resume = {
+    ...fullSample,
+    experience: [],
+    projects: [],
+    leadership: [],
+  };
+  assert.deepEqual(getOrderedVisibleSections(fresherJakes, jakes), [
+    'education',
+    'coursework',
+    'skills',
+  ]);
+});
+
+test('Classic Professional configures classic blue styling, structured sections, and presentation helpers cleanly', () => {
+  const classic = getTemplateById('classic-professional');
+  assert.equal(classic.headerVariant, 'classic-header');
+  assert.equal(classic.defaultCustomization.accentColor, '#1e4e8c');
+  assert.equal(classic.defaultCustomization.headingStyle, 'classic-blue-rule');
+  assert.equal(classic.defaultCustomization.fontFamily, 'sans');
+
+  assert.equal(getSectionDisplayTitle('objective', 'classic-professional'), 'PROFESSIONAL SUMMARY');
+  assert.equal(getSectionDisplayTitle('thesis', 'classic-professional'), "MASTER'S THESIS");
+  assert.equal(getSectionDisplayTitle('skills', 'classic-professional'), 'COMPUTER SKILLS');
+  assert.equal(getSectionDisplayTitle('skill-matrix', 'classic-professional'), 'SKILL MATRIX');
+
+  assert.equal(SKILL_MATRIX_LEGEND.length, 5);
+  assert.equal(getSkillMatrixLevelLabel(null), 'Unrated');
+  assert.equal(getSkillMatrixLevelLabel(5), 'Expert');
+
+  const fullClassic: Resume = {
+    ...SAMPLE_CLASSIC_PROFESSIONAL_CV,
+    id: 'cls_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  const phones = buildClassicPhoneList(fullClassic.personalInfo);
+  assert.ok(phones.length >= 2);
+  const expGroups = groupExperienceByCategory(fullClassic.experience);
+  assert.ok(expGroups.some((g) => g.categoryLabel === 'Professional Experience'));
+  assert.ok(expGroups.some((g) => g.categoryLabel === 'Vocational Experience'));
+  assert.ok(getEffectiveInterests(fullClassic).items.length > 0);
+
+  const visible = getOrderedVisibleSections(fullClassic, classic);
+  assert.ok(visible.includes('thesis'));
+  assert.ok(visible.includes('languages'));
+  assert.ok(visible.includes('skill-matrix'));
+  assert.ok(visible.includes('interests'));
+  assert.ok(visible.includes('custom-sections'));
+  assert.ok(visible.includes('references'));
+
+  // References on-request and hidden modes
+  const onRequestCv: Resume = {
+    ...fullClassic,
+    references: [],
+    referencesDisplayMode: 'on-request',
+  };
+  assert.equal(isSectionVisibleAndPopulated(onRequestCv, 'references'), true);
+
+  const hiddenRefCv: Resume = {
+    ...fullClassic,
+    referencesDisplayMode: 'hidden',
+  };
+  assert.equal(isSectionVisibleAndPopulated(hiddenRefCv, 'references'), false);
+});
+
+test('Two Column Professional supports layout, contacts, grouped publications, and Student/Experienced/Researcher/Fresher personas', () => {
+  const twoCol = getTemplateById('two-column-professional');
+  assert.equal(twoCol.layout, 'main-left-sidebar-right');
+  assert.equal(twoCol.headerVariant, 'two-column-header');
+  assert.equal(twoCol.defaultCustomization.accentColor, '#8f131b');
+  assert.equal(twoCol.defaultCustomization.headingStyle, 'burgundy-gold-rule');
+  assert.equal(twoCol.defaultCustomization.fontFamily, 'sans');
+
+  assert.equal(getSectionDisplayTitle('daily-life', 'two-column-professional'), 'A DAY OF MY LIFE');
+  assert.equal(getSectionDisplayTitle('philosophy', 'two-column-professional'), 'MY LIFE PHILOSOPHY');
+  assert.equal(getSectionDisplayTitle('achievements', 'two-column-professional'), 'MOST PROUD OF');
+  assert.equal(getSectionDisplayTitle('strengths', 'two-column-professional'), 'STRENGTHS');
+  assert.equal(getSectionDisplayTitle('references', 'two-column-professional'), 'REFEREES');
+
+  const fullTwoCol: Resume = {
+    ...SAMPLE_TWO_COLUMN_CV,
+    id: 'tc_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  const contacts = buildTwoColumnContactItems(fullTwoCol.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'email'));
+  assert.ok(contacts.some((c) => c.kind === 'twitter'));
+  assert.ok(contacts.some((c) => c.kind === 'orcid'));
+  assert.ok(contacts.some((c) => c.kind === 'gitlab'));
+
+  const pubGroups = groupPublicationsForTwoColumn(fullTwoCol.publications);
+  assert.deepEqual(
+    pubGroups.map((g) => g.label),
+    ['Books', 'Journal Articles', 'Conference Proceedings']
+  );
+
+  const visibleFull = getOrderedVisibleSections(fullTwoCol, twoCol);
+  assert.ok(visibleFull.includes('experience'));
+  assert.ok(visibleFull.includes('daily-life'));
+  assert.ok(visibleFull.includes('philosophy'));
+  assert.ok(visibleFull.includes('strengths'));
+  assert.ok(visibleFull.includes('achievements'));
+  assert.ok(visibleFull.includes('publications'));
+  assert.ok(visibleFull.includes('languages'));
+  assert.ok(visibleFull.includes('education'));
+  assert.ok(visibleFull.includes('references'));
+
+  // 1. Student persona: Education, Projects, Strengths, Languages; empty optional sections hidden
+  const studentResume: Resume = {
+    ...fullTwoCol,
+    experience: [],
+    publications: [],
+    dailyActivities: [],
+    personalQuote: '',
+    achievements: [],
+    references: [],
+    referencesDisplayMode: 'hidden',
+  };
+  assert.deepEqual(getOrderedVisibleSections(studentResume, twoCol), [
+    'projects',
+    'strengths',
+    'languages',
+    'education',
+  ]);
+
+  // 2. Experienced Professional persona: Experience, Projects, Strengths, Philosophy, Daily Life, Referees
+  const experiencedResume: Resume = {
+    ...fullTwoCol,
+    publications: [],
+    achievements: [],
+  };
+  const expVisible = getOrderedVisibleSections(experiencedResume, twoCol);
+  assert.ok(expVisible.includes('experience'));
+  assert.ok(expVisible.includes('projects'));
+  assert.ok(expVisible.includes('daily-life'));
+  assert.ok(expVisible.includes('philosophy'));
+  assert.ok(expVisible.includes('strengths'));
+  assert.ok(expVisible.includes('references'));
+  assert.equal(expVisible.includes('publications'), false);
+
+  // 3. Researcher persona: Publications, Daily Life, Achievements, Referees
+  const researcherResume: Resume = {
+    ...fullTwoCol,
+    publications: [
+      ...(fullTwoCol.publications || []),
+      {
+        id: 'pub-res-extra',
+        type: 'research_paper',
+        title: 'Deterministic Compilers for Edge AI',
+        authors: 'E. R. Vance',
+        year: '2024',
+      },
+    ],
+  };
+  assert.ok(
+    groupPublicationsForTwoColumn(researcherResume.publications).some(
+      (g) => g.label === 'Research Papers'
+    )
+  );
+
+  // 4. Fresher persona: Education, Projects, Strengths, Languages; no Experience/Publications/Referees/Chart
+  const fresherResume: Resume = {
+    ...fullTwoCol,
+    experience: [],
+    publications: [],
+    dailyActivities: [],
+    showDailyActivityChart: false,
+    personalQuote: '',
+    achievements: [],
+    references: [],
+  };
+  assert.deepEqual(getOrderedVisibleSections(fresherResume, twoCol), [
+    'projects',
+    'strengths',
+    'languages',
+    'education',
+  ]);
+});
+
+test('Software Developer configures centered blue serif styling, clickable contacts, skill bucket normalization, and unified ADDITIONAL omission rules', () => {
+  const swDev = getTemplateById('software-developer');
+  assert.equal(swDev.layout, 'single-column');
+  assert.equal(swDev.headerVariant, 'software-dev-centered');
+  assert.equal(swDev.defaultCustomization.accentColor, '#1e4e8c');
+  assert.equal(swDev.defaultCustomization.textColor, '#111827');
+  assert.equal(swDev.defaultCustomization.fontFamily, 'serif');
+  assert.equal(swDev.defaultCustomization.headingStyle, 'uppercase-rule');
+  assert.deepEqual(swDev.sectionOrder, ['education', 'experience', 'projects', 'additional']);
+
+  assert.equal(getSectionDisplayTitle('education', 'software-developer'), 'EDUCATION');
+  assert.equal(getSectionDisplayTitle('experience', 'software-developer'), 'EXPERIENCE');
+  assert.equal(getSectionDisplayTitle('projects', 'software-developer'), 'PROJECTS');
+  assert.equal(getSectionDisplayTitle('additional', 'software-developer'), 'ADDITIONAL');
+
+  const scale = getTypographyScale(swDev.defaultCustomization, 'software-developer');
+  assert.equal(scale.namePt, 22);
+  assert.equal(scale.marginHorizPt, 34);
+
+  const fullSwDev: Resume = {
+    ...SAMPLE_SOFTWARE_DEVELOPER_CV,
+    id: 'sw_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // Clickable header contact links
+  const contacts = buildSoftwareDevContactItems(fullSwDev.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'github' && c.url?.startsWith('https://github.com/')));
+  assert.ok(contacts.some((c) => c.kind === 'linkedin' && c.url?.includes('linkedin.com')));
+  assert.ok(contacts.some((c) => c.kind === 'website' && c.url?.startsWith('https://')));
+
+  // Skill bucket alias matching preserves data across templates without duplication
+  assert.equal(matchSoftwareDevSkillBucket('Languages'), 'programming-languages');
+  assert.equal(matchSoftwareDevSkillBucket('Programming Languages'), 'programming-languages');
+  assert.equal(matchSoftwareDevSkillBucket('Tools'), 'developer-tools');
+  assert.equal(matchSoftwareDevSkillBucket('Developer Tools'), 'developer-tools');
+  assert.equal(matchSoftwareDevSkillBucket('Technologies/Frameworks'), 'technologies-frameworks');
+  assert.equal(matchSoftwareDevSkillBucket('Technologies & Frameworks'), 'technologies-frameworks');
+
+  const langs = getSoftwareDevSkillBucketItems(fullSwDev.skills, 'programming-languages');
+  assert.ok(langs.includes('TypeScript'));
+  assert.ok(langs.includes('Python'));
+
+  const visibleFull = getOrderedVisibleSections(fullSwDev, swDev);
+  assert.deepEqual(visibleFull, ['education', 'experience', 'projects', 'additional']);
+
+  const subsFull = getSoftwareDevAdditionalSubsections(fullSwDev);
+  assert.deepEqual(
+    subsFull.map((s) => s.key),
+    [
+      'coursework',
+      'leadership',
+      'programming-languages',
+      'developer-tools',
+      'technologies-frameworks',
+      'certifications',
+      'achievements',
+    ]
+  );
+
+  // Toggling individual subsections via hiddenSections removes only those subsections (including awards/achievements)
+  const hiddenCertsAndAwards: Resume = {
+    ...fullSwDev,
+    hiddenSections: ['certifications', 'awards'],
+  };
+  const subsHidden = getSoftwareDevAdditionalSubsections(hiddenCertsAndAwards);
+  assert.equal(subsHidden.some((s) => s.key === 'certifications'), false);
+  assert.equal(subsHidden.some((s) => s.key === 'achievements'), false);
+  assert.equal(subsHidden.some((s) => s.key === 'programming-languages'), true);
+
+  // If ALL additional subsections are empty, ADDITIONAL heading disappears completely
+  const noAdditional: Resume = {
+    ...fullSwDev,
+    coursework: [],
+    leadership: [],
+    skills: [],
+    certifications: [],
+    achievements: [],
+    customSections: [],
+  };
+  assert.deepEqual(getSoftwareDevAdditionalSubsections(noAdditional), []);
+  assert.equal(isSectionVisibleAndPopulated(noAdditional, 'additional', 'software-developer'), false);
+  assert.deepEqual(getOrderedVisibleSections(noAdditional, swDev), [
+    'education',
+    'experience',
+    'projects',
+  ]);
+});
+

@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Sparkles,
   Info,
+  Eye,
 } from 'lucide-react';
 import type { CvCompletenessReport, SectionStatus } from '../../types/resume';
 
@@ -16,6 +17,8 @@ interface CompletenessReportModalProps {
   onClose: () => void;
   report: CvCompletenessReport;
   onNavigateToSection: (sectionId: string) => void;
+  onPreview?: () => void;
+  templateName?: string;
 }
 
 export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = ({
@@ -23,6 +26,8 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
   onClose,
   report,
   onNavigateToSection,
+  onPreview,
+  templateName = 'Academic CV',
 }) => {
   if (!isOpen) return null;
 
@@ -70,10 +75,10 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Academic CV Completeness Dashboard
+                {templateName} Completeness Dashboard
               </h3>
               <p className="text-xs text-slate-500">
-                Detailed readiness audit across all 14 academic curriculum vitae sections.
+                Detailed readiness audit across {report.sections.length} template sections.
               </p>
             </div>
           </div>
@@ -99,15 +104,14 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
                 </span>
                 <span className="text-xs font-bold text-slate-700 uppercase">
                   {report.overallStatus === 'excellent'
-                    ? 'Excellent • Highly Comprehensive'
+                    ? 'Excellent • Comprehensive'
                     : report.overallStatus === 'good'
-                    ? 'Good • Strong Academic Base'
+                    ? 'Good • Strong Base'
                     : 'In Progress • Add More Details'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Academic CVs are not penalized for unpopulated optional sections (like patents,
-                volunteer work, or references).
+                Optional sections are not penalized when empty and are automatically hidden if unused.
               </p>
             </div>
 
@@ -151,7 +155,7 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
           {/* Section-by-Section Indicator Breakdown */}
           <div>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
-              All 14 Sections Status Breakdown
+              Section Status Breakdown ({report.sections.length} Sections)
             </h4>
             <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
               {report.sections.map((sec) => (
@@ -199,7 +203,7 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end">
+        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -207,6 +211,19 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
           >
             Close Dashboard
           </button>
+          {onPreview && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onPreview();
+              }}
+              className="inline-flex items-center px-4 py-2 text-xs font-semibold text-white bg-[#0f2b5c] hover:bg-[#0a1e40] rounded-lg shadow-xs cursor-pointer transition-colors"
+            >
+              <Eye className="w-3.5 h-3.5 mr-1.5" />
+              <span>Preview &amp; Export CV</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

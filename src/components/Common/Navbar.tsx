@@ -1,11 +1,25 @@
 import React from 'react';
-import { FileText, LogOut, LayoutDashboard, Plus, ArrowLeft } from 'lucide-react';
+import {
+  FileText,
+  LogOut,
+  LayoutDashboard,
+  Plus,
+  LayoutTemplate,
+} from 'lucide-react';
 import type { AuthUser } from '../../types/resume';
+
+type NavView =
+  | 'login'
+  | 'signup'
+  | 'dashboard'
+  | 'editor'
+  | 'preview'
+  | 'templates';
 
 interface NavbarProps {
   user: AuthUser | null;
-  currentView: 'login' | 'signup' | 'dashboard' | 'editor' | 'preview';
-  onNavigate: (view: 'login' | 'signup' | 'dashboard' | 'editor' | 'preview') => void;
+  currentView: NavView;
+  onNavigate: (view: NavView) => void;
   onLogout: () => void;
   onNewResume?: () => void;
   activeResumeTitle?: string;
@@ -58,6 +72,19 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center space-x-2 sm:space-x-3">
           {user ? (
             <>
+              <button
+                onClick={() => onNavigate('templates')}
+                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium rounded transition-colors cursor-pointer ${
+                  currentView === 'templates'
+                    ? 'text-[#0f2b5c] bg-blue-50 font-semibold'
+                    : 'text-slate-700 hover:text-[#0f2b5c] hover:bg-slate-50'
+                }`}
+                aria-label="Browse Resume Templates"
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                <span className="hidden sm:inline">Templates</span>
+              </button>
+
               {currentView !== 'dashboard' && (
                 <button
                   onClick={() => onNavigate('dashboard')}
