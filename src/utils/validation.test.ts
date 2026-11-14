@@ -11,7 +11,15 @@ import {
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_CREATIVE_CYBERSECURITY_CV,
+  SAMPLE_CREATIVE_DESIGNER_CV,
+  SAMPLE_CREATIVE_MARKETING_CV,
+  SAMPLE_CREATIVE_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_ENGINEERING_CSE_CV,
+  SAMPLE_ENGINEERING_ECE_CV,
+  SAMPLE_ENGINEERING_MECHANICAL_CV,
+  SAMPLE_ENGINEERING_RESUME_CV,
   SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
@@ -465,5 +473,124 @@ test('analyzeResumeSections evaluates Internship Resume (Template 10) across 10 
   assert.ok(researchApplicant.overallScore >= 95);
 });
 
+test('analyzeResumeSections evaluates Engineering Resume (Template 11) across 9 steps for Mechanical, CSE/IT, and ECE branches without penalizing empty optional sections', () => {
+  const defaultReport = analyzeResumeSections(SAMPLE_ENGINEERING_RESUME_CV);
+  assert.equal(defaultReport.sections.length, 9);
+  assert.deepEqual(
+    defaultReport.sections.map((s) => s.sectionId),
+    [
+      'header',
+      'objective',
+      'education',
+      'skills',
+      'projects',
+      'experience',
+      'leadership',
+      'awards',
+      'custom-sections',
+    ]
+  );
+  assert.equal(defaultReport.overallStatus, 'excellent');
+  assert.ok(defaultReport.overallScore >= 90);
 
+  for (const branchSample of [
+    SAMPLE_ENGINEERING_MECHANICAL_CV,
+    SAMPLE_ENGINEERING_CSE_CV,
+    SAMPLE_ENGINEERING_ECE_CV,
+  ]) {
+    const branchReport = analyzeResumeSections(branchSample);
+    assert.equal(branchReport.sections.length, 9);
+    assert.equal(branchReport.overallStatus, 'excellent');
+    assert.ok(branchReport.overallScore >= 85);
+  }
 
+  const fresherMinimal = analyzeResumeSections({
+    template: 'engineering-resume',
+    engineeringBranch: 'cse-it',
+    personalInfo: SAMPLE_ENGINEERING_CSE_CV.personalInfo,
+    objective: SAMPLE_ENGINEERING_CSE_CV.objective,
+    education: SAMPLE_ENGINEERING_CSE_CV.education,
+    skills: SAMPLE_ENGINEERING_CSE_CV.skills,
+    projects: SAMPLE_ENGINEERING_CSE_CV.projects,
+    experience: [],
+    learningActivities: [],
+    leadership: [],
+    achievements: [],
+    volunteer: [],
+    certifications: [],
+    languages: [],
+    customSections: [],
+  });
+
+  for (const optId of ['experience', 'leadership', 'awards', 'custom-sections']) {
+    const sec = fresherMinimal.sections.find((s) => s.sectionId === optId);
+    assert.equal(sec?.isOptional, true);
+    assert.equal(sec?.status, 'optional_empty');
+    assert.equal(sec?.statusLabel, 'Optional / Skipped');
+  }
+  assert.equal(fresherMinimal.overallStatus, 'excellent');
+  assert.ok(fresherMinimal.overallScore >= 85);
+});
+
+test('analyzeResumeSections evaluates Creative Professional (Template 12) across 9 steps and all profession presets without penalizing skipped optional sections', () => {
+  for (const sample of [
+    SAMPLE_CREATIVE_PROFESSIONAL_CV,
+    SAMPLE_CREATIVE_DESIGNER_CV,
+    SAMPLE_CREATIVE_CYBERSECURITY_CV,
+    SAMPLE_CREATIVE_MARKETING_CV,
+  ]) {
+    const report = analyzeResumeSections(sample);
+    assert.equal(report.sections.length, 9);
+    assert.equal(report.overallStatus, 'excellent');
+    assert.ok(report.overallScore >= 90);
+  }
+
+  const conciseCreative = analyzeResumeSections({
+    template: 'creative-professional',
+    creativeProfession: 'designer',
+    personalInfo: SAMPLE_CREATIVE_DESIGNER_CV.personalInfo,
+    experience: SAMPLE_CREATIVE_DESIGNER_CV.experience,
+    education: SAMPLE_CREATIVE_DESIGNER_CV.education,
+    creativeSkillItems: SAMPLE_CREATIVE_DESIGNER_CV.creativeSkillItems,
+    circularProficiencies: SAMPLE_CREATIVE_DESIGNER_CV.circularProficiencies,
+    creativeSkillBars: SAMPLE_CREATIVE_DESIGNER_CV.creativeSkillBars,
+    communicationSkills: [],
+    certifications: [],
+    achievements: [],
+    languages: [],
+    publications: [],
+    projects: [],
+    leadership: [],
+    volunteer: [],
+    memberships: [],
+    customSections: [],
+  });
+
+  for (const optId of ['communication', 'certifications', 'languages', 'publications', 'custom-sections']) {
+    const sec = conciseCreative.sections.find((s) => s.sectionId === optId);
+    assert.equal(sec?.isOptional, true);
+    assert.equal(sec?.status, 'optional_empty');
+    assert.equal(sec?.statusLabel, 'Optional / Skipped');
+  }
+  assert.equal(conciseCreative.sections.find((s) => s.sectionId === 'header')?.status, 'complete');
+  assert.equal(conciseCreative.sections.find((s) => s.sectionId === 'experience')?.status, 'complete');
+  assert.equal(conciseCreative.sections.find((s) => s.sectionId === 'education')?.status, 'complete');
+  assert.equal(conciseCreative.sections.find((s) => s.sectionId === 'skills')?.status, 'complete');
+
+  const incompleteCreative = analyzeResumeSections({
+    template: 'creative-professional',
+    personalInfo: { fullName: 'Mia', email: '', phone: '' },
+    experience: [],
+    education: [],
+    skills: [],
+    creativeSkillItems: [],
+    circularProficiencies: [],
+    creativeSkillBars: [],
+    certifications: [],
+    achievements: [],
+  });
+  assert.equal(incompleteCreative.sections.find((s) => s.sectionId === 'header')?.status, 'needs_details');
+  assert.equal(incompleteCreative.sections.find((s) => s.sectionId === 'experience')?.status, 'needs_details');
+  assert.equal(incompleteCreative.sections.find((s) => s.sectionId === 'education')?.status, 'needs_details');
+  assert.equal(incompleteCreative.sections.find((s) => s.sectionId === 'skills')?.status, 'needs_details');
+});

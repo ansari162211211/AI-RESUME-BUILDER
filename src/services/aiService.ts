@@ -4,7 +4,52 @@ import type {
   CvCompletenessReport,
   CvExtractionResult,
 } from '../types/resume';
+import { resolveTemplateId } from '../data/templates';
+import {
+  buildAdaptiveCreativeFallback,
+  buildAdaptiveEngineeringFallback,
+  buildAdaptiveInternshipFallback,
+} from '../utils/aiInterviewHelpers';
 import { analyzeResumeSections } from '../utils/validation';
+
+const INTERNSHIP_FALLBACK_FLOW = [
+  'personalInfo',
+  'education',
+  'learning',
+  'interests',
+  'research',
+  'career-interests',
+  'achievements',
+  'skills',
+  'experience',
+  'custom-sections',
+];
+
+const ENGINEERING_FALLBACK_FLOW = [
+  'personalInfo',
+  'objective',
+  'education',
+  'skills',
+  'projects',
+  'experience',
+  'leadership',
+  'achievements',
+  'custom-sections',
+];
+
+const CREATIVE_FALLBACK_FLOW = [
+  'personalInfo',
+  'experience',
+  'education',
+  'skills',
+  'proficiency-circles',
+  'skill-bars',
+  'communication',
+  'certifications',
+  'languages',
+  'publications',
+  'custom-sections',
+];
 
 /**
  * Extract CV information from an uploaded PDF (or raw text) via Gemini AI.
@@ -105,12 +150,15 @@ export async function sendInterviewStepWithGemini(
   nextSection: string;
   suggestedChips: string[];
 }> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 7000) : null;
   try {
     const res = await fetch('/api/gemini/interview-step', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: controller?.signal,
       body: JSON.stringify({
         conversationHistory,
         currentResume,
@@ -127,6 +175,38 @@ export async function sendInterviewStepWithGemini(
     return await res.json();
   } catch (err: any) {
     console.warn('sendInterviewStepWithGemini offline/fallback:', err);
+    const tplId = resolveTemplateId(currentResume.template);
+    const lastUserMessage =
+      userMessage ||
+      conversationHistory
+        .slice()
+        .reverse()
+        .find((m) => m.role === 'user')?.content ||
+      '';
+    if (tplId === 'internship-resume') {
+      return buildAdaptiveInternshipFallback(
+        lastUserMessage,
+        currentResume,
+        activeSection,
+        INTERNSHIP_FALLBACK_FLOW
+      );
+    }
+    if (tplId === 'engineering-resume') {
+      return buildAdaptiveEngineeringFallback(
+        lastUserMessage,
+        currentResume,
+        activeSection,
+        ENGINEERING_FALLBACK_FLOW
+      );
+    }
+    if (tplId === 'creative-professional') {
+      return buildAdaptiveCreativeFallback(
+        lastUserMessage,
+        currentResume,
+        activeSection,
+        CREATIVE_FALLBACK_FLOW
+      );
+    }
     return {
       reply: `Thanks for providing those details! Let's continue capturing your academic background. What were your key responsibilities and tools used?`,
       structuredUpdates: {},
@@ -134,6 +214,8 @@ export async function sendInterviewStepWithGemini(
       nextSection: activeSection,
       suggestedChips: ['Skip to next section', 'Add more details', 'Looks good'],
     };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 

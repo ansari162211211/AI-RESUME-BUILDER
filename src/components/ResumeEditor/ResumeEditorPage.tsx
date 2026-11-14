@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   User,
   GraduationCap,
@@ -49,11 +49,14 @@ import {
   CheckCircle2,
   Clock,
   MinusCircle,
+  Loader2,
 } from 'lucide-react';
 import type {
   Resume,
   PersonalInfo,
+  EngineeringBranch,
   ExperienceCategory,
+  ExperienceEntryKind,
   ExperienceItem,
   ExperienceSubHighlights,
   ResearchExperienceItem,
@@ -74,6 +77,11 @@ import type {
   AwardItem,
   LearningActivityItem,
   LearningActivityType,
+  CreativeProfession,
+  CreativeSkillDetailItem,
+  CreativeCircularProficiencyItem,
+  CreativeSkillBarItem,
+  CreativeCommunicationSkillItem,
   InternshipTrack,
   InternshipPreferences,
   LeadershipItem,
@@ -90,6 +98,8 @@ import {
   MODERN_CORPORATE_ORDER,
   FRESHER_RESUME_ORDER,
   INTERNSHIP_RESUME_ORDER,
+  ENGINEERING_RESUME_ORDER,
+  CREATIVE_PROFESSIONAL_ORDER,
   getTemplateById,
   resolveTemplateId,
   type ResumeSectionKey,
@@ -104,6 +114,14 @@ import {
   SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
+  SAMPLE_ENGINEERING_RESUME_CV,
+  SAMPLE_ENGINEERING_MECHANICAL_CV,
+  SAMPLE_ENGINEERING_CSE_CV,
+  SAMPLE_ENGINEERING_ECE_CV,
+  SAMPLE_CREATIVE_PROFESSIONAL_CV,
+  SAMPLE_CREATIVE_DESIGNER_CV,
+  SAMPLE_CREATIVE_CYBERSECURITY_CV,
+  SAMPLE_CREATIVE_MARKETING_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
   SAMPLE_STUDENT_CV,
@@ -112,6 +130,8 @@ import {
 import { analyzeResumeSections } from '../../utils/validation';
 import {
   SKILL_MATRIX_LEGEND,
+  getCreativeProficiencyHeading,
+  getEffectiveInterests,
   getSkillMatrixLevelLabel,
   matchSoftwareDevSkillBucket,
   getSoftwareDevSkillBucketItems,
@@ -215,6 +235,9 @@ type EditorSectionId =
   | 'developer-tools'
   | 'technologies-frameworks'
   | 'skill-matrix'
+  | 'proficiency-circles'
+  | 'skill-bars'
+  | 'communication'
   | 'strengths'
   | 'learning'
   | 'interests'
@@ -491,6 +514,88 @@ const getNormalizedInternshipResumeOrder = (orderOverride?: string[]): ResumeSec
   return [...custom, ...INTERNSHIP_RESUME_ORDER.filter((k) => !seen.has(k))];
 };
 
+const ENGINEERING_SECTIONS: SectionConfig[] = [
+  { id: 'header', label: '1. Personal Info', icon: User },
+  { id: 'objective', label: '2. Career Objective', icon: FileText },
+  { id: 'education', label: '3. Education', icon: GraduationCap },
+  { id: 'skills', label: '4. Skills & Interests', icon: Wrench },
+  { id: 'projects', label: '5. Projects', icon: FolderGit2 },
+  { id: 'experience', label: '6. Internship & Trainings', icon: Briefcase },
+  { id: 'leadership', label: '7. Position of Responsibility', icon: Users },
+  { id: 'awards', label: '8. Extra-Curricular Activities', icon: Trophy },
+  { id: 'custom-sections', label: '9. Additional Info', icon: Layers },
+];
+
+const ENGINEERING_RESUME_SECTION_CATALOG: Partial<
+  Record<
+    ResumeSectionKey,
+    { editorId: EditorSectionId; baseLabel: string; icon: React.ComponentType<{ className?: string }>; optional?: boolean }
+  >
+> = {
+  objective: { editorId: 'objective', baseLabel: 'Objective', icon: FileText, optional: true },
+  education: { editorId: 'education', baseLabel: 'Education', icon: GraduationCap },
+  skills: { editorId: 'skills', baseLabel: 'Skills and Interests', icon: Wrench },
+  projects: { editorId: 'projects', baseLabel: 'Projects', icon: FolderGit2 },
+  experience: { editorId: 'experience', baseLabel: 'Internship / Trainings', icon: Briefcase, optional: true },
+  leadership: { editorId: 'leadership', baseLabel: 'Position of Responsibility', icon: Users, optional: true },
+  achievements: { editorId: 'awards', baseLabel: 'Extra-Curricular Activities', icon: Trophy, optional: true },
+  'custom-sections': { editorId: 'custom-sections', baseLabel: 'Additional Info', icon: Layers, optional: true },
+};
+
+const getNormalizedEngineeringResumeOrder = (orderOverride?: string[]): ResumeSectionKey[] => {
+  const validSet = new Set<ResumeSectionKey>(ENGINEERING_RESUME_ORDER);
+  const custom = (orderOverride || []).filter(
+    (k): k is ResumeSectionKey => validSet.has(k as ResumeSectionKey)
+  );
+  const seen = new Set<ResumeSectionKey>(custom);
+  return [...custom, ...ENGINEERING_RESUME_ORDER.filter((k) => !seen.has(k))];
+};
+
+const CREATIVE_PROFESSIONAL_SECTIONS: SectionConfig[] = [
+  { id: 'header', label: '1. Header, Title & Quote', icon: User },
+  { id: 'experience', label: '2. Short Resume', icon: Briefcase },
+  { id: 'education', label: '3. Degrees', icon: GraduationCap },
+  { id: 'skills', label: '4. Categorized Skills', icon: Wrench },
+  { id: 'proficiency-circles', label: '5. Circular Proficiencies', icon: PieChart },
+  { id: 'skill-bars', label: '6. Skills & Proficiency Bars', icon: SlidersHorizontal },
+  { id: 'communication', label: '7. Communication Skills', icon: MessageSquare },
+  { id: 'certifications', label: '8. Certificates & Grants', icon: Award },
+  { id: 'languages', label: '9. Languages (5-Dot)', icon: Globe },
+  { id: 'publications', label: '10. Talks & Publications', icon: BookOpen },
+  { id: 'custom-sections', label: '11. Projects & Additional', icon: Layers },
+];
+
+const CREATIVE_PROFESSIONAL_SECTION_CATALOG: Partial<
+  Record<
+    ResumeSectionKey,
+    { editorId: EditorSectionId; baseLabel: string; icon: React.ComponentType<{ className?: string }>; optional?: boolean }
+  >
+> = {
+  experience: { editorId: 'experience', baseLabel: 'Short Resume (Experience)', icon: Briefcase },
+  skills: { editorId: 'skills', baseLabel: 'Categorized Skills', icon: Wrench },
+  'proficiency-circles': { editorId: 'proficiency-circles', baseLabel: 'Circular Proficiencies', icon: PieChart },
+  communication: { editorId: 'communication', baseLabel: 'Communication Skills', icon: MessageSquare, optional: true },
+  projects: { editorId: 'projects', baseLabel: 'Projects (Overflow)', icon: FolderGit2, optional: true },
+  leadership: { editorId: 'leadership', baseLabel: 'Leadership (Overflow)', icon: Users, optional: true },
+  education: { editorId: 'education', baseLabel: 'Degrees (Education)', icon: GraduationCap },
+  'skill-bars': { editorId: 'skill-bars', baseLabel: 'Skills & Proficiency Bars', icon: SlidersHorizontal },
+  certifications: { editorId: 'certifications', baseLabel: 'Certificates & Grants', icon: Award, optional: true },
+  languages: { editorId: 'languages', baseLabel: 'Languages', icon: Globe, optional: true },
+  publications: { editorId: 'publications', baseLabel: 'Talks & Publications', icon: BookOpen, optional: true },
+  volunteer: { editorId: 'volunteer', baseLabel: 'Volunteer & Community', icon: HeartHandshake, optional: true },
+  memberships: { editorId: 'memberships', baseLabel: 'Memberships', icon: BadgeCheck, optional: true },
+  'custom-sections': { editorId: 'custom-sections', baseLabel: 'Custom Sections', icon: Layers, optional: true },
+};
+
+const getNormalizedCreativeProfessionalOrder = (orderOverride?: string[]): ResumeSectionKey[] => {
+  const validSet = new Set<ResumeSectionKey>(CREATIVE_PROFESSIONAL_ORDER);
+  const custom = (orderOverride || []).filter(
+    (k): k is ResumeSectionKey => validSet.has(k as ResumeSectionKey)
+  );
+  const seen = new Set<ResumeSectionKey>(custom);
+  return [...custom, ...CREATIVE_PROFESSIONAL_ORDER.filter((k) => !seen.has(k))];
+};
+
 const JAKES_EDITOR_SECTIONS = new Set<EditorSectionId>([
   'header',
   'education',
@@ -500,6 +605,9 @@ const JAKES_EDITOR_SECTIONS = new Set<EditorSectionId>([
   'skills',
   'leadership',
 ]);
+
+const computeResumeFingerprint = (r: Resume): string =>
+  JSON.stringify({ ...r, updatedAt: '' });
 
 export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   initialResume,
@@ -512,10 +620,21 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const [activeSection, setActiveSection] = useState<EditorSectionId>('header');
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isInterviewOpen, setIsInterviewOpen] = useState(false);
   const [isCompletenessOpen, setIsCompletenessOpen] = useState(false);
   const [showSectionManager, setShowSectionManager] = useState(false);
+
+  const latestResumeRef = useRef<Resume>(resume);
+  latestResumeRef.current = resume;
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+  const lastSavedFingerprintRef = useRef<string>(computeResumeFingerprint(initialResume));
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const saveTokenRef = useRef<number>(0);
   const [courseworkDraft, setCourseworkDraft] = useState('');
   const [strengthDraft, setStrengthDraft] = useState('');
   const [labSkillDraft, setLabSkillDraft] = useState('');
@@ -542,6 +661,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     sectionType: 'general',
     onApply: () => {},
   });
+  const [lastImproveUndo, setLastImproveUndo] = useState<{
+    label: string;
+    originalText: string;
+    onRestore: () => void;
+  } | null>(null);
 
   const activeTemplateId = resolveTemplateId(resume.template);
   const activeTemplate = getTemplateById(activeTemplateId);
@@ -554,6 +678,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const isModernCorporateTemplate = activeTemplateId === 'modern-corporate';
   const isFresherResumeTemplate = activeTemplateId === 'fresher-resume';
   const isInternshipResumeTemplate = activeTemplateId === 'internship-resume';
+  const isEngineeringResumeTemplate = activeTemplateId === 'engineering-resume';
+  const isCreativeProfessionalTemplate = activeTemplateId === 'creative-professional';
   const ELEGANT_SERIF_SECTIONS = getElegantSerifSections(resume.sectionOrderOverride);
   const MODERN_CORPORATE_SECTIONS = getModernCorporateSections(resume.sectionOrderOverride);
   const FRESHER_RESUME_SECTIONS = getFresherResumeSections(resume.sectionOrderOverride);
@@ -573,6 +699,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? FRESHER_RESUME_SECTIONS
     : isInternshipResumeTemplate
     ? INTERNSHIP_RESUME_SECTIONS
+    : isEngineeringResumeTemplate
+    ? ENGINEERING_SECTIONS
+    : isCreativeProfessionalTemplate
+    ? CREATIVE_PROFESSIONAL_SECTIONS
     : SECTIONS;
   const navSections = isTwoColumnTemplate
     ? TWO_COLUMN_SECTIONS
@@ -590,6 +720,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? FRESHER_RESUME_SECTIONS
     : isInternshipResumeTemplate
     ? INTERNSHIP_RESUME_SECTIONS
+    : isEngineeringResumeTemplate
+    ? ENGINEERING_SECTIONS
+    : isCreativeProfessionalTemplate
+    ? CREATIVE_PROFESSIONAL_SECTIONS
     : isJakesTemplate
     ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
     : SECTIONS;
@@ -604,7 +738,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isElegantSerifTemplate ||
       isModernCorporateTemplate ||
       isFresherResumeTemplate ||
-      isInternshipResumeTemplate
+      isInternshipResumeTemplate ||
+      isEngineeringResumeTemplate ||
+      isCreativeProfessionalTemplate
     ) {
       if (sectionId === 'personalInfo' || sectionId === 'header') return 'header';
       if (sectionId === 'achievements') return 'awards';
@@ -628,6 +764,36 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   };
 
   const getEditorSectionStatus = (editorId: EditorSectionId) => {
+    if (isCreativeProfessionalTemplate && editorId === 'proficiency-circles') {
+      const hasCircles = Boolean(
+        resume.circularProficiencies && resume.circularProficiencies.some((c) => c.name?.trim())
+      );
+      return {
+        sectionId: 'proficiency-circles',
+        name: '5. Circular Proficiencies',
+        status: hasCircles ? ('complete' as const) : ('needs_details' as const),
+        statusLabel: hasCircles ? 'Completed' : 'In Progress',
+        isOptional: false,
+        score: hasCircles ? 100 : 0,
+        issues: [],
+        suggestions: [],
+      };
+    }
+    if (isCreativeProfessionalTemplate && editorId === 'skill-bars') {
+      const hasBars = Boolean(
+        resume.creativeSkillBars && resume.creativeSkillBars.some((b) => b.name?.trim())
+      );
+      return {
+        sectionId: 'skill-bars',
+        name: '6. Skills & Proficiency Bars',
+        status: hasBars ? ('complete' as const) : ('needs_details' as const),
+        statusLabel: hasBars ? 'Completed' : 'In Progress',
+        isOptional: false,
+        score: hasBars ? 100 : 0,
+        issues: [],
+        suggestions: [],
+      };
+    }
     if (isHarvardTemplate && editorId === 'awards') {
       const hasAwards = Boolean(
         resume.achievements && resume.achievements.some((a) => a.title?.trim() || a.description?.trim())
@@ -650,7 +816,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isElegantSerifTemplate ||
       isModernCorporateTemplate ||
       isFresherResumeTemplate ||
-      isInternshipResumeTemplate
+      isInternshipResumeTemplate ||
+      isEngineeringResumeTemplate ||
+      isCreativeProfessionalTemplate
     ) {
       const mapped = editorId === 'awards' ? 'achievements' : editorId;
       return completenessReport.sections.find(
@@ -684,14 +852,139 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     onApplyCallback?: (improved: string) => void
   ) => {
     if (!originalText || originalText.trim().length === 0) return;
+    const applyWithUndo = (improved: string) => {
+      if (onApplyCallback) {
+        onApplyCallback(improved);
+        setLastImproveUndo({
+          label: sectionType,
+          originalText,
+          onRestore: () => {
+            onApplyCallback(originalText);
+            setLastImproveUndo(null);
+          },
+        });
+      }
+    };
     setImproveModal({
       isOpen: true,
       originalText,
       sectionType,
       context,
-      onApply: onApplyCallback || (() => {}),
+      onApply: applyWithUndo,
     });
   };
+
+  const enqueueSave = useCallback(
+    (
+      candidate: Resume,
+      opts?: { syncParent?: boolean; showManualSavedBadge?: boolean; force?: boolean }
+    ) => {
+      if (!candidate.id?.trim() || !candidate.userId?.trim()) {
+        return Promise.resolve();
+      }
+      const fp = computeResumeFingerprint(candidate);
+      if (!opts?.force && fp === lastSavedFingerprintRef.current) {
+        return saveQueueRef.current;
+      }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+
+      const token = ++saveTokenRef.current;
+      setAutoSaveState('saving');
+      setAutoSaveError(null);
+
+      const task = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          // Skip superseded snapshots if a newer edit has already queued behind this task
+          if (token !== saveTokenRef.current) return;
+          await saveResume(candidate.userId, candidate);
+          if (token === saveTokenRef.current) {
+            lastSavedFingerprintRef.current = fp;
+            setAutoSaveState('saved');
+            setAutoSaveError(null);
+            if (opts?.syncParent !== false) {
+              onSaveRef.current(candidate);
+            }
+            if (opts?.showManualSavedBadge) {
+              setJustSaved(true);
+              setTimeout(() => setJustSaved(false), 2000);
+            }
+          }
+        })
+        .catch((e: unknown) => {
+          if (token === saveTokenRef.current) {
+            console.error('Save failed:', e);
+            setAutoSaveState('error');
+            setAutoSaveError(e instanceof Error ? e.message : 'Unable to save changes.');
+          }
+        });
+
+      saveQueueRef.current = task;
+      return task;
+    },
+    []
+  );
+
+  const flushPendingSave = useCallback(
+    async (candidate?: Resume, force = false) => {
+      const target = candidate || latestResumeRef.current;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      await enqueueSave(target, { force });
+    },
+    [enqueueSave]
+  );
+
+  useEffect(() => {
+    if (!resume.id?.trim() || !resume.userId?.trim()) return;
+    const fp = computeResumeFingerprint(resume);
+    if (fp === lastSavedFingerprintRef.current) return;
+
+    setAutoSaveState('saving');
+    setAutoSaveError(null);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      void enqueueSave(latestResumeRef.current);
+    }, 650);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [resume, enqueueSave]);
+
+  useEffect(() => {
+    const flushOnExit = () => {
+      const current = latestResumeRef.current;
+      if (!current.id?.trim() || !current.userId?.trim()) return;
+      if (computeResumeFingerprint(current) === lastSavedFingerprintRef.current) return;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      void saveResume(current.userId, current);
+      onSaveRef.current(current);
+      lastSavedFingerprintRef.current = computeResumeFingerprint(current);
+    };
+
+    window.addEventListener('beforeunload', flushOnExit);
+    window.addEventListener('pagehide', flushOnExit);
+    return () => {
+      window.removeEventListener('beforeunload', flushOnExit);
+      window.removeEventListener('pagehide', flushOnExit);
+      flushOnExit();
+    };
+  }, []);
 
   const updateField = <K extends keyof Resume>(field: K, val: Resume[K]) => {
     setResume((prev) => ({
@@ -704,21 +997,37 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveResume(resume.userId, resume);
-      onSave(resume);
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 2000);
-    } catch (e) {
-      console.error('Save failed:', e);
+      await enqueueSave(latestResumeRef.current, {
+        force: true,
+        showManualSavedBadge: true,
+      });
     } finally {
       setSaving(false);
     }
   };
 
+  const handlePreviewClick = async () => {
+    await flushPendingSave(latestResumeRef.current);
+    onPreview(latestResumeRef.current);
+  };
+
+  const handleOpenTemplatesClick = async () => {
+    if (!onOpenTemplates) return;
+    await flushPendingSave(latestResumeRef.current);
+    onOpenTemplates(latestResumeRef.current);
+  };
+
+  const handleBackToDashboardClick = async () => {
+    await flushPendingSave(latestResumeRef.current);
+    onBackToDashboard();
+  };
+
   const handleSwitchTemplate = async (newTemplateId: string) => {
+    await flushPendingSave(latestResumeRef.current);
+    const current = latestResumeRef.current;
     const nextTemplate = getTemplateById(newTemplateId);
     const updated: Resume = {
-      ...resume,
+      ...current,
       template: nextTemplate.id,
       fontFamily: nextTemplate.defaultCustomization.fontFamily,
       themeColor: nextTemplate.defaultCustomization.accentColor,
@@ -742,6 +1051,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         ? getFresherResumeSections(updated.sectionOrderOverride)
         : nextTemplate.id === 'internship-resume'
         ? INTERNSHIP_RESUME_SECTIONS
+        : nextTemplate.id === 'engineering-resume'
+        ? ENGINEERING_SECTIONS
+        : nextTemplate.id === 'creative-professional'
+        ? CREATIVE_PROFESSIONAL_SECTIONS
         : nextTemplate.id === 'jakes-resume'
         ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
         : SECTIONS;
@@ -749,12 +1062,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       setActiveSection('header');
     }
     setResume(updated);
-    onSave(updated);
-    try {
-      await saveResume(updated.userId, updated);
-    } catch (e) {
-      console.error('Failed to persist template switch', e);
-    }
+    await enqueueSave(updated, { force: true });
   };
 
   const handleLoadProfile = (
@@ -768,6 +1076,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'modern-corporate'
       | 'fresher-resume'
       | 'internship-resume'
+      | 'engineering-resume'
+      | 'engineering-mechanical'
+      | 'engineering-cse'
+      | 'engineering-ece'
+      | 'creative-professional'
+      | 'creative-designer'
+      | 'creative-cybersecurity'
+      | 'creative-marketing'
       | 'experienced'
       | 'fresher'
       | 'student'
@@ -807,6 +1123,28 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       case 'internship-resume':
         sampleBase = SAMPLE_INTERNSHIP_RESUME_CV;
         break;
+      case 'engineering-resume':
+      case 'engineering-mechanical':
+        sampleBase = SAMPLE_ENGINEERING_MECHANICAL_CV;
+        break;
+      case 'engineering-cse':
+        sampleBase = SAMPLE_ENGINEERING_CSE_CV;
+        break;
+      case 'engineering-ece':
+        sampleBase = SAMPLE_ENGINEERING_ECE_CV;
+        break;
+      case 'creative-professional':
+        sampleBase = SAMPLE_CREATIVE_PROFESSIONAL_CV;
+        break;
+      case 'creative-designer':
+        sampleBase = SAMPLE_CREATIVE_DESIGNER_CV;
+        break;
+      case 'creative-cybersecurity':
+        sampleBase = SAMPLE_CREATIVE_CYBERSECURITY_CV;
+        break;
+      case 'creative-marketing':
+        sampleBase = SAMPLE_CREATIVE_MARKETING_CV;
+        break;
       case 'experienced':
         sampleBase = SAMPLE_EXPERIENCED_CV;
         break;
@@ -831,15 +1169,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     };
     setActiveSection('header');
     setResume(updated);
-    saveResume(resume.userId, updated);
-    onSave(updated);
+    void enqueueSave(updated, { force: true });
   };
 
   const isManagedAwardsAliasTemplate =
     isElegantSerifTemplate ||
     isModernCorporateTemplate ||
     isFresherResumeTemplate ||
-    isInternshipResumeTemplate;
+    isInternshipResumeTemplate ||
+    isEngineeringResumeTemplate;
 
   const toCanonicalSectionKey = (sectionId: string): string =>
     isManagedAwardsAliasTemplate && sectionId === 'awards' ? 'achievements' : sectionId;
@@ -881,6 +1219,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       ? getNormalizedFresherResumeOrder(resume.sectionOrderOverride)
       : isInternshipResumeTemplate
       ? getNormalizedInternshipResumeOrder(resume.sectionOrderOverride)
+      : isEngineeringResumeTemplate
+      ? getNormalizedEngineeringResumeOrder(resume.sectionOrderOverride)
+      : isCreativeProfessionalTemplate
+      ? getNormalizedCreativeProfessionalOrder(resume.sectionOrderOverride)
       : getNormalizedElegantSerifOrder(resume.sectionOrderOverride);
     const idx = currentOrder.indexOf(key);
     const target = idx + delta;
@@ -910,6 +1252,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'leadership'
       | 'certifications'
       | 'achievements'
+      | 'creativeSkillItems'
+      | 'circularProficiencies'
+      | 'creativeSkillBars'
+      | 'communicationSkills'
   >(
     field: K,
     index: number,
@@ -1767,13 +2113,52 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             {onOpenTemplates && (
               <button
                 type="button"
-                onClick={() => onOpenTemplates(resume)}
+                onClick={handleOpenTemplatesClick}
                 className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-[#0f2b5c] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors cursor-pointer"
                 title="Browse resume templates with previews"
               >
                 <LayoutTemplate className="w-3.5 h-3.5 mr-1.5" />
                 <span>Templates</span>
               </button>
+            )}
+
+            {autoSaveState !== 'idle' && (
+              <span
+                role="status"
+                aria-live="polite"
+                className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
+                  autoSaveState === 'saving'
+                    ? 'text-slate-600 bg-slate-100'
+                    : autoSaveState === 'saved'
+                    ? 'text-emerald-700 bg-emerald-50'
+                    : 'text-red-700 bg-red-50'
+                }`}
+                title={autoSaveError || undefined}
+              >
+                {autoSaveState === 'saving' ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : autoSaveState === 'saved' ? (
+                  <>
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>All changes saved</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-3 h-3" />
+                    <span>Save failed</span>
+                    <button
+                      type="button"
+                      onClick={() => void flushPendingSave(latestResumeRef.current, true)}
+                      className="underline font-semibold ml-1 hover:text-red-900 cursor-pointer"
+                    >
+                      Retry
+                    </button>
+                  </>
+                )}
+              </span>
             )}
 
             <button
@@ -1799,7 +2184,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             </button>
 
             <button
-              onClick={() => onPreview(resume)}
+              onClick={handlePreviewClick}
               className="inline-flex items-center px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs transition-colors cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5 mr-1.5" />
@@ -1888,6 +2273,20 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               title="Internship Resume (Two-Column Student Application) Sample"
             >
               Internship
+            </button>
+            <button
+              onClick={() => handleLoadProfile('engineering-resume')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-black font-semibold rounded shadow-xs"
+              title="Engineering Resume (Mechanical / CSE / ECE Sample)"
+            >
+              Engineering
+            </button>
+            <button
+              onClick={() => handleLoadProfile('creative-professional')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-blue-700 font-semibold rounded shadow-xs"
+              title="Creative Professional Two-Column CV Sample"
+            >
+              Creative Prof.
             </button>
             <button
               onClick={() => handleLoadProfile('student')}
@@ -2625,6 +3024,521 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         </div>
       )}
 
+      {/* Engineering Resume (Template 11) Branch Selector, Sample Switcher & 9-Step Completion Tracker */}
+      {isEngineeringResumeTemplate && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3.5 mb-5 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-black">
+                Engineering Resume — Branch &amp; Guided 9-Step Workflow:
+              </span>{' '}
+              <span className="text-slate-600">
+                Clean monochrome single-column layout. Empty optional sections (Internships/Trainings, POR, Extra-Curricular, Additional Info) hide automatically.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {(
+                [
+                  { value: 'mechanical', label: 'Mechanical' },
+                  { value: 'cse-it', label: 'CSE / IT' },
+                  { value: 'ece', label: 'ECE' },
+                  { value: 'ee', label: 'EE / EEE' },
+                  { value: 'civil', label: 'Civil' },
+                  { value: 'chemical', label: 'Chemical' },
+                  { value: 'other', label: 'Other' },
+                ] as { value: EngineeringBranch; label: string }[]
+              ).map((opt) => {
+                const active = (resume.engineeringBranch || 'mechanical') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('engineeringBranch', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowSectionManager((prev) => !prev)}
+                aria-expanded={showSectionManager}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{showSectionManager ? 'Hide Section Manager' : 'Manage Sections'}</span>
+              </button>
+            </div>
+          </div>
+
+          {(resume.engineeringBranch === 'other' || Boolean(resume.customEngineeringBranch)) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-slate-200">
+              <label
+                htmlFor="custom-engineering-branch"
+                className="text-[11px] font-semibold text-slate-700 shrink-0"
+              >
+                Custom Engineering Branch Name:
+              </label>
+              <input
+                id="custom-engineering-branch"
+                type="text"
+                value={resume.customEngineeringBranch || ''}
+                onChange={(e) => updateField('customEngineeringBranch', e.target.value)}
+                placeholder="e.g. Aerospace Engineering, Biotechnology, Mechatronics"
+                className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded bg-white"
+              />
+            </div>
+          )}
+
+          {/* Branch Sample Quick Switcher */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-semibold text-slate-600">Load Branch Sample:</span>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('engineering-mechanical')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-800 cursor-pointer"
+              >
+                Mechanical Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('engineering-cse')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-800 cursor-pointer"
+              >
+                CSE / IT Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('engineering-ece')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-800 cursor-pointer"
+              >
+                ECE Sample
+              </button>
+            </div>
+            <span className="text-slate-500">
+              ATS-clean typography · Zero bars or rating dots
+            </span>
+          </div>
+
+          {/* 9-Step Guided Completion Tracker */}
+          <div className="pt-2.5 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                9-Step Engineering Resume Progress ({completenessReport.overallScore}% Ready)
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Click any step to jump directly
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
+              {ENGINEERING_SECTIONS.map((step) => {
+                const statusInfo = getEditorSectionStatus(step.id);
+                const statusLabel = statusInfo?.statusLabel || 'Optional / Skipped';
+                const isCurrent = activeSection === step.id;
+                const badgeStyle =
+                  statusLabel === 'Completed'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : statusLabel === 'In Progress'
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : statusLabel === 'Not Started'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                    : 'text-slate-500 bg-slate-100 border-slate-200';
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setActiveSection(step.id)}
+                    className={`flex flex-col items-start justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-black text-white border-black shadow-xs'
+                        : 'bg-white text-slate-800 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold truncate w-full">
+                      {step.label}
+                    </span>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                        isCurrent
+                          ? 'bg-white/15 text-white border-white/25'
+                          : badgeStyle
+                      }`}
+                    >
+                      {statusLabel === 'Completed' ? (
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'In Progress' ? (
+                        <Clock className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'Not Started' ? (
+                        <AlertCircle className="w-2.5 h-2.5" />
+                      ) : (
+                        <MinusCircle className="w-2.5 h-2.5" />
+                      )}
+                      <span>{statusLabel}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {showSectionManager && (
+            <div className="pt-3 border-t border-slate-200 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Section Order &amp; Visibility (Hidden sections preserve all saved entries)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('custom-sections')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Custom Section</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetElegantSerifLayout}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Order &amp; Visibility</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {getNormalizedEngineeringResumeOrder(resume.sectionOrderOverride).map((secKey, idx, arr) => {
+                  const meta = ENGINEERING_RESUME_SECTION_CATALOG[secKey];
+                  if (!meta) return null;
+                  const hidden = isSectionHidden(secKey);
+                  return (
+                    <div
+                      key={secKey}
+                      className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded border text-xs bg-white ${
+                        hidden ? 'border-slate-200 opacity-65' : 'border-slate-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(meta.editorId)}
+                        className={`text-left truncate font-medium flex-1 cursor-pointer hover:underline ${
+                          hidden ? 'line-through text-slate-500' : 'text-slate-800'
+                        }`}
+                      >
+                        {idx + 1}. {meta.baseLabel}
+                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, -1)}
+                          disabled={idx === 0}
+                          aria-label={`Move ${meta.baseLabel} up`}
+                          title="Move section up"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, 1)}
+                          disabled={idx === arr.length - 1}
+                          aria-label={`Move ${meta.baseLabel} down`}
+                          title="Move section down"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionVisibility(secKey)}
+                          aria-label={hidden ? `Show ${meta.baseLabel}` : `Hide ${meta.baseLabel}`}
+                          title={hidden ? 'Show section' : 'Hide section without deleting data'}
+                          className={`p-1 rounded cursor-pointer ${
+                            hidden
+                              ? 'text-amber-600 hover:text-amber-800'
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Creative Professional (Template 12) Profession Switcher, Sample Switcher & 11-Step Tracker */}
+      {isCreativeProfessionalTemplate && (
+        <div className="bg-blue-50/50 border border-blue-200 rounded-lg px-4 py-3.5 mb-5 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-blue-900">
+                Creative Professional — Profession &amp; Visual Proficiency Setup:
+              </span>{' '}
+              <span className="text-slate-600">
+                Balanced 2-column A4 editorial layout. Visual heading updates cleanly to match your profession ({getCreativeProficiencyHeading(resume)}).
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {(
+                [
+                  { value: 'developer', label: 'Developer' },
+                  { value: 'designer', label: 'Designer' },
+                  { value: 'cybersecurity', label: 'Cybersecurity' },
+                  { value: 'marketing', label: 'Marketing' },
+                  { value: 'researcher', label: 'Researcher' },
+                  { value: 'engineer', label: 'Engineer' },
+                  { value: 'other', label: 'Custom' },
+                ] as { value: CreativeProfession; label: string }[]
+              ).map((opt) => {
+                const active = (resume.creativeProfession || 'developer') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('creativeProfession', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-blue-700 text-white border-blue-700'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowSectionManager((prev) => !prev)}
+                aria-expanded={showSectionManager}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{showSectionManager ? 'Hide Section Manager' : 'Manage Sections'}</span>
+              </button>
+            </div>
+          </div>
+
+          {(resume.creativeProfession === 'other' || Boolean(resume.customCreativeProfession)) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-blue-200/80">
+              <label
+                htmlFor="custom-creative-profession"
+                className="text-[11px] font-semibold text-slate-700 shrink-0"
+              >
+                Custom Profession Label:
+              </label>
+              <input
+                id="custom-creative-profession"
+                type="text"
+                value={resume.customCreativeProfession || ''}
+                onChange={(e) => updateField('customCreativeProfession', e.target.value)}
+                placeholder="e.g. Data Journalist, Sound Designer, Biotech Lead"
+                className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded bg-white"
+              />
+            </div>
+          )}
+
+          {/* Sample Presets Quick Switcher */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-blue-200/80 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-semibold text-slate-600">Load Creative Sample:</span>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('creative-professional')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-blue-50 font-semibold text-slate-800 cursor-pointer"
+              >
+                Developer Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('creative-designer')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-blue-50 font-semibold text-slate-800 cursor-pointer"
+              >
+                Designer Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('creative-cybersecurity')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-blue-50 font-semibold text-slate-800 cursor-pointer"
+              >
+                Cybersecurity Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('creative-marketing')}
+                className="px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-blue-50 font-semibold text-slate-800 cursor-pointer"
+              >
+                Marketing Sample
+              </button>
+            </div>
+            <span className="text-slate-500">
+              Circular Proficiency &amp; Horizontal Bar Sliders · Zero auto-fabricated ratings
+            </span>
+          </div>
+
+          {/* 11-Step Guided Completion Tracker */}
+          <div className="pt-2.5 border-t border-blue-200/80">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                Creative Professional Progress ({completenessReport.overallScore}% Ready)
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Click any step to edit directly
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+              {CREATIVE_PROFESSIONAL_SECTIONS.map((step) => {
+                const statusInfo = getEditorSectionStatus(step.id);
+                const statusLabel = statusInfo?.statusLabel || 'Optional / Skipped';
+                const isCurrent = activeSection === step.id;
+                const badgeStyle =
+                  statusLabel === 'Completed'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : statusLabel === 'In Progress'
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : statusLabel === 'Not Started'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                    : 'text-slate-500 bg-slate-100 border-slate-200';
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setActiveSection(step.id)}
+                    className={`flex flex-col items-start justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-blue-700 text-white border-blue-700 shadow-xs'
+                        : 'bg-white text-slate-800 border-slate-200 hover:border-blue-400'
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold truncate w-full">
+                      {step.label}
+                    </span>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                        isCurrent
+                          ? 'bg-white/15 text-white border-white/25'
+                          : badgeStyle
+                      }`}
+                    >
+                      {statusLabel === 'Completed' ? (
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'In Progress' ? (
+                        <Clock className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'Not Started' ? (
+                        <AlertCircle className="w-2.5 h-2.5" />
+                      ) : (
+                        <MinusCircle className="w-2.5 h-2.5" />
+                      )}
+                      <span>{statusLabel}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {showSectionManager && (
+            <div className="pt-3 border-t border-blue-200/80 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Section Order &amp; Visibility (Hidden sections preserve all saved entries)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('custom-sections')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Custom Section</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetElegantSerifLayout}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Order &amp; Visibility</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {getNormalizedCreativeProfessionalOrder(resume.sectionOrderOverride).map((secKey, idx, arr) => {
+                  const meta = CREATIVE_PROFESSIONAL_SECTION_CATALOG[secKey];
+                  if (!meta) return null;
+                  const hidden = isSectionHidden(secKey);
+                  return (
+                    <div
+                      key={secKey}
+                      className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded border text-xs bg-white ${
+                        hidden ? 'border-slate-200 opacity-65' : 'border-slate-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(meta.editorId)}
+                        className={`text-left truncate font-medium flex-1 cursor-pointer hover:underline ${
+                          hidden ? 'line-through text-slate-500' : 'text-slate-800'
+                        }`}
+                      >
+                        {idx + 1}. {meta.baseLabel}
+                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, -1)}
+                          disabled={idx === 0}
+                          aria-label={`Move ${meta.baseLabel} up`}
+                          title="Move section up"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, 1)}
+                          disabled={idx === arr.length - 1}
+                          aria-label={`Move ${meta.baseLabel} down`}
+                          title="Move section down"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionVisibility(secKey)}
+                          aria-label={hidden ? `Show ${meta.baseLabel}` : `Hide ${meta.baseLabel}`}
+                          title={hidden ? 'Show section' : 'Hide section without deleting data'}
+                          className={`p-1 rounded cursor-pointer ${
+                            hidden
+                              ? 'text-amber-600 hover:text-amber-800'
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Editor Body: Sidebar + Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
@@ -2648,6 +3562,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 ? 'Fresher Resume Sections'
                 : isInternshipResumeTemplate
                 ? 'Internship Resume (10 Steps)'
+                : isEngineeringResumeTemplate
+                ? 'Engineering Resume (9 Steps)'
+                : isCreativeProfessionalTemplate
+                ? 'Creative Prof. Sections'
                 : isJakesTemplate
                 ? "Resume Sections (Jake's)"
                 : isClassicTemplate
@@ -2678,6 +3596,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               isModernCorporateTemplate ||
               isFresherResumeTemplate ||
               isInternshipResumeTemplate ||
+              isEngineeringResumeTemplate ||
+              isCreativeProfessionalTemplate ||
               !isJakesTemplate ||
               JAKES_EDITOR_SECTIONS.has(sec.id);
 
@@ -2736,8 +3656,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
 
           <div className="pt-3 mt-3 border-t border-slate-200 px-3">
             <button
-              onClick={onBackToDashboard}
-              className="w-full inline-flex items-center text-xs font-semibold text-slate-600 hover:text-slate-900 py-1.5"
+              onClick={handleBackToDashboardClick}
+              className="w-full inline-flex items-center text-xs font-semibold text-slate-600 hover:text-slate-900 py-1.5 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
               <span>Back to Dashboard</span>
@@ -2747,6 +3667,37 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
 
         {/* Section Forms Container */}
         <main className="lg:col-span-8 bg-white border border-slate-200 rounded-lg p-6 sm:p-8 shadow-xs">
+          {lastImproveUndo && (
+            <div
+              role="status"
+              className="mb-5 px-3.5 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50/80 flex flex-wrap items-center justify-between gap-2 text-xs"
+            >
+              <div className="flex items-center gap-2 text-indigo-950">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>
+                  AI suggestion applied to <strong className="uppercase">{lastImproveUndo.label}</strong>.
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={lastImproveUndo.onRestore}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white border border-indigo-300 text-indigo-800 hover:bg-indigo-100 font-semibold cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Restore Original</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLastImproveUndo(null)}
+                  className="px-2 py-1 text-slate-500 hover:text-slate-800 font-medium cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 1. Header / Personal Info */}
           {activeSection === 'header' && (
             <section aria-labelledby="section-header-title">
@@ -2771,6 +3722,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     ? 'Overleaf 3-column fresher header: Phone & Email on left, centered Name & Target Job Role in middle, and clickable LinkedIn / GitHub / Portfolio links on right. No photograph.'
                     : isInternshipResumeTemplate
                     ? 'Two-column Internship Resume header: bold uppercase name, headline below, and compact horizontal icon contact row (email, phone, location, LinkedIn, GitHub, portfolio). No photograph.'
+                    : isEngineeringResumeTemplate
+                    ? 'Monochrome Engineering Resume header: centered bold name with compact horizontal clickable contacts separated by "|" (location | phone | email | LinkedIn | GitHub | portfolio). No photograph.'
+                    : isCreativeProfessionalTemplate
+                    ? 'Centered Creative Professional editorial header: bold surname split name, blue professional headline + specialization, tagline, horizontal contact icons, and optional personal quote.'
                     : isClassicTemplate
                     ? 'Structured Classic Professional header with contact details, multiple phones, and an optional framed portrait photo.'
                     : isTwoColumnTemplate
@@ -3189,7 +4144,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   isElegantSerifTemplate ||
                   isModernCorporateTemplate ||
                   isFresherResumeTemplate ||
-                  isInternshipResumeTemplate) &&
+                  isInternshipResumeTemplate ||
+                  isEngineeringResumeTemplate ||
+                  isCreativeProfessionalTemplate) &&
                   !isTwoColumnTemplate && (
                   <div className="sm:col-span-2 pt-3 border-t border-slate-200">
                     <div className="flex items-center justify-between mb-2">
@@ -3378,6 +4335,80 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     </div>
                   </>
                 )}
+
+                {isCreativeProfessionalTemplate && (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="creative-specialization-input"
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        Specialization / Focus (Optional)
+                      </label>
+                      <input
+                        id="creative-specialization-input"
+                        type="text"
+                        value={resume.personalInfo.specialization || ''}
+                        onChange={(e) => updatePersonalInfo('specialization', e.target.value)}
+                        placeholder="e.g. Design Systems · Distributed Web Architecture"
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="creative-tagline-input"
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        Tagline / Sub-headline (Optional)
+                      </label>
+                      <input
+                        id="creative-tagline-input"
+                        type="text"
+                        value={resume.personalInfo.tagline || ''}
+                        onChange={(e) => updatePersonalInfo('tagline', e.target.value)}
+                        placeholder="e.g. Building resilient products where engineering meets craft."
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-700"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="creative-quote-input"
+                          className="block text-xs font-semibold text-slate-700"
+                        >
+                          Centered Personal Quote (Optional — leave blank to omit cleanly)
+                        </label>
+                        {resume.personalQuote?.trim() && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenImprove(
+                                resume.personalQuote || '',
+                                'quote',
+                                `Creative Professional tagline quote for ${resume.personalInfo.jobTitle || 'creative role'}`,
+                                (improved) => updateField('personalQuote', improved)
+                              )
+                            }
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>AI Improve</span>
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        id="creative-quote-input"
+                        type="text"
+                        value={resume.personalQuote || ''}
+                        onChange={(e) => updateField('personalQuote', e.target.value)}
+                        placeholder='e.g. “Thoughtful software respects both human attention and engineering simplicity.”'
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm italic focus:outline-none focus:ring-2 focus:ring-blue-700"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </section>
           )}
@@ -3394,6 +4425,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Professional Profile'
                       : isFresherResumeTemplate
                       ? 'Career Highlights & Impact Summary'
+                      : isEngineeringResumeTemplate
+                      ? 'Career Objective'
                       : 'Career Objective / Professional Summary'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -3403,6 +4436,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Optional concise editorial profile statement, academic interests, and career goals.'
                       : isFresherResumeTemplate
                       ? 'Centered keyword highlights (separated by •) and concise 1–2 line Impact statement below the Overleaf 3-column header. Leave blank to hide.'
+                      : isEngineeringResumeTemplate
+                      ? 'Concise 1–3 line engineering career objective naming your branch, core tools, and target roles. Leave blank to omit.'
                       : 'Displayed underneath the OBJECTIVE section heading as a clean paragraph.'}
                   </p>
                 </div>
@@ -3467,6 +4502,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Profile Summary'
                       : isFresherResumeTemplate
                       ? 'Impact Statement / Career Summary (Optional)'
+                      : isEngineeringResumeTemplate
+                      ? 'Career Objective (Optional — 1 to 3 concise sentences)'
                       : 'Objective / Summary'}
                   </label>
                   <textarea
@@ -3476,6 +4513,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     placeholder={
                       isFresherResumeTemplate
                         ? 'e.g. Final-year Computer Science undergraduate experienced in shipping backend APIs and open-source developer tools.'
+                        : isEngineeringResumeTemplate
+                        ? 'e.g. Final-year Mechanical Engineering undergraduate proficient in SolidWorks, ANSYS FEA, and GD&T, seeking a Design or Manufacturing Engineer role.'
                         : 'Dedicated corporate strategy executive or engineering leader with 8+ years of experience...'
                     }
                     className="w-full p-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed font-serif"
@@ -3557,10 +4596,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-edu-title" className="text-lg font-bold text-slate-900">
-                    Education
+                    {isCreativeProfessionalTemplate ? 'Degrees (Education)' : 'Education'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Degrees, universities, specializations, graduation dates, and achievements.
+                    {isCreativeProfessionalTemplate
+                      ? 'Rendered in the right column under DEGREES with a clean date rail and vertical divider.'
+                      : 'Degrees, universities, specializations, graduation dates, and achievements.'}
                   </p>
                 </div>
                 <button
@@ -3753,7 +4794,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         {(isHarvardTemplate ||
                           isElegantSerifTemplate ||
                           isFresherResumeTemplate ||
-                          isInternshipResumeTemplate) && (
+                          isInternshipResumeTemplate ||
+                          isEngineeringResumeTemplate) && (
                           <>
                             <div>
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -3782,7 +4824,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </>
                         )}
 
-                        {(isFresherResumeTemplate || isInternshipResumeTemplate) && (
+                        {(isFresherResumeTemplate || isInternshipResumeTemplate || isEngineeringResumeTemplate) && (
                           <>
                             <div>
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -3883,15 +4925,19 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </div>
               )}
 
-              {isInternshipResumeTemplate && (
+              {(isInternshipResumeTemplate || isEngineeringResumeTemplate) && (
                 <div className="mt-6 pt-5 border-t border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold text-slate-900">
-                        Senior Secondary / High School Education (Optional)
+                        {isEngineeringResumeTemplate
+                          ? 'Class 12 / Diploma / Class 10 Education (Optional)'
+                          : 'Senior Secondary / High School Education (Optional)'}
                       </h3>
                       <p className="text-[11px] text-slate-500">
-                        Renders neatly beneath your university degree inside EDUCATION (e.g. Class XII / A-Levels). Leave empty to omit.
+                        {isEngineeringResumeTemplate
+                          ? 'Renders cleanly beneath your engineering degree inside EDUCATION (Class 12 PCM, Diploma, or Class 10). Leave empty to omit.'
+                          : 'Renders neatly beneath your university degree inside EDUCATION (e.g. Class XII / A-Levels). Leave empty to omit.'}
                       </p>
                     </div>
                     <button
@@ -3900,7 +4946,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5 mr-1" />
-                      <span>Add High School</span>
+                      <span>{isEngineeringResumeTemplate ? 'Add School / Diploma' : 'Add High School'}</span>
                     </button>
                   </div>
                   {(resume.highSchool || []).length > 0 && (
@@ -3912,7 +4958,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         >
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold uppercase text-slate-600">
-                              High School / Secondary #{hsIdx + 1}
+                              {isEngineeringResumeTemplate
+                                ? `Secondary / Diploma #${hsIdx + 1}`
+                                : `High School / Secondary #${hsIdx + 1}`}
                             </span>
                             <button
                               type="button"
@@ -3934,7 +4982,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                 onChange={(e) =>
                                   updateHighSchool(hs.id, { qualification: e.target.value })
                                 }
-                                placeholder="e.g. Senior Secondary (Class XII, PCM)"
+                                placeholder={
+                                  isEngineeringResumeTemplate
+                                    ? 'e.g. Class XII (MPC/PCM), Diploma in ME, or Class X'
+                                    : 'e.g. Senior Secondary (Class XII, PCM)'
+                                }
                                 className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                               />
                             </div>
@@ -4471,19 +5523,27 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-exp-title" className="text-lg font-bold text-slate-900">
-                    Experience
+                    {isEngineeringResumeTemplate
+                      ? 'Internship / Trainings (Optional)'
+                      : isCreativeProfessionalTemplate
+                      ? 'Short Resume (Experience)'
+                      : 'Experience'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Appointments, professional employment, research fellowships, and internships.
+                    {isEngineeringResumeTemplate
+                      ? 'Optional for freshers — industrial internships, plant visits, lab trainings, or workshops. Leave empty to hide cleanly.'
+                      : isCreativeProfessionalTemplate
+                      ? 'Rendered in the left column under SHORT RESUME with year rail, vertical divider, and concise impact highlights.'
+                      : 'Appointments, professional employment, research fellowships, and internships.'}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={addExperience}
-                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs"
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
-                  <span>Add Experience</span>
+                  <span>{isEngineeringResumeTemplate ? 'Add Internship / Training' : 'Add Experience'}</span>
                 </button>
               </div>
 
@@ -4644,6 +5704,29 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </div>
                         )}
 
+                        {isEngineeringResumeTemplate && (
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Entry Type (Optional)
+                            </label>
+                            <select
+                              value={exp.entryKind || 'internship'}
+                              onChange={(e) =>
+                                updateExperience(exp.id, {
+                                  entryKind: e.target.value as ExperienceEntryKind,
+                                })
+                              }
+                              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                            >
+                              <option value="internship">Internship</option>
+                              <option value="training">Industrial Training</option>
+                              <option value="workshop">Technical Workshop</option>
+                              <option value="industrial_visit">Industrial Visit</option>
+                              <option value="employment">Full-Time / Employment</option>
+                            </select>
+                          </div>
+                        )}
+
                         {isModernCorporateTemplate && (
                           <>
                             <div>
@@ -4732,11 +5815,16 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         </div>
                       )}
 
-                      {(isElegantSerifTemplate || isModernCorporateTemplate || isFresherResumeTemplate) && (
+                      {(isElegantSerifTemplate ||
+                        isModernCorporateTemplate ||
+                        isFresherResumeTemplate ||
+                        isEngineeringResumeTemplate) && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
+                          <div className={isEngineeringResumeTemplate ? 'sm:col-span-2' : ''}>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
-                              Technologies / Tools Used (Optional, comma-separated)
+                              {isEngineeringResumeTemplate
+                                ? 'Tools / Systems Worked On (Optional, comma-separated)'
+                                : 'Technologies / Tools Used (Optional, comma-separated)'}
                             </label>
                             <CommaArrayInput
                               ariaLabel="Experience Technologies"
@@ -4744,7 +5832,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               onChange={(items) =>
                                 updateExperience(exp.id, { technologies: items })
                               }
-                              placeholder="e.g. Capital IQ, Bloomberg, SQL, Tableau"
+                              placeholder={
+                                isEngineeringResumeTemplate
+                                  ? 'e.g. SolidWorks, CNC Lathe, ANSYS Fluent, STM32CubeIDE'
+                                  : 'e.g. Capital IQ, Bloomberg, SQL, Tableau'
+                              }
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
                             />
                           </div>
@@ -4888,6 +5980,183 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         )}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {isEngineeringResumeTemplate && (
+                <div className="mt-6 pt-5 border-t border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Workshops, Industrial Trainings &amp; Plant Visits (Optional)
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Renders neatly inside INTERNSHIP / TRAININGS alongside internships. Leave empty if none.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addLearningActivity}
+                      className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      <span>Add Training / Visit</span>
+                    </button>
+                  </div>
+
+                  {(resume.learningActivities || []).length > 0 && (
+                    <div className="space-y-3">
+                      {(resume.learningActivities || []).map((la, laIdx) => (
+                        <div
+                          key={la.id}
+                          className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                            <span className="text-xs font-bold uppercase text-slate-600">
+                              Training / Workshop #{laIdx + 1}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveLearningActivity(laIdx, -1)}
+                                disabled={laIdx === 0}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                                title="Move up"
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveLearningActivity(laIdx, 1)}
+                                disabled={laIdx === (resume.learningActivities?.length || 1) - 1}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                                title="Move down"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteLearningActivity(la.id)}
+                                className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                                title="Delete entry"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Program / Workshop Title *
+                              </label>
+                              <input
+                                type="text"
+                                value={la.title}
+                                onChange={(e) =>
+                                  updateLearningActivity(la.id, { title: e.target.value })
+                                }
+                                placeholder="e.g. Industrial Automation & PLC Hands-on Training"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Activity Type
+                              </label>
+                              <select
+                                value={la.activityType || 'Workshop'}
+                                onChange={(e) =>
+                                  updateLearningActivity(la.id, {
+                                    activityType: e.target.value as LearningActivityItem['activityType'],
+                                  })
+                                }
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              >
+                                <option value="Industrial Training">Industrial Training</option>
+                                <option value="Workshop">Workshop</option>
+                                <option value="Industrial Visit">Industrial Visit</option>
+                                <option value="Lab Training">Lab Training</option>
+                                <option value="Bootcamp">Bootcamp</option>
+                                <option value="Course">Course</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Organization / Center
+                              </label>
+                              <input
+                                type="text"
+                                value={la.provider || ''}
+                                onChange={(e) =>
+                                  updateLearningActivity(la.id, { provider: e.target.value })
+                                }
+                                placeholder="e.g. BHEL Hyderabad / CITD"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Completion Date / Duration
+                              </label>
+                              <input
+                                type="text"
+                                value={la.completionDate || ''}
+                                onChange={(e) =>
+                                  updateLearningActivity(la.id, { completionDate: e.target.value })
+                                }
+                                placeholder="e.g. Jun 2024 – Jul 2024"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Tools / Skills Practiced (Optional, comma-separated)
+                              </label>
+                              <CommaArrayInput
+                                ariaLabel="Training Tools and Skills"
+                                value={la.skillsAcquired}
+                                onChange={(items) =>
+                                  updateLearningActivity(la.id, { skillsAcquired: items })
+                                }
+                                placeholder="e.g. Siemens S7-1200, SCADA, Ladder Logic"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Certificate / Reference URL (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={la.credentialUrl || ''}
+                                onChange={(e) =>
+                                  updateLearningActivity(la.id, { credentialUrl: e.target.value })
+                                }
+                                placeholder="e.g. https://..."
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Key Takeaways / Scope Summary
+                              </label>
+                              <input
+                                type="text"
+                                value={la.description || ''}
+                                onChange={(e) =>
+                                  updateLearningActivity(la.id, { description: e.target.value })
+                                }
+                                placeholder="e.g. Observed CNC machining tolerances and automated assembly inspection workflows."
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -5378,10 +6647,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-pub-title" className="text-lg font-bold text-slate-900">
-                    Patents &amp; Publications
+                    {isCreativeProfessionalTemplate
+                      ? 'Talks & Publications'
+                      : 'Patents & Publications'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Peer-reviewed journals, conference papers, patents, manuscripts, and theses.
+                    {isCreativeProfessionalTemplate
+                      ? 'Conference talks, invited panels, technical articles, journal papers, and research publications.'
+                      : 'Peer-reviewed journals, conference papers, patents, manuscripts, and theses.'}
                   </p>
                 </div>
                 <button
@@ -5699,13 +6972,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     Projects
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Software systems, benchmark suites, research codebases, and technical tooling.
+                    {isEngineeringResumeTemplate
+                      ? 'Academic, capstone, mini, hardware, or software projects with tools, methodology, and verified results.'
+                      : 'Software systems, benchmark suites, research codebases, and technical tooling.'}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={addProject}
-                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs"
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   <span>Add Project</span>
@@ -5766,7 +7041,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className={isSoftwareDevTemplate ? '' : 'sm:col-span-2'}>
+                        <div
+                          className={
+                            isSoftwareDevTemplate || isEngineeringResumeTemplate
+                              ? ''
+                              : 'sm:col-span-2'
+                          }
+                        >
                           <label className="block text-xs font-semibold text-slate-700 mb-1">
                             Project Name *
                           </label>
@@ -5774,12 +7055,18 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             type="text"
                             value={proj.title}
                             onChange={(e) => updateProject(proj.id, { title: e.target.value })}
-                            placeholder="e.g. BioEquivariance Geometric Library"
+                            placeholder={
+                              isEngineeringResumeTemplate
+                                ? 'e.g. Design & Thermal CFD Analysis of EV Battery Cold Plate'
+                                : 'e.g. BioEquivariance Geometric Library'
+                            }
                             className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                           />
                         </div>
 
-                        {(isSoftwareDevTemplate || isModernCorporateTemplate) && (
+                        {(isSoftwareDevTemplate ||
+                          isModernCorporateTemplate ||
+                          isEngineeringResumeTemplate) && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Project Type (Optional)
@@ -5790,7 +7077,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               onChange={(e) =>
                                 updateProject(proj.id, { projectType: e.target.value })
                               }
-                              placeholder="e.g. Corporate Initiative, Open Source, Capstone"
+                              placeholder={
+                                isEngineeringResumeTemplate
+                                  ? 'e.g. Major Capstone, Mini Project, Design Project'
+                                  : 'e.g. Corporate Initiative, Open Source, Capstone'
+                              }
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                             />
                           </div>
@@ -5812,10 +7103,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             />
                           </div>
                         )}
-                        {isElegantSerifTemplate && (
+                        {(isElegantSerifTemplate || isEngineeringResumeTemplate) && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
-                              Participation Type (Optional)
+                              Participation Mode (Optional)
                             </label>
                             <select
                               value={proj.teamType || ''}
@@ -5833,6 +7124,34 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               <option value="Individual">Individual</option>
                               <option value="Team">Team</option>
                             </select>
+                          </div>
+                        )}
+                        {isEngineeringResumeTemplate && (
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Branch / Technical Domain (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={proj.domain || ''}
+                              onChange={(e) => updateProject(proj.id, { domain: e.target.value })}
+                              placeholder="e.g. Thermal & CAE, Full-Stack Systems, Embedded VLSI"
+                              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                            />
+                          </div>
+                        )}
+                        {isEngineeringResumeTemplate && (
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Faculty Mentor / Guide (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={proj.mentor || ''}
+                              onChange={(e) => updateProject(proj.id, { mentor: e.target.value })}
+                              placeholder="e.g. Dr. R. Sharma (Dept. of Mechanical Engineering)"
+                              className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                            />
                           </div>
                         )}
 
@@ -5961,6 +7280,114 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                   })
                                 }
                                 placeholder="e.g. Eliminated lock contention across partitioned shards"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {isEngineeringResumeTemplate && (
+                          <>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Engineering Objective (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.objective || ''}
+                                onChange={(e) =>
+                                  updateProject(proj.id, { objective: e.target.value })
+                                }
+                                placeholder="e.g. Minimize peak lithium-ion cell temperature variance below 3.5 C under 3C discharge."
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Methodology / Process (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.methodology || ''}
+                                onChange={(e) =>
+                                  updateProject(proj.id, { methodology: e.target.value })
+                                }
+                                placeholder="e.g. Conjugate heat transfer CFD across 3 serpentine channel geometries"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Design Approach (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.designApproach || ''}
+                                onChange={(e) =>
+                                  updateProject(proj.id, { designApproach: e.target.value })
+                                }
+                                placeholder="e.g. Counter-flow dual-inlet aluminum 6061 manifold"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Components / Materials Used (Optional, comma-separated)
+                              </label>
+                              <CommaArrayInput
+                                ariaLabel="Components and Materials"
+                                value={proj.componentsMaterials}
+                                onChange={(items) =>
+                                  updateProject(proj.id, { componentsMaterials: items })
+                                }
+                                placeholder="e.g. Al-6061 Plate, 18650 Cells, NTC Thermistors, STM32 MCU"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Testing &amp; Validation (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.testingValidation || ''}
+                                onChange={(e) =>
+                                  updateProject(proj.id, { testingValidation: e.target.value })
+                                }
+                                placeholder="e.g. Verified pressure drop and steady-state thermal profile in benchtop loop"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-semibold text-slate-700">
+                                  Results &amp; Outcomes (Optional)
+                                </label>
+                                {proj.results?.trim() && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleOpenImprove(
+                                        proj.results || '',
+                                        'Engineering Project Results',
+                                        `Project: ${proj.title}`,
+                                        (improved) => updateProject(proj.id, { results: improved })
+                                      )
+                                    }
+                                    className="inline-flex items-center text-[10px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                                  >
+                                    <Sparkles className="w-2.5 h-2.5 mr-1 text-indigo-600" />
+                                    <span>AI Improve</span>
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="text"
+                                value={proj.results || ''}
+                                onChange={(e) =>
+                                  updateProject(proj.id, { results: e.target.value })
+                                }
+                                placeholder="e.g. Reduced peak cell hotspot from 48.2 C to 36.4 C while cutting pump power"
                                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
                               />
                             </div>
@@ -6320,7 +7747,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     Languages
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {isTwoColumnTemplate
+                    {isTwoColumnTemplate || isCreativeProfessionalTemplate
                       ? 'Confirm your proficiency level (renders 5-dot visual ratings). Leave as Unconfirmed to hide dots cleanly.'
                       : 'Spoken languages with standardized proficiency levels and optional certificates/comments.'}
                   </p>
@@ -6397,7 +7824,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </select>
                         </div>
                         <div className="sm:col-span-3">
-                          {isTwoColumnTemplate ? (
+                          {isTwoColumnTemplate || isCreativeProfessionalTemplate ? (
                             <div>
                               <span className="block text-[11px] font-semibold text-slate-600 mb-1">
                                 5-Dot Preview
@@ -6409,14 +7836,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                       const cx = (dot - 1) * 14 + 7;
                                       const filled = dotScore >= dot;
                                       const half = !filled && dotScore >= dot - 0.5;
+                                      const dotColor = isCreativeProfessionalTemplate ? '#1d4ed8' : '#8f131b';
                                       return (
                                         <g key={dot}>
-                                          <circle cx={cx} cy={7} r={5.5} fill="#e5e7eb" stroke="#8f131b" strokeWidth={1} />
-                                          {filled && <circle cx={cx} cy={7} r={5} fill="#8f131b" />}
+                                          <circle cx={cx} cy={7} r={5.5} fill="#e5e7eb" stroke={dotColor} strokeWidth={1} />
+                                          {filled && <circle cx={cx} cy={7} r={5} fill={dotColor} />}
                                           {half && (
                                             <path
                                               d={`M ${cx} 2 A 5 5 0 0 0 ${cx} 12 Z`}
-                                              fill="#8f131b"
+                                              fill={dotColor}
                                             />
                                           )}
                                         </g>
@@ -6880,6 +8308,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Technical Skills (2-Column ModernCV)'
                       : isInternshipResumeTemplate
                       ? 'Technical & Domain Skills'
+                      : isEngineeringResumeTemplate
+                      ? 'Skills & Interests'
+                      : isCreativeProfessionalTemplate
+                      ? 'Categorized Skills (SKILLS)'
                       : 'Skills by Category'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -6889,6 +8321,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Paired 2-column categories (rendered cleanly with right-aligned category labels and comma-separated skills, zero bars or charts).'
                       : isInternshipResumeTemplate
                       ? 'Add your verified skills. 5-dot proficiency indicators remain hidden by default unless you manually select a 1–5 rating.'
+                      : isEngineeringResumeTemplate
+                      ? 'Clean text-only categorized technical skills and Interests rendered under SKILLS AND INTERESTS (zero progress bars or rating dots).'
+                      : isCreativeProfessionalTemplate
+                      ? 'Grouped detailed skills rendered under SKILLS on the left column (Technical, Creative, Professional, or custom categories) with optional description & organization.'
                       : 'Organize skills into research foundations, programming, tools, and platforms.'}
                   </p>
                 </div>
@@ -6902,6 +8338,197 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </button>
               </div>
 
+              {isCreativeProfessionalTemplate && (
+                <div className="mb-6 pb-6 border-b border-slate-200 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-blue-900">
+                        Detailed Categorized Skill Entries (Primary Creative Skills Block)
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        Each entry displays its title in bold with optional organization/venue and concise description under its category heading.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next: CreativeSkillDetailItem = {
+                          id: `csk_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                          category: 'Technical',
+                          name: '',
+                          description: '',
+                          organization: '',
+                        };
+                        updateField('creativeSkillItems', [...(resume.creativeSkillItems || []), next]);
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded shadow-xs cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Detailed Skill</span>
+                    </button>
+                  </div>
+
+                  {(!resume.creativeSkillItems || resume.creativeSkillItems.length === 0) ? (
+                    <div className="p-4 text-center border border-dashed border-blue-200 rounded-lg bg-blue-50/30 text-xs text-slate-600">
+                      No detailed skill items yet — add items above or use standard categorized skill lists below (automatic fallback).
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {resume.creativeSkillItems.map((item, idx) => (
+                        <div
+                          key={item.id}
+                          className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/60 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold uppercase text-slate-600">
+                              Skill Item #{idx + 1}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveArrayItem('creativeSkillItems', idx, -1)}
+                                disabled={idx === 0}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                                title="Move up"
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveArrayItem('creativeSkillItems', idx, 1)}
+                                disabled={idx === (resume.creativeSkillItems?.length || 1) - 1}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                                title="Move down"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateField(
+                                    'creativeSkillItems',
+                                    (resume.creativeSkillItems || []).filter((x) => x.id !== item.id)
+                                  )
+                                }
+                                className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                                title="Remove skill item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Category
+                              </label>
+                              <input
+                                type="text"
+                                value={item.category}
+                                onChange={(e) =>
+                                  updateField(
+                                    'creativeSkillItems',
+                                    (resume.creativeSkillItems || []).map((x) =>
+                                      x.id === item.id ? { ...x, category: e.target.value } : x
+                                    )
+                                  )
+                                }
+                                placeholder="Technical / Creative / Professional"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Skill / Tool Name *
+                              </label>
+                              <input
+                                type="text"
+                                value={item.name}
+                                onChange={(e) =>
+                                  updateField(
+                                    'creativeSkillItems',
+                                    (resume.creativeSkillItems || []).map((x) =>
+                                      x.id === item.id ? { ...x, name: e.target.value } : x
+                                    )
+                                  )
+                                }
+                                placeholder="e.g. TypeScript, React & Next.js"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Organization / Context (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={item.organization || ''}
+                                onChange={(e) =>
+                                  updateField(
+                                    'creativeSkillItems',
+                                    (resume.creativeSkillItems || []).map((x) =>
+                                      x.id === item.id ? { ...x, organization: e.target.value } : x
+                                    )
+                                  )
+                                }
+                                placeholder="e.g. NordicFlow Cloud"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="block text-[11px] font-semibold text-slate-700">
+                                Concise Description (Optional)
+                              </label>
+                              {item.description?.trim() && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenImprove(
+                                      item.description || '',
+                                      'skills',
+                                      `Creative skill item: ${item.name}`,
+                                      (improved) =>
+                                        updateField(
+                                          'creativeSkillItems',
+                                          (resume.creativeSkillItems || []).map((x) =>
+                                            x.id === item.id ? { ...x, description: improved } : x
+                                          )
+                                        )
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>AI Improve</span>
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              value={item.description || ''}
+                              onChange={(e) =>
+                                updateField(
+                                  'creativeSkillItems',
+                                  (resume.creativeSkillItems || []).map((x) =>
+                                    x.id === item.id ? { ...x, description: e.target.value } : x
+                                  )
+                                )
+                              }
+                              placeholder="e.g. Strict type modeling, SSR streaming, accessible component APIs."
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-1.5 mb-4 text-xs">
                 <span className="text-slate-500 font-medium mr-1">Quick Categories:</span>
                 {(isClassicTemplate
@@ -6914,6 +8541,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       'Security Tools',
                       'Cloud Platforms',
                       'Other Technologies',
+                    ]
+                  : isCreativeProfessionalTemplate
+                  ? [
+                      'Technical',
+                      'Creative',
+                      'Professional',
+                      'Domain Expertise',
+                      'National / International',
                     ]
                   : isModernCorporateTemplate
                   ? [
@@ -6936,6 +8571,20 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     : resume.internshipTrack === 'non-technical'
                     ? ['Analysis & Strategy', 'Communication & Research', 'Productivity Tools', 'Operations']
                     : ['Programming Languages', 'Frameworks & Backend', 'Databases & Cloud', 'Developer Tools']
+                  : isEngineeringResumeTemplate
+                  ? resume.engineeringBranch === 'cse-it'
+                    ? ['Programming Languages', 'Frameworks & Backend', 'Databases & Cloud', 'Developer Tools']
+                    : resume.engineeringBranch === 'ece'
+                    ? ['Embedded Systems & HDL', 'EDA & Simulation Tools', 'Communication & Hardware', 'Programming Languages']
+                    : resume.engineeringBranch === 'ee'
+                    ? ['Power & Control Tools', 'Industrial Automation', 'Hardware & Instrumentation', 'Programming & Scripting']
+                    : resume.engineeringBranch === 'civil'
+                    ? ['Structural & CAD Software', 'BIM & Project Management', 'Field & Material Testing', 'Technical Standards']
+                    : resume.engineeringBranch === 'chemical'
+                    ? ['Process Simulation', 'Core Chemical Domains', 'Lab & Analytical Tools', 'Programming & Data']
+                    : resume.engineeringBranch === 'other'
+                    ? ['Core Engineering Tools', 'Simulation & Analysis', 'Programming Languages', 'Lab & Instrumentation']
+                    : ['CAD & Modeling', 'Analysis & Simulation', 'Manufacturing & Lab', 'Programming & Scripting']
                   : isFresherResumeTemplate
                   ? resume.fresherTrack === 'cybersecurity'
                     ? ['Security & Defense Tools', 'Networking & Protocols', 'Scripting & OS', 'Compliance & Forensics']
@@ -7051,6 +8700,691 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   </div>
                 ))}
               </div>
+
+              {isEngineeringResumeTemplate && (
+                <div className="mt-6 pt-5 border-t border-slate-200 space-y-2">
+                  <label
+                    htmlFor="engineering-interests-input"
+                    className="block text-xs font-bold text-slate-900"
+                  >
+                    Technical &amp; Personal Interests (Rendered inside SKILLS AND INTERESTS)
+                  </label>
+                  <input
+                    id="engineering-interests-input"
+                    type="text"
+                    value={
+                      typeof resume.interests === 'string' && resume.interests.length > 0
+                        ? resume.interests
+                        : getEffectiveInterests(resume).text
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setResume((prev) => ({
+                        ...prev,
+                        interests: val,
+                        interestItems: val
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                          .map((name, idx) => ({
+                            id: `int_${idx}`,
+                            name,
+                            description: '',
+                          })),
+                        updatedAt: new Date().toISOString(),
+                      }));
+                    }}
+                    placeholder="e.g. Electric Powertrains, Robotics Prototyping, Additive Manufacturing, Chess"
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Comma-separated interests displayed cleanly as an &ldquo;Interests:&rdquo; row at the bottom of SKILLS AND INTERESTS. Leave empty to omit.
+                  </p>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 7-creative-circles. Dynamic Circular Proficiencies (Template 12) */}
+          {activeSection === 'proficiency-circles' && (
+            <section aria-labelledby="section-proficiency-circles-title">
+              <div className="border-b border-slate-200 pb-3 mb-5 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 id="section-proficiency-circles-title" className="text-lg font-bold text-slate-900">
+                    {getCreativeProficiencyHeading(resume)}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Circular progress rings (0–100%). Heading automatically adapts to your Creative Profession or can be customized below.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: CreativeCircularProficiencyItem = {
+                      id: `circ_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                      name: '',
+                      shortLabel: '',
+                      description: '',
+                      percentage: 0,
+                    };
+                    setResume((prev) => ({
+                      ...prev,
+                      circularProficiencies: [...(prev.circularProficiencies || []), next],
+                      updatedAt: new Date().toISOString(),
+                    }));
+                  }}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Add Circular Skill</span>
+                </button>
+              </div>
+
+              <div className="mb-5 p-3.5 rounded-lg border border-slate-200 bg-slate-50/70">
+                <label
+                  htmlFor="creative-proficiency-heading-override"
+                  className="block text-[11px] font-semibold text-slate-700 mb-1"
+                >
+                  Custom Section Heading Override (Optional — leave blank for &ldquo;{getCreativeProficiencyHeading({ ...resume, proficiencyHeadingOverride: '' })}&rdquo;)
+                </label>
+                <input
+                  id="creative-proficiency-heading-override"
+                  type="text"
+                  value={resume.proficiencyHeadingOverride || ''}
+                  onChange={(e) => updateField('proficiencyHeadingOverride', e.target.value)}
+                  placeholder="e.g. PROGRAMMING PROFICIENCY, CREATIVE TOOLS, SECURITY TOOLS"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </div>
+
+              {(!resume.circularProficiencies || resume.circularProficiencies.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg space-y-2">
+                  <p className="text-xs text-slate-500">
+                    No circular proficiencies added yet. Add skills with your self-assessed 0–100% rating, or leave empty to omit.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next: CreativeCircularProficiencyItem = {
+                        id: `circ_${Date.now()}`,
+                        name: '',
+                        shortLabel: '',
+                        description: '',
+                        percentage: 0,
+                      };
+                      updateField('circularProficiencies', [next]);
+                    }}
+                    className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  >
+                    + Add first circular proficiency
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {resume.circularProficiencies.map((item, idx) => {
+                    const pct = Math.max(0, Math.min(100, Number(item.percentage) || 0));
+                    const r = 18;
+                    const c = 2 * Math.PI * r;
+                    const offset = c - (pct / 100) * c;
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <svg width="46" height="46" viewBox="0 0 46 46" className="shrink-0" aria-hidden="true">
+                              <circle
+                                cx="23"
+                                cy="23"
+                                r={r}
+                                fill="none"
+                                stroke="#e2e8f0"
+                                strokeWidth="3.5"
+                              />
+                              <circle
+                                cx="23"
+                                cy="23"
+                                r={r}
+                                fill="none"
+                                stroke="#1d4ed8"
+                                strokeWidth="3.5"
+                                strokeLinecap="round"
+                                strokeDasharray={c}
+                                strokeDashoffset={offset}
+                                transform="rotate(-90 23 23)"
+                              />
+                              <text
+                                x="23"
+                                y="26"
+                                textAnchor="middle"
+                                fontSize="9.5"
+                                fontWeight="700"
+                                fill="#111827"
+                              >
+                                {(item.shortLabel || item.name || 'SK').slice(0, 5).toUpperCase()}
+                              </text>
+                            </svg>
+                            <div>
+                              <span className="text-[11px] font-bold uppercase text-slate-600">
+                                Ring #{idx + 1} · {pct}%
+                              </span>
+                              <div className="text-xs font-semibold text-slate-900">
+                                {item.name || 'Untitled Skill'}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => moveArrayItem('circularProficiencies', idx, -1)}
+                              disabled={idx === 0}
+                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                              title="Move up"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveArrayItem('circularProficiencies', idx, 1)}
+                              disabled={idx === (resume.circularProficiencies?.length || 1) - 1}
+                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                              title="Move down"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateField(
+                                  'circularProficiencies',
+                                  (resume.circularProficiencies || []).filter((x) => x.id !== item.id)
+                                )
+                              }
+                              className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                              title="Remove circular proficiency"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                          <div className="sm:col-span-4">
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                              Skill / Tool Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={(e) =>
+                                updateField(
+                                  'circularProficiencies',
+                                  (resume.circularProficiencies || []).map((x) =>
+                                    x.id === item.id ? { ...x, name: e.target.value } : x
+                                  )
+                                )
+                              }
+                              placeholder="e.g. TypeScript, Figma, Burp Suite"
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                              Ring Label (max 5)
+                            </label>
+                            <input
+                              type="text"
+                              maxLength={5}
+                              value={item.shortLabel}
+                              onChange={(e) =>
+                                updateField(
+                                  'circularProficiencies',
+                                  (resume.circularProficiencies || []).map((x) =>
+                                    x.id === item.id ? { ...x, shortLabel: e.target.value } : x
+                                  )
+                                )
+                              }
+                              placeholder="e.g. TS, UX"
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs uppercase bg-white"
+                            />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                              Short Subtitle / Description (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={item.description || ''}
+                              onChange={(e) =>
+                                updateField(
+                                  'circularProficiencies',
+                                  (resume.circularProficiencies || []).map((x) =>
+                                    x.id === item.id ? { ...x, description: e.target.value } : x
+                                  )
+                                )
+                              }
+                              placeholder="e.g. Strict APIs & state machines"
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 pt-1">
+                          <label
+                            htmlFor={`circ-range-${item.id}`}
+                            className="text-[11px] font-semibold text-slate-700 shrink-0"
+                          >
+                            Proficiency %:
+                          </label>
+                          <input
+                            id={`circ-range-${item.id}`}
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={pct}
+                            onChange={(e) => {
+                              const nextPct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                              updateField(
+                                'circularProficiencies',
+                                (resume.circularProficiencies || []).map((x) =>
+                                  x.id === item.id ? { ...x, percentage: nextPct } : x
+                                )
+                              );
+                            }}
+                            className="flex-1 min-w-[140px] accent-blue-700 cursor-pointer"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            aria-label={`${item.name || 'Circular skill'} percentage`}
+                            value={pct}
+                            onChange={(e) => {
+                              const nextPct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                              updateField(
+                                'circularProficiencies',
+                                (resume.circularProficiencies || []).map((x) =>
+                                  x.id === item.id ? { ...x, percentage: nextPct } : x
+                                )
+                              );
+                            }}
+                            className="w-16 px-2 py-1 border border-slate-300 rounded text-xs font-bold text-center bg-white"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 7-creative-bars. Horizontal Skill Bars (Template 12 Right Column) */}
+          {activeSection === 'skill-bars' && (
+            <section aria-labelledby="section-skill-bars-title">
+              <div className="border-b border-slate-200 pb-3 mb-5 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 id="section-skill-bars-title" className="text-lg font-bold text-slate-900">
+                    Skills &amp; Proficiency Bars
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Right-column horizontal blue progress bars (0–100%). Add technical, creative, or leadership skills and set your own ratings.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: CreativeSkillBarItem = {
+                      id: `bar_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                      name: '',
+                      percentage: 0,
+                    };
+                    setResume((prev) => ({
+                      ...prev,
+                      creativeSkillBars: [...(prev.creativeSkillBars || []), next],
+                      updatedAt: new Date().toISOString(),
+                    }));
+                  }}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Add Skill Bar</span>
+                </button>
+              </div>
+
+              {(!resume.creativeSkillBars || resume.creativeSkillBars.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg space-y-2">
+                  <p className="text-xs text-slate-500">
+                    No skill bars added yet. Click &ldquo;Add Skill Bar&rdquo; above or leave empty to hide this block.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next: CreativeSkillBarItem = {
+                        id: `bar_${Date.now()}`,
+                        name: '',
+                        percentage: 0,
+                      };
+                      updateField('creativeSkillBars', [next]);
+                    }}
+                    className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  >
+                    + Add first skill bar
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {resume.creativeSkillBars.map((bar, idx) => {
+                    const pct = Math.max(0, Math.min(100, Number(bar.percentage) || 0));
+                    return (
+                      <div
+                        key={bar.id}
+                        className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase text-slate-600">
+                            Skill Bar #{idx + 1} · {pct}%
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => moveArrayItem('creativeSkillBars', idx, -1)}
+                              disabled={idx === 0}
+                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                              title="Move up"
+                            >
+                              <ChevronUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveArrayItem('creativeSkillBars', idx, 1)}
+                              disabled={idx === (resume.creativeSkillBars?.length || 1) - 1}
+                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                              title="Move down"
+                            >
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateField(
+                                  'creativeSkillBars',
+                                  (resume.creativeSkillBars || []).filter((x) => x.id !== bar.id)
+                                )
+                              }
+                              className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                              title="Remove skill bar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                          <div className="sm:col-span-5">
+                            <input
+                              type="text"
+                              value={bar.name}
+                              onChange={(e) =>
+                                updateField(
+                                  'creativeSkillBars',
+                                  (resume.creativeSkillBars || []).map((x) =>
+                                    x.id === bar.id ? { ...x, name: e.target.value } : x
+                                  )
+                                )
+                              }
+                              placeholder="e.g. System Architecture, Design Systems, Threat Modeling"
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-semibold bg-white"
+                            />
+                          </div>
+                          <div className="sm:col-span-5 flex items-center gap-2">
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              aria-label={`${bar.name || 'Skill bar'} slider`}
+                              value={pct}
+                              onChange={(e) => {
+                                const nextPct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                updateField(
+                                  'creativeSkillBars',
+                                  (resume.creativeSkillBars || []).map((x) =>
+                                    x.id === bar.id ? { ...x, percentage: nextPct } : x
+                                  )
+                                );
+                              }}
+                              className="flex-1 accent-blue-700 cursor-pointer"
+                            />
+                          </div>
+                          <div className="sm:col-span-2 flex items-center gap-1 justify-end">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              aria-label={`${bar.name || 'Skill bar'} percentage`}
+                              value={pct}
+                              onChange={(e) => {
+                                const nextPct = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                updateField(
+                                  'creativeSkillBars',
+                                  (resume.creativeSkillBars || []).map((x) =>
+                                    x.id === bar.id ? { ...x, percentage: nextPct } : x
+                                  )
+                                );
+                              }}
+                              className="w-16 px-2 py-1 border border-slate-300 rounded text-xs font-bold text-center bg-white"
+                            />
+                            <span className="text-xs font-semibold text-slate-500">%</span>
+                          </div>
+                        </div>
+
+                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-700 transition-all duration-150"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 7-creative-comm. Communication Skills (Template 12 Left Column Optional) */}
+          {activeSection === 'communication' && (
+            <section aria-labelledby="section-communication-title">
+              <div className="border-b border-slate-200 pb-3 mb-5 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 id="section-communication-title" className="text-lg font-bold text-slate-900">
+                    Communication Skills (Optional)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Highlight presentations, technical writing, cross-functional collaboration, or stakeholder communication. Leave empty to omit cleanly.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: CreativeCommunicationSkillItem = {
+                      id: `comm_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+                      skill: '',
+                      proficiency: '',
+                      context: '',
+                    };
+                    setResume((prev) => ({
+                      ...prev,
+                      communicationSkills: [...(prev.communicationSkills || []), next],
+                      updatedAt: new Date().toISOString(),
+                    }));
+                  }}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 rounded shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Add Communication Skill</span>
+                </button>
+              </div>
+
+              {(!resume.communicationSkills || resume.communicationSkills.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg space-y-2">
+                  <p className="text-xs text-slate-500">
+                    No communication skills added yet. Optional — add entries above or leave empty to omit this section.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next: CreativeCommunicationSkillItem = {
+                        id: `comm_${Date.now()}`,
+                        skill: '',
+                        proficiency: '',
+                        context: '',
+                      };
+                      updateField('communicationSkills', [next]);
+                    }}
+                    className="text-xs font-bold text-blue-700 hover:underline cursor-pointer"
+                  >
+                    + Add first communication skill
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {resume.communicationSkills.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold uppercase text-slate-600">
+                          Communication #{idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveArrayItem('communicationSkills', idx, -1)}
+                            disabled={idx === 0}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveArrayItem('communicationSkills', idx, 1)}
+                            disabled={idx === (resume.communicationSkills?.length || 1) - 1}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateField(
+                                'communicationSkills',
+                                (resume.communicationSkills || []).filter((x) => x.id !== item.id)
+                              )
+                            }
+                            className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            title="Remove communication skill"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            Communication Skill *
+                          </label>
+                          <input
+                            type="text"
+                            value={item.skill}
+                            onChange={(e) =>
+                              updateField(
+                                'communicationSkills',
+                                (resume.communicationSkills || []).map((x) =>
+                                  x.id === item.id ? { ...x, skill: e.target.value } : x
+                                )
+                              )
+                            }
+                            placeholder="e.g. Executive Presentations, Technical Writing"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-semibold bg-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            Level / Context Label (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={item.proficiency || ''}
+                            onChange={(e) =>
+                              updateField(
+                                'communicationSkills',
+                                (resume.communicationSkills || []).map((x) =>
+                                  x.id === item.id ? { ...x, proficiency: e.target.value } : x
+                                )
+                              )
+                            }
+                            placeholder="e.g. Advanced, Conference Speaker"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <label className="block text-[11px] font-semibold text-slate-700">
+                            Supporting Detail (Optional)
+                          </label>
+                          {item.context?.trim() && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenImprove(
+                                  item.context || '',
+                                  'communication',
+                                  `Communication skill: ${item.skill}`,
+                                  (improved) =>
+                                    setResume((prev) => ({
+                                      ...prev,
+                                      communicationSkills: (prev.communicationSkills || []).map((x) =>
+                                        x.id === item.id ? { ...x, context: improved } : x
+                                      ),
+                                      updatedAt: new Date().toISOString(),
+                                    }))
+                                )
+                              }
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              <span>AI Improve</span>
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={item.context || ''}
+                          onChange={(e) =>
+                            updateField(
+                              'communicationSkills',
+                              (resume.communicationSkills || []).map((x) =>
+                                x.id === item.id ? { ...x, context: e.target.value } : x
+                              )
+                            )
+                          }
+                          placeholder="e.g. Delivered quarterly architecture reviews to 40+ engineering stakeholders."
+                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
@@ -7528,10 +9862,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-custom-title" className="text-lg font-bold text-slate-900">
-                    Additional Information &amp; Custom Sections
+                    {isCreativeProfessionalTemplate
+                      ? 'Projects & Additional Sections'
+                      : 'Additional Information & Custom Sections'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Create custom sections (Certifications, Awards, Volunteer Work, Workshops, Publications, etc.).
+                    {isCreativeProfessionalTemplate
+                      ? 'Add custom sections or jump directly to Projects, Leadership, Volunteer, or Memberships.'
+                      : 'Create custom sections (Certifications, Awards, Volunteer Work, Workshops, Publications, etc.).'}
                   </p>
                 </div>
                 <button
@@ -7543,6 +9881,29 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <span>Add Section</span>
                 </button>
               </div>
+
+              {isCreativeProfessionalTemplate && (
+                <div className="mb-5 p-3.5 rounded-lg border border-blue-200 bg-blue-50/40 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-slate-700">Optional Overflow Sections:</span>
+                  {(
+                    [
+                      { id: 'projects', label: 'Projects', count: resume.projects?.length || 0 },
+                      { id: 'leadership', label: 'Leadership', count: resume.leadership?.length || 0 },
+                      { id: 'volunteer', label: 'Volunteer', count: resume.volunteer?.length || 0 },
+                      { id: 'memberships', label: 'Memberships', count: resume.memberships?.length || 0 },
+                    ] as { id: EditorSectionId; label: string; count: number }[]
+                  ).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActiveSection(item.id)}
+                      className="px-2.5 py-1 rounded border border-blue-200 bg-white hover:bg-blue-50 text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Edit {item.label} ({item.count})
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-1.5 mb-4 text-xs">
                 <span className="text-slate-500 font-medium mr-1">Quick Presets:</span>
@@ -7632,10 +9993,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </div>
               )}
 
-              {isInternshipResumeTemplate && (
+              {(isInternshipResumeTemplate || isEngineeringResumeTemplate) && (
                 <div className="mt-7 pt-6 border-t border-slate-200 space-y-6">
-                  {/* Optional Certifications Manager */}
-                  <div className="space-y-3">
+                  {isInternshipResumeTemplate && (
+                    /* Optional Certifications Manager (Engineering manages Certifications in Step 8 Extra-Curriculars) */
+                    <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">
@@ -7697,6 +10059,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Optional Languages Manager */}
                   <div className="space-y-3 pt-4 border-t border-slate-200">
@@ -7760,12 +10123,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     )}
                   </div>
 
-                  {/* Step 10 Final Review & Preview Summary */}
+                  {/* Step 9/10 Final Review & Preview Summary */}
                   <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <h3 className="text-sm font-bold text-slate-900">
-                          Step 10 Review &amp; Generate Internship CV
+                          {isEngineeringResumeTemplate
+                            ? 'Step 9 Review & Generate Engineering PDF'
+                            : 'Step 10 Review & Generate Internship CV'}
                         </h3>
                         <p className="text-xs text-slate-600">
                           Overall readiness: <strong>{completenessReport.overallScore}%</strong>. Empty optional sections will be cleanly omitted from your preview and PDF.
@@ -7773,7 +10138,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       </div>
                       <button
                         type="button"
-                        onClick={() => onPreview(resume)}
+                        onClick={handlePreviewClick}
                         className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer shrink-0"
                       >
                         <Eye className="w-3.5 h-3.5 mr-1.5" />
@@ -7787,8 +10152,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <p className="text-[11px] text-slate-500 mt-4">
                 {isHarvardTemplate
                   ? 'Note: Any Awards & Honors, Selected Projects, Certifications, Publications, Volunteer Service, or Memberships stored on your resume also render automatically under Additional Information (hidden cleanly if empty).'
-                  : isInternshipResumeTemplate
-                  ? 'Note: All entries across Templates 1–10 share the same resume record cleanly—switching templates preserves your saved data.'
+                  : isInternshipResumeTemplate || isEngineeringResumeTemplate
+                  ? 'Note: All entries across Templates 1–11 share the same resume record cleanly—switching templates preserves your saved data.'
                   : "Note: Any Projects, Publications, Awards, Certifications, or Leadership data entered in Academic CV or Jake's Resume stays preserved and also renders cleanly in Preview/PDF."}
               </p>
             </section>
@@ -7806,6 +10171,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Achievements'
                       : isInternshipResumeTemplate
                       ? 'Co-Curricular & Events (Optional)'
+                      : isEngineeringResumeTemplate
+                      ? 'Extra-Curricular Activities (Optional)'
                       : 'Honors & Awards'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -7815,13 +10182,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Hackathon wins, engineering awards, or scholarships shown under ADDITIONAL → Achievements. Optional.'
                       : isInternshipResumeTemplate
                       ? 'Hackathons, competitions, clubs, student chapters, volunteer events, or scholarships shown under CO-CURRICULAR/ EVENTS.'
+                      : isEngineeringResumeTemplate
+                      ? 'Technical symposiums, competitions, hackathons, volunteer outreach (NSS), and engineering certifications shown under EXTRA-CURRICULAR ACTIVITIES.'
                       : 'Fellowships, best paper awards, teaching recognition, and academic honors.'}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={addAward}
-                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs"
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   <span>
@@ -7831,6 +10200,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Add Achievement'
                       : isInternshipResumeTemplate
                       ? 'Add Co-Curricular Event'
+                      : isEngineeringResumeTemplate
+                      ? 'Add Activity'
                       : 'Add Award'}
                   </span>
                 </button>
@@ -7981,7 +10352,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </>
                         )}
 
-                        {(isFresherResumeTemplate || isInternshipResumeTemplate) && (
+                        {(isFresherResumeTemplate ||
+                          isInternshipResumeTemplate ||
+                          isEngineeringResumeTemplate) && (
                           <>
                             <div>
                               <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
@@ -8010,7 +10383,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </>
                         )}
 
-                        {isInternshipResumeTemplate && (
+                        {(isInternshipResumeTemplate || isEngineeringResumeTemplate) && (
                           <>
                             <div>
                               <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
@@ -8124,6 +10497,153 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   ))}
                 </div>
               )}
+
+              {isEngineeringResumeTemplate && (
+                <div className="mt-7 pt-6 border-t border-slate-200 space-y-6">
+                  {/* Optional Volunteer Service (NSS / Community) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Volunteer Service / NSS Outreach (Optional)
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          Displayed neatly inside EXTRA-CURRICULAR ACTIVITIES. Leave empty to omit.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addVolunteer}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        <span>Add Volunteer Role</span>
+                      </button>
+                    </div>
+                    {(resume.volunteer || []).length > 0 && (
+                      <div className="space-y-2.5">
+                        {(resume.volunteer || []).map((vol) => (
+                          <div
+                            key={vol.id}
+                            className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                          >
+                            <input
+                              type="text"
+                              value={vol.role}
+                              onChange={(e) => updateVolunteer(vol.id, { role: e.target.value })}
+                              placeholder="Role (e.g. NSS Student Volunteer)"
+                              className="sm:col-span-4 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white font-semibold"
+                            />
+                            <input
+                              type="text"
+                              value={vol.organization}
+                              onChange={(e) =>
+                                updateVolunteer(vol.id, { organization: e.target.value })
+                              }
+                              placeholder="Organization (e.g. National Service Scheme)"
+                              className="sm:col-span-4 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <input
+                              type="text"
+                              value={vol.startDate || ''}
+                              onChange={(e) =>
+                                updateVolunteer(vol.id, { startDate: e.target.value })
+                              }
+                              placeholder="Dates (e.g. 2023 – 2024)"
+                              className="sm:col-span-3 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => deleteVolunteer(vol.id)}
+                              className="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 rounded justify-self-end cursor-pointer"
+                              title="Delete volunteer entry"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                            <div className="sm:col-span-12">
+                              <input
+                                type="text"
+                                value={(vol.highlights || []).join(', ')}
+                                onChange={(e) =>
+                                  updateVolunteer(vol.id, { highlights: [e.target.value] })
+                                }
+                                placeholder="Key contribution (e.g. Conducted STEM workshops for 120 rural high-school students)"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Optional Engineering Certifications */}
+                  <div className="space-y-3 pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Verified Certifications (Optional)
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          Shown inside EXTRA-CURRICULAR ACTIVITIES (e.g. CSWA, AWS, NPTEL). Leave empty to omit.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addCertification}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        <span>Add Certification</span>
+                      </button>
+                    </div>
+                    {(resume.certifications || []).length > 0 && (
+                      <div className="space-y-2.5">
+                        {(resume.certifications || []).map((cert) => (
+                          <div
+                            key={cert.id}
+                            className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                          >
+                            <input
+                              type="text"
+                              value={cert.name}
+                              onChange={(e) => updateCertification(cert.id, { name: e.target.value })}
+                              placeholder="Certificate Name (e.g. Certified SOLIDWORKS Associate)"
+                              className="sm:col-span-5 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white font-semibold"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issuer}
+                              onChange={(e) =>
+                                updateCertification(cert.id, { issuer: e.target.value })
+                              }
+                              placeholder="Issuer (e.g. Dassault Systemes / NPTEL)"
+                              className="sm:col-span-4 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issueDate}
+                              onChange={(e) =>
+                                updateCertification(cert.id, { issueDate: e.target.value })
+                              }
+                              placeholder="Date"
+                              className="sm:col-span-2 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => deleteCertification(cert.id)}
+                              className="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 rounded justify-self-end cursor-pointer"
+                              title="Delete certification"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
@@ -8135,6 +10655,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <h2 id="section-lead-title" className="text-lg font-bold text-slate-900">
                     {isSoftwareDevTemplate || isHarvardTemplate
                       ? 'Leadership and Activities'
+                      : isEngineeringResumeTemplate
+                      ? 'Position of Responsibility (Optional)'
                       : 'Leadership Experience'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -8142,16 +10664,18 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Engineering clubs, hackathon organizing, mentoring, or open-source governance under ADDITIONAL.'
                       : isHarvardTemplate
                       ? 'Student organizations, volunteer leadership, varsity athletics, and community committees.'
+                      : isEngineeringResumeTemplate
+                      ? 'Student club coordinator, SAE/IEEE student chapter lead, placement representative, or fest organizer roles.'
                       : 'Conference organization, lab management, student association presidencies.'}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={addLeadership}
-                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs"
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
-                  <span>Add Leadership</span>
+                  <span>{isEngineeringResumeTemplate ? 'Add Role' : 'Add Leadership'}</span>
                 </button>
               </div>
 
@@ -8573,20 +11097,33 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-cert-title" className="text-lg font-bold text-slate-900">
-                    Certifications
+                    {isCreativeProfessionalTemplate ? 'Certificates & Grants' : 'Certifications'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Professional credentials, licenses, and verified certifications.
+                    {isCreativeProfessionalTemplate
+                      ? 'Professional credentials, licenses, grants, fellowships, and awards rendered in CERTIFICATES & GRANTS.'
+                      : 'Professional credentials, licenses, and verified certifications.'}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={addCertification}
-                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  <span>Add Certificate</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {isCreativeProfessionalTemplate && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection('awards')}
+                      className="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded cursor-pointer"
+                    >
+                      <span>Manage Grants / Awards ({resume.achievements?.length || 0})</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={addCertification}
+                    className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    <span>Add Certificate</span>
+                  </button>
+                </div>
               </div>
 
               {(!resume.certifications || resume.certifications.length === 0) ? (
@@ -9071,7 +11608,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 if (idx >= 0 && idx < navSections.length - 1) {
                   setActiveSection(navSections[idx + 1].id);
                 } else {
-                  onPreview(resume);
+                  void handlePreviewClick();
                 }
               }}
               className="inline-flex items-center px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs transition-colors cursor-pointer"
@@ -9105,8 +11642,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         currentResume={resume}
         onApplyUpdates={(updated) => {
           setResume(updated);
-          saveResume(resume.userId, updated);
-          onSave(updated);
+          void enqueueSave(updated, { force: true });
         }}
       />
 
@@ -9116,8 +11652,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         onClose={() => setIsUploadOpen(false)}
         onExtracted={(extracted) => {
           setResume(extracted);
-          saveResume(resume.userId, extracted);
-          onSave(extracted);
+          void enqueueSave(extracted, { force: true });
         }}
         userId={resume.userId}
       />
@@ -9128,7 +11663,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         onClose={() => setIsCompletenessOpen(false)}
         report={completenessReport}
         templateName={activeTemplate.name}
-        onPreview={() => onPreview(resume)}
+        onPreview={handlePreviewClick}
         onNavigateToSection={(secId) => {
           setActiveSection(sectionReportToEditorId(secId));
         }}

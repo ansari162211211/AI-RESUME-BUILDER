@@ -157,6 +157,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
     const isModernCorporateTemplate = template === 'modern-corporate';
     const isFresherResumeTemplate = template === 'fresher-resume';
     const isInternshipResumeTemplate = template === 'internship-resume';
+    const isEngineeringResumeTemplate = template === 'engineering-resume';
+    const isCreativeProfessionalTemplate = template === 'creative-professional';
     const roleLabel = isJakesTemplate
       ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
       : isSoftwareDevTemplate
@@ -171,6 +173,10 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'university career advisor & Overleaf fresher resume editor (students, fresh graduates, and entry-level ATS specialist)'
       : isInternshipResumeTemplate
       ? 'university internship & research career advisor (concise student & entry-level internship resume editor)'
+      : isEngineeringResumeTemplate
+      ? 'senior engineering technical hiring advisor (B.E./B.Tech/M.Tech engineering resume specialist across Mechanical, CSE/IT, ECE, EE, Civil, and Chemical branches)'
+      : isCreativeProfessionalTemplate
+      ? 'senior creative, editorial, and technical portfolio CV editor (modern two-column Creative Professional resume specialist)'
       : isClassicTemplate
       ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
       : isTwoColumnTemplate
@@ -190,6 +196,10 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'Fresher Resume (Overleaf Students & Fresh Graduates ATS Resume)'
       : isInternshipResumeTemplate
       ? 'Internship Resume (Two-Column Student & Internship Application CV)'
+      : isEngineeringResumeTemplate
+      ? 'Engineering Resume (Monochrome Single-Column B.E./B.Tech/M.Tech ATS Resume)'
+      : isCreativeProfessionalTemplate
+      ? 'Creative Professional Two-Column Editorial Resume'
       : isClassicTemplate
       ? 'Classic Professional Multi-Page CV'
       : isTwoColumnTemplate
@@ -209,6 +219,10 @@ REQUIREMENTS:
 1. ${
       isJakesTemplate || isSoftwareDevTemplate
         ? 'Make each bullet crisp, high-impact, action-verb-led, and ATS-friendly (ideal 1-2 lines).'
+        : isCreativeProfessionalTemplate
+        ? 'Craft crisp, modern, scannable prose suited for a balanced 2-column editorial CV (short date-rail timeline entries, concise communication summaries, and authentic taglines without inflating facts or percentages).'
+        : isEngineeringResumeTemplate
+        ? 'Follow crisp technical engineering resume conventions: start bullets with strong engineering action verbs (Designed, Simulated, Fabricated, Architected, Modeled, Validated, Tested, Built), clearly state verified tools/software/standards when present, keep wording concise for a single-column monochrome ATS resume, and NEVER fabricate numbers, tolerances, speedup percentages, test results, or awards.'
         : isHarvardTemplate
         ? 'Follow Harvard resume bullet conventions: begin every bullet with a strong action verb, omit first-person pronouns ("I", "my"), describe concrete scope and results clearly, and maintain a formal, traditional single-column resume tone.'
         : isElegantSerifTemplate
@@ -278,6 +292,12 @@ Return a valid JSON object matching:
 /* ========================================================================== */
 app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({
+        error: 'GEMINI_API_KEY is not configured on the server.',
+      });
+    }
+
     const {
       conversationHistory = [],
       currentResume = {},
@@ -294,6 +314,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
     const isModernCorporateTemplate = currentResume?.template === 'modern-corporate';
     const isFresherResumeTemplate = currentResume?.template === 'fresher-resume';
     const isInternshipResumeTemplate = currentResume?.template === 'internship-resume';
+    const isEngineeringResumeTemplate = currentResume?.template === 'engineering-resume';
+    const isCreativeProfessionalTemplate = currentResume?.template === 'creative-professional';
     const advisorName = isJakesTemplate
       ? 'Technical Resume Advisor'
       : isSoftwareDevTemplate
@@ -308,6 +330,10 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Fresher Resume Advisor'
       : isInternshipResumeTemplate
       ? 'Internship Resume Advisor'
+      : isEngineeringResumeTemplate
+      ? 'Engineering Resume Advisor'
+      : isCreativeProfessionalTemplate
+      ? 'Creative Professional CV Advisor'
       : isClassicTemplate
       ? 'Classic Professional CV Advisor'
       : isTwoColumnTemplate
@@ -327,6 +353,10 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Fresher Resume (Overleaf Students & Graduates)'
       : isInternshipResumeTemplate
       ? 'Internship Resume (Two-Column Student Application CV)'
+      : isEngineeringResumeTemplate
+      ? 'Engineering Resume (Monochrome Technical ATS Resume)'
+      : isCreativeProfessionalTemplate
+      ? 'Creative Professional Resume (Editorial Two-Column CV)'
       : isClassicTemplate
       ? 'Classic Professional CV'
       : isTwoColumnTemplate
@@ -346,6 +376,10 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'fresher-resume'
       : isInternshipResumeTemplate
       ? 'internship-resume'
+      : isEngineeringResumeTemplate
+      ? 'engineering-resume'
+      : isCreativeProfessionalTemplate
+      ? 'creative-professional'
       : isClassicTemplate
       ? 'classic-professional'
       : isTwoColumnTemplate
@@ -362,6 +396,10 @@ ${JSON.stringify({
   targetBackground: currentResume.targetBackground,
   fresherTrack: currentResume.fresherTrack,
   internshipTrack: currentResume.internshipTrack,
+  engineeringBranch: currentResume.engineeringBranch,
+  customEngineeringBranch: currentResume.customEngineeringBranch,
+  creativeProfession: currentResume.creativeProfession,
+  customCreativeProfession: currentResume.customCreativeProfession,
   harvardLeadershipFirst: currentResume.harvardLeadershipFirst,
   personalInfo: currentResume.personalInfo,
   personalQuote: currentResume.personalQuote ? 'Present' : 'Empty',
@@ -386,6 +424,10 @@ ${JSON.stringify({
   dailyActivitiesCount: currentResume.dailyActivities?.length || 0,
   publicationsCount: currentResume.publications?.length || 0,
   skillsCategories: (currentResume.skills || []).map((s: any) => s.category),
+  creativeSkillsCount: currentResume.creativeSkillItems?.length || 0,
+  circularProficienciesCount: currentResume.circularProficiencies?.length || 0,
+  creativeSkillBarsCount: currentResume.creativeSkillBars?.length || 0,
+  communicationSkillsCount: currentResume.communicationSkills?.length || 0,
   labSkillsCount: currentResume.labSkills?.length || 0,
   skillMatrixCount: currentResume.skillMatrix?.length || 0,
   strengthsCount: currentResume.strengths?.length || 0,
@@ -404,6 +446,18 @@ ${JSON.stringify({
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
 2. Probe for DEPTH and specificity matching the active template:
+   - For Creative Professional ("creative-professional"): Ask ONE focused question at a time across: \`personalInfo\`, \`experience\` (SHORT RESUME), \`education\` (DEGREES), \`skills\` (SKILLS), \`proficiency-circles\` (Dynamic Circular Proficiency Heading), \`skill-bars\` (SKILLS & PROFICIENCY), \`communication\` (COMMUNICATION SKILLS), \`certifications\` (CERTIFICATES & GRANTS), \`languages\` (LANGUAGES), \`publications\` (TALKS & PUBLICATIONS), \`custom-sections\`. Detect \`creativeProfession\` early ('developer' | 'designer' | 'cybersecurity' | 'marketing' | 'researcher' | 'engineer' | 'other') and extract factual fields (\`creativeSkillItems\`, \`circularProficiencies\`, \`creativeSkillBars\`, \`communicationSkills\`, \`personalInfo.specialization\`, \`personalInfo.tagline\`, \`personalQuote\`). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent percentages (0-100) for \`circularProficiencies\` or \`creativeSkillBars\`, never invent quotes, metrics, or unconfirmed language levels! Only include percentage ratings if the user explicitly stated a number.
+   - For Engineering Resume ("engineering-resume"): Ask ONE focused question at a time across these 9 steps: \`personalInfo\`, \`objective\`, \`education\`, \`skills\`, \`projects\`, \`experience\`, \`leadership\`, \`achievements\`, \`custom-sections\`. Detect \`engineeringBranch\` early ('mechanical' | 'cse-it' | 'ece' | 'ee' | 'civil' | 'chemical' | 'other', plus optional \`customEngineeringBranch\`) and adapt terminology naturally (e.g., SolidWorks/ANSYS/GD&T for Mechanical, DSA/React/APIs for CSE/IT, Verilog/STM32/KiCad for ECE, MATLAB/ETAP/PLC for EE, AutoCAD/STAAD.Pro/ETABS for Civil, Aspen Plus/HYSYS for Chemical). Collect:
+     * Header (\`personalInfo\`: \`fullName\`, \`city\`, \`phone\`, \`email\`, \`linkedin\`, \`github\`, \`website\`, \`customLinks\` — zero photo).
+     * Career Objective (\`objective\`, concise 2–3 line engineering career statement).
+     * Education (\`education\`: degree/branch, institution, GPA/grade, graduation dates + optional \`highSchool\` items for Class 12 / Diploma / Class 10).
+     * Skills & Interests (\`skills\`: categorized skill rows \`[{ id, category, skills: string[] }]\` with zero rating bars or proficiency dots + optional \`interests\` string or \`interestItems\`).
+     * Projects (\`projects\`: title, \`projectType\`, \`domain\`, \`teamType\`, \`githubUrl\`/\`link\`, \`startDate\`, \`endDate\`, \`technologies\`, \`objective\`, \`methodology\`, \`designApproach\`, \`componentsMaterials\`, \`testingValidation\`, \`results\`, \`highlights\`).
+     * Internship / Trainings (\`experience\` with optional \`entryKind\` 'internship' | 'training' | 'workshop' | 'industrial-visit' + optional \`learningActivities\` — ALWAYS optional for freshers; accept skipping cleanly).
+     * Position of Responsibility (\`leadership\`: role, organization, dates, highlights — optional).
+     * Extra-Curricular Activities (\`achievements\`, \`volunteer\`, \`certifications\` — optional).
+     * Additional Info (\`languages\`, \`customSections\` — optional).
+     * NEVER fabricate CGPA, test results, rankings, tool proficiencies, or internships.
    - For Internship Resume ("internship-resume"): Ask ONE focused question at a time. Determine \`internshipTrack\` ('cs' | 'cybersecurity' | 'ece' | 'research' | 'non-technical') early based on the student's field. Collect:
      * Header (\`personalInfo\`: \`fullName\`, \`jobTitle\` target internship role, \`phone\`, \`email\`, \`linkedin\`, \`github\`, \`website\`, \`city\`, \`country\`) + optional short \`objective\` / \`internshipPreferences\` (\`targetRole\`, \`preferredIndustry\`, \`duration\`, \`workArrangement\`, \`availabilityDate\`, \`preferredTechnologies\`).
      * Education (\`education\` + optional \`highSchool\` items \`{ id, schoolName, board, location, graduationDate, percentage, gpa, coursework, honors }\`).
@@ -515,7 +569,79 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
     const isModernCorporateTemplate = resume?.template === 'modern-corporate';
     const isFresherResumeTemplate = resume?.template === 'fresher-resume';
     const isInternshipResumeTemplate = resume?.template === 'internship-resume';
-    const auditPrompt = isInternshipResumeTemplate
+    const isEngineeringResumeTemplate = resume?.template === 'engineering-resume';
+    const isCreativeProfessionalTemplate = resume?.template === 'creative-professional';
+    const auditPrompt = isCreativeProfessionalTemplate
+      ? `You are a senior creative, editorial, and technical hiring advisor reviewing a Creative Professional Two-Column CV.
+Analyze this Creative Professional Resume across its structured sections:
+(header, experience [Short Resume], education [Degrees], skills [Categorized Skills, Circular Proficiencies, Horizontal Skill Bars], communication [optional Communication Skills], certifications [optional Certificates & Grants], languages [optional Languages], publications [optional Talks & Publications], custom-sections [optional Projects, Leadership, Volunteer & Custom Sections]).
+
+CREATIVE PROFESSION: ${resume.creativeProfession || 'developer'}${resume.customCreativeProfession ? ` (${resume.customCreativeProfession})` : ''}
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'experience', 'education', 'skills', 'communication', 'certifications', 'languages', 'publications', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty optional sections ('communication', 'certifications', 'languages', 'publications', 'custom-sections').
+4. NEVER suggest inventing circular/bar percentage scores, fake metrics, unconfirmed quotes, or unconfirmed language levels.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isEngineeringResumeTemplate
+      ? `You are a senior engineering hiring manager and technical campus advisor reviewing an Engineering Resume.
+Analyze this Engineering Resume across its 9 structured sections:
+(header, objective, education, skills, projects, experience [Internship / Trainings — optional for freshers], leadership [Position of Responsibility — optional], awards [Extra-Curricular Activities — optional], custom-sections [Additional Info & Spoken Languages — optional]).
+
+ENGINEERING BRANCH: ${resume.engineeringBranch || 'mechanical'}${resume.customEngineeringBranch ? ` (${resume.customEngineeringBranch})` : ''}
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'objective', 'education', 'skills', 'projects', 'experience', 'leadership', 'awards', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty optional sections ('experience' for freshers without internships, 'leadership', 'awards', or 'custom-sections').
+4. NEVER suggest skill rating bars, proficiency dots, or fabricated tolerances/metrics/ranks/GPAs.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual engineering recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isInternshipResumeTemplate
       ? `You are a university internship & career advisor reviewing a Two-Column Internship Resume.
 Analyze this Internship Resume across its 10 guided steps:
 (header, education, learning [optional Learning Activities], interests [optional Personal/Subject Interests], research [Research Work & Academic Projects], career-interests [optional Career Interests & Target Roles], achievements [optional Co-Curricular & Awards], skills, experience [optional Prior Internships], custom-sections [optional Certifications, Languages & Custom Info]).

@@ -193,6 +193,10 @@ export default function App() {
             ? 'fresher-resume'
             : template.id === 'internship-resume'
             ? 'internship-resume'
+            : template.id === 'engineering-resume'
+            ? 'engineering-resume'
+            : template.id === 'creative-professional'
+            ? 'creative-professional'
             : template.categories.includes('Student & Fresher')
             ? 'fresher'
             : template.categories.includes('Technical & Developer')
@@ -218,6 +222,10 @@ export default function App() {
             ? 'Fresher Resume'
             : template.id === 'internship-resume'
             ? 'Internship Resume'
+            : template.id === 'engineering-resume'
+            ? 'Engineering Resume'
+            : template.id === 'creative-professional'
+            ? 'Creative Professional Resume'
             : `${template.name} CV`,
           seedType,
           user.displayName || undefined,

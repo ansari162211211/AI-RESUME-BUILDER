@@ -2609,6 +2609,767 @@ export const SAMPLE_INTERNSHIP_RESUME_CV: Omit<
   customSections: [],
 };
 
+export const SAMPLE_ENGINEERING_MECHANICAL_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  title: 'Mechanical Engineering Resume',
+  template: 'engineering-resume',
+  engineeringBranch: 'mechanical',
+  targetBackground: 'student',
+  fontFamily: 'sans',
+  themeColor: '#000000',
+  personalInfo: {
+    fullName: 'Naveen Kommuri',
+    jobTitle: '',
+    email: 'naveen.kommuri@engineering.edu',
+    phone: '+91 98480 31420',
+    city: 'Hyderabad',
+    state: 'Telangana',
+    country: 'India',
+    linkedin: 'linkedin.com/in/naveen-kommuri-mech',
+    github: 'github.com/naveenkommuri-cad',
+  },
+  objective:
+    'Final-year Mechanical Engineering undergraduate seeking a full-time Design or Manufacturing Engineering role where strong fundamentals in thermodynamics, CAD/CAM modeling, FEA stress analysis, and rapid prototyping can drive reliable product development.',
+  education: [
+    {
+      id: 'eng-m-edu-1',
+      degree: 'B.Tech in Mechanical Engineering',
+      institution: 'National Institute of Technology, Warangal',
+      location: 'Warangal, India',
+      startDate: '2021',
+      endDate: '2025',
+      current: true,
+      grade: '8.74 / 10.0 CGPA',
+      coursework: [
+        'Thermodynamics',
+        'Fluid Mechanics',
+        'Machine Design',
+        'Finite Element Analysis',
+        'Manufacturing Processes',
+      ],
+    },
+  ],
+  highSchool: [
+    {
+      id: 'eng-m-hs-1',
+      qualification: 'Class XII (MPC)',
+      schoolName: 'Sri Chaitanya Junior College',
+      board: 'Telangana State Board',
+      location: 'Hyderabad, India',
+      graduationDate: '2021',
+      gpa: '96.4%',
+    },
+    {
+      id: 'eng-m-hs-2',
+      qualification: 'Class X',
+      schoolName: 'Bhashyam High School',
+      board: 'SSC',
+      location: 'Hyderabad, India',
+      graduationDate: '2019',
+      gpa: '9.8 / 10.0',
+    },
+  ],
+  skills: [
+    {
+      id: 'eng-m-sk-1',
+      category: 'Technical Skills',
+      skills: [
+        'CAD Modeling',
+        'Finite Element Analysis (FEA)',
+        'GD&T',
+        'Thermodynamics',
+        'Heat Transfer',
+        'CNC Machining',
+      ],
+    },
+    {
+      id: 'eng-m-sk-2',
+      category: 'Design Software',
+      skills: ['SolidWorks', 'CATIA V5', 'ANSYS Mechanical', 'AutoCAD', 'Fusion 360'],
+    },
+    {
+      id: 'eng-m-sk-3',
+      category: 'Programming & Simulation',
+      skills: ['MATLAB', 'Python', 'C', 'Simulink'],
+    },
+  ],
+  interestItems: [
+    { id: 'eng-m-int-1', name: 'Robotics' },
+    { id: 'eng-m-int-2', name: 'Additive Manufacturing' },
+    { id: 'eng-m-int-3', name: 'Automotive Powertrains' },
+  ],
+  interests: 'Robotics, Additive Manufacturing, Automotive Powertrains',
+  projects: [
+    {
+      id: 'eng-m-proj-1',
+      title: 'Solar-Powered Automated Lawn Mower Prototype',
+      projectType: 'Final-Year Capstone',
+      teamType: 'Team',
+      domain: 'Mechatronics & Renewable Design',
+      startDate: 'Aug 2024',
+      endDate: 'Dec 2024',
+      objective:
+        'Design and fabricate an autonomous battery-assisted solar lawn mower for institutional lawns.',
+      designApproach:
+        'Modeled lightweight tubular aluminum chassis in SolidWorks and performed static load analysis in ANSYS.',
+      componentsMaterials: ['24V DC Gear Motors', '20W Monocrystalline Solar Panel', 'Ultrasonic Sensors', 'Arduino Uno'],
+      technologies: ['SolidWorks', 'ANSYS', 'Arduino C'],
+      contribution:
+        'Led frame CAD assembly, weight optimization, and blade safety shroud fabrication.',
+      testingValidation:
+        'Tested cutting sweep and battery autonomy over 90-minute outdoor trials with 1.8m obstacle clearance.',
+      highlights: [
+        'Reduced frame weight by 22% after topology iteration while maintaining structural safety factor above 2.4.',
+      ],
+    },
+    {
+      id: 'eng-m-proj-2',
+      title: 'CFD Thermal Analysis of Fin-and-Tube Heat Exchanger',
+      projectType: 'Academic Project',
+      teamType: 'Individual',
+      domain: 'Thermal & Fluid Systems',
+      startDate: 'Jan 2024',
+      endDate: 'Apr 2024',
+      methodology:
+        'Built 3D louvered fin geometry in Fusion 360 and ran conjugate heat transfer meshes across staggered pitch ratios.',
+      technologies: ['ANSYS Fluent', 'MATLAB', 'Fusion 360'],
+      results:
+        'Identified optimal 12-degree fin louver angle yielding a 14% improvement in Nusselt number at low pressure drop.',
+      highlights: [],
+    },
+  ],
+  experience: [
+    {
+      id: 'eng-m-exp-1',
+      entryKind: 'internship',
+      position: 'Production Engineering Intern',
+      employmentType: 'Internship',
+      company: 'Bharat Heavy Electricals Limited (BHEL)',
+      location: 'Hyderabad, India',
+      startDate: 'May 2024',
+      endDate: 'Jul 2024',
+      current: false,
+      technologies: ['AutoCAD', 'GD&T', 'CMM Inspection'],
+      highlights: [
+        'Assisted turbine casing machining shop engineers in tolerance stack-up checks and fixture alignment sheets.',
+        'Documented cycle-time bottlenecks on 5-axis CNC boring stations for weekly shop-floor reviews.',
+      ],
+    },
+  ],
+  learningActivities: [
+    {
+      id: 'eng-m-train-1',
+      title: 'Industrial Training in CNC Programming & Metrology',
+      activityType: 'Industrial Training',
+      provider: 'Central Institute of Tool Design (CITD)',
+      completionDate: 'Dec 2023',
+      skillsAcquired: ['G-Code', 'Mastercam', 'Surface Roughness Gauging'],
+      description:
+        'Hands-on 4-week workshop covering 3-axis milling toolpaths and CMM dimensional verification.',
+    },
+  ],
+  leadership: [
+    {
+      id: 'eng-m-lead-1',
+      role: 'Design Team Lead',
+      organization: 'SAE BAJA Student Chapter, NIT Warangal',
+      location: 'Warangal, India',
+      startDate: '2023',
+      endDate: '2024',
+      current: false,
+      highlights: [
+        'Coordinated a 9-member suspension and roll-cage sub-team through technical inspection and dynamic endurance testing.',
+      ],
+    },
+  ],
+  achievements: [
+    {
+      id: 'eng-m-ach-1',
+      title: '1st Runner-Up, National CAD Modeling Challenge',
+      issuer: 'Technozion Engineering Symposium',
+      date: '2024',
+      participationType: 'Competition',
+      description: 'Placed 2nd among 85 student teams in timed SolidWorks assembly modeling.',
+    },
+    {
+      id: 'eng-m-ach-2',
+      title: 'Student Volunteer, Blood Donation & Rural STEM Camp',
+      issuer: 'National Service Scheme (NSS)',
+      date: '2023',
+      participationType: 'Volunteering',
+      description: 'Coordinated hands-on physics demonstrations for 120 high-school students.',
+    },
+  ],
+  volunteer: [],
+  certifications: [],
+  publications: [],
+  languages: [],
+  coursework: [],
+  references: [],
+  customSections: [],
+};
+
+export const SAMPLE_ENGINEERING_CSE_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  ...SAMPLE_ENGINEERING_MECHANICAL_CV,
+  title: 'CSE / IT Engineering Resume',
+  engineeringBranch: 'cse-it',
+  personalInfo: {
+    fullName: 'Ananya Deshmukh',
+    email: 'ananya.deshmukh@cse.edu',
+    phone: '+91 97654 22108',
+    city: 'Pune',
+    state: 'Maharashtra',
+    country: 'India',
+    linkedin: 'linkedin.com/in/ananya-deshmukh-cse',
+    github: 'github.com/ananyadeshmukh',
+  },
+  objective:
+    'Computer Science & Engineering undergraduate seeking a Software Engineering role to apply expertise in distributed backend services, full-stack web architecture, and automated testing pipelines.',
+  education: [
+    {
+      id: 'eng-c-edu-1',
+      degree: 'B.E. in Computer Science & Engineering',
+      institution: 'College of Engineering Pune (COEP)',
+      location: 'Pune, India',
+      startDate: '2021',
+      endDate: '2025',
+      current: true,
+      grade: '9.12 / 10.0 CGPA',
+      coursework: ['Data Structures & Algorithms', 'Operating Systems', 'DBMS', 'Computer Networks'],
+    },
+  ],
+  skills: [
+    {
+      id: 'eng-c-sk-1',
+      category: 'Programming Languages',
+      skills: ['C++', 'Java', 'Python', 'TypeScript', 'SQL'],
+    },
+    {
+      id: 'eng-c-sk-2',
+      category: 'Frameworks & Cloud',
+      skills: ['React', 'Node.js', 'Spring Boot', 'PostgreSQL', 'Redis', 'Docker'],
+    },
+    {
+      id: 'eng-c-sk-3',
+      category: 'Developer Tools',
+      skills: ['Git', 'Linux', 'GitHub Actions', 'Postman'],
+    },
+  ],
+  interestItems: [
+    { id: 'eng-c-int-1', name: 'Distributed Systems' },
+    { id: 'eng-c-int-2', name: 'Competitive Programming' },
+    { id: 'eng-c-int-3', name: 'Open Source' },
+  ],
+  interests: 'Distributed Systems, Competitive Programming, Open Source',
+  projects: [
+    {
+      id: 'eng-c-proj-1',
+      title: 'Distributed Code Judge & Sandbox Execution Engine',
+      projectType: 'Major Project',
+      teamType: 'Team',
+      domain: 'Backend & Containers',
+      startDate: 'Jan 2024',
+      endDate: 'May 2024',
+      methodology:
+        'Built queue-backed worker nodes isolating untrusted user submissions in ephemeral cgroups sandboxes.',
+      technologies: ['Go', 'TypeScript', 'Redis', 'Docker', 'PostgreSQL'],
+      testingValidation:
+        'Load-tested 400 concurrent submissions with deterministic memory and CPU timeout enforcement.',
+      githubUrl: 'github.com/ananyadeshmukh/code-sandbox',
+      highlights: [],
+    },
+  ],
+  experience: [
+    {
+      id: 'eng-c-exp-1',
+      entryKind: 'internship',
+      position: 'Software Engineering Intern',
+      employmentType: 'Internship',
+      company: 'FinStack Technologies',
+      location: 'Bengaluru, India',
+      startDate: 'May 2024',
+      endDate: 'Jul 2024',
+      current: false,
+      technologies: ['TypeScript', 'Node.js', 'PostgreSQL'],
+      highlights: [
+        'Implemented idempotent invoice webhook retries and schema validation across 12 REST microservices.',
+      ],
+    },
+  ],
+  learningActivities: [
+    {
+      id: 'eng-c-train-1',
+      title: 'Cloud Infrastructure & Kubernetes Bootcamp',
+      activityType: 'Workshop',
+      provider: 'COEP FOSS Club',
+      completionDate: 'Nov 2023',
+      skillsAcquired: ['Docker', 'Kubernetes', 'CI/CD'],
+    },
+  ],
+  leadership: [
+    {
+      id: 'eng-c-lead-1',
+      role: 'Competitive Programming Lead',
+      organization: 'COEP CodeChef Campus Chapter',
+      location: 'Pune, India',
+      startDate: '2023',
+      endDate: '2024',
+      highlights: [
+        'Mentored 90+ second-year students through weekly graph and dynamic programming problem sessions.',
+      ],
+    },
+  ],
+};
+
+export const SAMPLE_ENGINEERING_ECE_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  ...SAMPLE_ENGINEERING_MECHANICAL_CV,
+  title: 'ECE / Embedded Engineering Resume',
+  engineeringBranch: 'ece',
+  personalInfo: {
+    fullName: 'Karthik Reddy',
+    email: 'karthik.reddy@ece.edu',
+    phone: '+91 99012 77410',
+    city: 'Chennai',
+    state: 'Tamil Nadu',
+    country: 'India',
+    linkedin: 'linkedin.com/in/karthik-reddy-ece',
+    github: 'github.com/karthikreddy-vlsi',
+  },
+  objective:
+    'Electronics & Communication Engineering student targeting Embedded Systems or VLSI Verification roles, skilled in Verilog RTL design, STM32 firmware, PCB layout, and lab signal testing.',
+  education: [
+    {
+      id: 'eng-e-edu-1',
+      degree: 'B.E. in Electronics & Communication Engineering',
+      institution: 'Anna University (CEG Campus)',
+      location: 'Chennai, India',
+      startDate: '2021',
+      endDate: '2025',
+      current: true,
+      grade: '8.90 / 10.0 CGPA',
+      coursework: ['Digital VLSI', 'Embedded Microcontrollers', 'Signals & Systems', 'VLSI Testing'],
+    },
+  ],
+  skills: [
+    {
+      id: 'eng-e-sk-1',
+      category: 'Hardware & HDL',
+      skills: ['Verilog HDL', 'SystemVerilog', 'Embedded C', 'ARM Cortex-M', 'UART / SPI / I2C'],
+    },
+    {
+      id: 'eng-e-sk-2',
+      category: 'EDA & Lab Tools',
+      skills: ['Xilinx Vivado', 'Cadence Virtuoso', 'KiCad PCB', 'MATLAB', 'Oscilloscope & Logic Analyzer'],
+    },
+  ],
+  interestItems: [
+    { id: 'eng-e-int-1', name: 'VLSI RTL Verification' },
+    { id: 'eng-e-int-2', name: 'Edge IoT Hardware' },
+  ],
+  interests: 'VLSI RTL Verification, Edge IoT Hardware',
+  projects: [
+    {
+      id: 'eng-e-proj-1',
+      title: 'FPGA-Accelerated 8-Bit RISC Pipelined Processor',
+      projectType: 'Capstone Project',
+      teamType: 'Team',
+      domain: 'VLSI / Digital Architecture',
+      startDate: 'Jan 2024',
+      endDate: 'Apr 2024',
+      designApproach:
+        'Designed 5-stage pipeline with data forwarding and hazard detection in Verilog HDL synthesized on Artix-7 FPGA.',
+      technologies: ['Verilog', 'Xilinx Vivado', 'Artix-7 FPGA'],
+      testingValidation:
+        'Verified instruction throughput and branch hazard stalls via self-checking testbenches in Vivado Simulator.',
+      highlights: [],
+    },
+  ],
+  experience: [
+    {
+      id: 'eng-e-exp-1',
+      entryKind: 'internship',
+      position: 'Embedded Firmware Intern',
+      employmentType: 'Internship',
+      company: 'SensingCore Electronics',
+      location: 'Chennai, India',
+      startDate: 'May 2024',
+      endDate: 'Jul 2024',
+      current: false,
+      technologies: ['STM32', 'Embedded C', 'KiCad'],
+      highlights: [
+        'Wrote DMA-backed SPI sensor drivers and verified signal timing on a 4-channel digital oscilloscope.',
+      ],
+    },
+  ],
+};
+
+export const SAMPLE_ENGINEERING_RESUME_CV = SAMPLE_ENGINEERING_MECHANICAL_CV;
+
+export const SAMPLE_CREATIVE_PROFESSIONAL_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  title: 'Creative Professional Resume',
+  template: 'creative-professional',
+  creativeProfession: 'developer',
+  targetBackground: 'experienced',
+  fontFamily: 'sans',
+  themeColor: '#1d4ed8',
+  personalInfo: {
+    fullName: 'Julian Mercer',
+    jobTitle: 'Senior Full-Stack & Creative Technologist',
+    specialization: 'Design Systems · Distributed Web Architecture',
+    tagline: 'Building resilient products where systems engineering meets craft.',
+    email: 'julian@mercer-studio.dev',
+    phone: '+49 176 4120 8891',
+    city: 'Berlin',
+    country: 'Germany',
+    website: 'https://mercer-studio.dev',
+    linkedin: 'linkedin.com/in/julian-mercer-dev',
+    github: 'github.com/jmercer-studio',
+  },
+  personalQuote:
+    '“Thoughtful software respects both human attention and engineering simplicity.”',
+  objective:
+    'Full-stack systems architect and design technologist with 7+ years delivering high-reliability web platforms, accessible component libraries, and cloud developer tooling across European product teams.',
+  experience: [
+    {
+      id: 'cr-exp-1',
+      position: 'Principal Frontend & Systems Architect',
+      company: 'NordicFlow Cloud GmbH',
+      location: 'Berlin, Germany',
+      startDate: '2022',
+      endDate: 'Present',
+      current: true,
+      description: 'Lead architecture for real-time observability dashboards and shared UI platform.',
+      technologies: ['TypeScript', 'React', 'Go', 'WebSockets'],
+      highlights: [
+        'Scaled multi-tenant telemetry UI to 180k daily sessions with sub-120ms interaction latency.',
+        'Unified 45+ accessible design-system primitives adopted by 6 product squads.',
+      ],
+    },
+    {
+      id: 'cr-exp-2',
+      position: 'Senior Software Engineer',
+      company: 'Vektor Labs',
+      location: 'Munich, Germany',
+      startDate: '2019',
+      endDate: '2022',
+      current: false,
+      description: 'Core developer tooling and API gateway platform engineering.',
+      technologies: ['Node.js', 'PostgreSQL', 'Docker', 'GraphQL'],
+      highlights: [
+        'Designed zero-downtime deployment pipelines cutting CI release duration by 42%.',
+      ],
+    },
+    {
+      id: 'cr-exp-3',
+      position: 'Full-Stack Developer',
+      company: 'PixelCraft Interactive',
+      location: 'Hamburg, Germany',
+      startDate: '2017',
+      endDate: '2019',
+      current: false,
+      description: 'Interactive data journalism tools and custom SVG visualization widgets.',
+      technologies: ['JavaScript', 'D3.js', 'Python'],
+      highlights: [
+        'Delivered 14 client web applications and open-source SVG chart primitives.',
+      ],
+    },
+  ],
+  creativeSkillItems: [
+    {
+      id: 'cr-csk-1',
+      category: 'Technical',
+      name: 'TypeScript, React & Next.js',
+      description: 'Strict type modeling, SSR streaming, accessible component APIs.',
+      organization: 'NordicFlow Cloud',
+    },
+    {
+      id: 'cr-csk-2',
+      category: 'Technical',
+      name: 'Distributed APIs & Go / Node.js',
+      description: 'High-throughput REST/gRPC gateways, PostgreSQL tuning, Redis.',
+      organization: 'Vektor Labs',
+    },
+    {
+      id: 'cr-csk-3',
+      category: 'Creative',
+      name: 'Design Systems & Data Visualization',
+      description: 'Figma token pipelines, custom SVG charts, motion choreography.',
+      organization: 'PixelCraft Interactive',
+    },
+    {
+      id: 'cr-csk-4',
+      category: 'Professional',
+      name: 'Technical Mentorship & Architecture Reviews',
+      description: 'RFC leadership, cross-functional roadmapping, engineering hiring.',
+      organization: 'European Product Teams',
+    },
+  ],
+  skills: [
+    {
+      id: 'cr-sk-1',
+      category: 'Technical',
+      skills: ['TypeScript', 'React', 'Next.js', 'Go', 'Node.js', 'PostgreSQL'],
+    },
+    {
+      id: 'cr-sk-2',
+      category: 'Creative',
+      skills: ['Design Systems', 'Figma Tokens', 'SVG Visualization', 'WCAG Accessibility'],
+    },
+    {
+      id: 'cr-sk-3',
+      category: 'Professional',
+      skills: ['Architecture RFCs', 'Technical Mentorship', 'Product Strategy'],
+    },
+  ],
+  circularProficiencies: [
+    {
+      id: 'cr-circ-1',
+      name: 'TypeScript / React',
+      shortLabel: 'TS',
+      description: 'Component systems & strict type safety',
+      percentage: 95,
+    },
+    {
+      id: 'cr-circ-2',
+      name: 'Go & Distributed APIs',
+      shortLabel: 'GO',
+      description: 'Concurrency, microservices & telemetry',
+      percentage: 86,
+    },
+    {
+      id: 'cr-circ-3',
+      name: 'Cloud & Kubernetes',
+      shortLabel: 'K8s',
+      description: 'Containers, CI/CD & observability',
+      percentage: 80,
+    },
+    {
+      id: 'cr-circ-4',
+      name: 'UI / Design Engineering',
+      shortLabel: 'UI',
+      description: 'Figma tokens, SVG & motion systems',
+      percentage: 88,
+    },
+  ],
+  creativeSkillBars: [
+    { id: 'cr-bar-1', name: 'Frontend Architecture (React / TS)', percentage: 95 },
+    { id: 'cr-bar-2', name: 'Backend Services (Node.js / Go)', percentage: 85 },
+    { id: 'cr-bar-3', name: 'Design Systems & Accessibility', percentage: 90 },
+    { id: 'cr-bar-4', name: 'PostgreSQL & Data Modeling', percentage: 82 },
+    { id: 'cr-bar-5', name: 'DevOps & Cloud Tooling', percentage: 78 },
+  ],
+  communicationSkills: [
+    {
+      id: 'cr-comm-1',
+      skill: 'Conference Speaking & Technical Workshops',
+      proficiency: 'Keynote & Live Coding',
+      context: 'Delivered 9 talks across European JS/Systems conferences.',
+    },
+    {
+      id: 'cr-comm-2',
+      skill: 'Executive & Cross-Team Alignment',
+      proficiency: 'RFCs & Product Reviews',
+      context: 'Facilitated architecture trade-offs across Design, Infra & Product.',
+    },
+  ],
+  education: [
+    {
+      id: 'cr-edu-1',
+      degree: 'M.Sc. in Computer Science',
+      specialization: 'Human-Computer Interaction & Distributed Systems',
+      institution: 'Technical University of Berlin',
+      location: 'Berlin, Germany',
+      startDate: '2015',
+      endDate: '2017',
+      current: false,
+      grade: '1.3 (With Distinction)',
+      achievements: 'Thesis: Declarative State Synchronization in Collaborative Editors.',
+    },
+    {
+      id: 'cr-edu-2',
+      degree: 'B.Sc. in Informatics',
+      specialization: 'Software Engineering',
+      institution: 'RWTH Aachen University',
+      location: 'Aachen, Germany',
+      startDate: '2012',
+      endDate: '2015',
+      current: false,
+      grade: '1.6',
+    },
+  ],
+  certifications: [
+    {
+      id: 'cr-cert-1',
+      name: 'AWS Certified Solutions Architect – Associate',
+      issuer: 'Amazon Web Services',
+      issueDate: '2023',
+      link: 'https://aws.amazon.com/certification/',
+    },
+    {
+      id: 'cr-cert-2',
+      name: 'IAAP Certified Professional in Accessibility Core Competencies (CPACC)',
+      issuer: 'International Association of Accessibility Professionals',
+      issueDate: '2022',
+    },
+  ],
+  achievements: [
+    {
+      id: 'cr-ach-1',
+      title: 'European Open-Source Maintainer Grant',
+      issuer: 'Prototype Fund Germany',
+      date: '2023',
+      participationType: 'Grant',
+      description: 'Awarded EUR 25,000 fellowship to build accessible canvas chart tooling.',
+    },
+  ],
+  languages: [
+    { id: 'cr-lang-1', language: 'German', proficiency: 'Native' },
+    { id: 'cr-lang-2', language: 'English', proficiency: 'Fluent' },
+    { id: 'cr-lang-3', language: 'Dutch', proficiency: 'Intermediate' },
+  ],
+  publications: [
+    {
+      id: 'cr-pub-1',
+      type: 'conference',
+      title: 'Deterministic Layout Engines for Vector Resume & Print Export',
+      authors: 'Julian Mercer',
+      journalOrConference: 'React Europe & Web Engineering Summit',
+      year: '2024',
+      description: 'Invited talk on synchronizing browser DOM pagination with vector PDF trees.',
+      url: 'https://mercer-studio.dev/talks/vector-print',
+    },
+    {
+      id: 'cr-pub-2',
+      type: 'journal',
+      title: 'Zero-Cost Accessibility Primitives in Component Libraries',
+      authors: 'Julian Mercer, M. Lindner',
+      journalOrConference: 'Frontend Architecture Quarterly',
+      year: '2023',
+      description: 'Case study reducing ARIA regressions across enterprise monorepos.',
+    },
+  ],
+  projects: [],
+  leadership: [],
+  volunteer: [],
+  memberships: [],
+  coursework: [],
+  references: [],
+  customSections: [],
+};
+
+export const SAMPLE_CREATIVE_DESIGNER_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  ...SAMPLE_CREATIVE_PROFESSIONAL_CV,
+  title: 'Creative UI/UX Designer Resume',
+  creativeProfession: 'designer',
+  personalInfo: {
+    ...SAMPLE_CREATIVE_PROFESSIONAL_CV.personalInfo,
+    fullName: 'Clara Lindqvist',
+    jobTitle: 'Lead Product & UI/UX Designer',
+    specialization: 'Design Systems · Brand & Interactive Craft',
+    tagline: 'Designing calm, human-centered digital products.',
+    email: 'clara@lindqvist-design.se',
+    city: 'Stockholm',
+    country: 'Sweden',
+    website: 'https://lindqvist-design.se',
+    linkedin: 'linkedin.com/in/clara-lindqvist-ux',
+    github: '',
+  },
+  circularProficiencies: [
+    { id: 'crd-1', name: 'Figma & Token Systems', shortLabel: 'FIG', description: 'Variables, auto-layout & component libraries', percentage: 96 },
+    { id: 'crd-2', name: 'UX Research & Testing', shortLabel: 'UX', description: 'Moderated interviews & usability studies', percentage: 90 },
+    { id: 'crd-3', name: 'Motion & Prototyping', shortLabel: 'PRO', description: 'Interactive flows & micro-interactions', percentage: 86 },
+    { id: 'crd-4', name: 'Brand & Editorial Print', shortLabel: 'TYPO', description: 'Typography grids & visual identity', percentage: 88 },
+  ],
+  creativeSkillBars: [
+    { id: 'crdb-1', name: 'Product & Interface Design', percentage: 96 },
+    { id: 'crdb-2', name: 'Design Systems Architecture', percentage: 92 },
+    { id: 'crdb-3', name: 'User Research & Synthesis', percentage: 88 },
+    { id: 'crdb-4', name: 'HTML / CSS & Motion Specs', percentage: 82 },
+  ],
+};
+
+export const SAMPLE_CREATIVE_CYBERSECURITY_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  ...SAMPLE_CREATIVE_PROFESSIONAL_CV,
+  title: 'Creative Cybersecurity Specialist Resume',
+  creativeProfession: 'cybersecurity',
+  personalInfo: {
+    ...SAMPLE_CREATIVE_PROFESSIONAL_CV.personalInfo,
+    fullName: 'Soren Halvorsen',
+    jobTitle: 'Principal Cloud & Application Security Engineer',
+    specialization: 'Zero-Trust Architecture · Threat Modeling',
+    tagline: 'Securing cloud-native platforms by design.',
+    email: 'soren@halvorsen-sec.no',
+    city: 'Oslo',
+    country: 'Norway',
+    website: 'https://halvorsen-sec.no',
+    linkedin: 'linkedin.com/in/soren-halvorsen-sec',
+    github: 'github.com/shalvorsen-sec',
+  },
+  circularProficiencies: [
+    { id: 'crc-1', name: 'Cloud & IAM Security', shortLabel: 'IAM', description: 'Zero-trust policies & workload identity', percentage: 94 },
+    { id: 'crc-2', name: 'Application Pentesting', shortLabel: 'APP', description: 'OWASP threat modeling & API audits', percentage: 90 },
+    { id: 'crc-3', name: 'Kubernetes Hardening', shortLabel: 'K8S', description: 'RBAC, eBPF runtime & network policy', percentage: 88 },
+    { id: 'crc-4', name: 'Incident Response & SIEM', shortLabel: 'SOC', description: 'Detection rules & forensics automation', percentage: 84 },
+  ],
+  creativeSkillBars: [
+    { id: 'crcb-1', name: 'Threat Modeling & AppSec', percentage: 94 },
+    { id: 'crcb-2', name: 'Cloud Security (AWS / GCP)', percentage: 91 },
+    { id: 'crcb-3', name: 'Security Automation (Python / Go)', percentage: 87 },
+    { id: 'crcb-4', name: 'Compliance (ISO 27001 / SOC 2)', percentage: 85 },
+  ],
+};
+
+export const SAMPLE_CREATIVE_MARKETING_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  ...SAMPLE_CREATIVE_PROFESSIONAL_CV,
+  title: 'Creative Brand & Growth Strategist Resume',
+  creativeProfession: 'marketing',
+  personalInfo: {
+    ...SAMPLE_CREATIVE_PROFESSIONAL_CV.personalInfo,
+    fullName: 'Nadia Alverez',
+    jobTitle: 'Head of Brand Strategy & Growth Marketing',
+    specialization: 'Product Positioning · Lifecycle Analytics',
+    tagline: 'Turning complex technical products into memorable stories.',
+    email: 'nadia@alverez-growth.es',
+    city: 'Barcelona',
+    country: 'Spain',
+    website: 'https://alverez-growth.es',
+    linkedin: 'linkedin.com/in/nadia-alverez-growth',
+    github: '',
+  },
+  circularProficiencies: [
+    { id: 'crm-1', name: 'Brand & Messaging', shortLabel: 'BRD', description: 'Positioning frameworks & launch campaigns', percentage: 94 },
+    { id: 'crm-2', name: 'Growth & Funnel Analytics', shortLabel: 'ROI', description: 'Attribution, cohort retention & A/B testing', percentage: 89 },
+    { id: 'crm-3', name: 'Content & Editorial SEO', shortLabel: 'SEO', description: 'Organic demand engines & thought leadership', percentage: 87 },
+    { id: 'crm-4', name: 'CRM & Lifecycle Loops', shortLabel: 'CRM', description: 'Activation journeys & partner co-marketing', percentage: 85 },
+  ],
+  creativeSkillBars: [
+    { id: 'crmb-1', name: 'Go-To-Market & Positioning', percentage: 95 },
+    { id: 'crmb-2', name: 'Demand Generation & Paid Growth', percentage: 88 },
+    { id: 'crmb-3', name: 'Analytics (GA4 / Looker / SQL)', percentage: 84 },
+    { id: 'crmb-4', name: 'Editorial & Executive Communications', percentage: 92 },
+  ],
+};
+
 // Backwards compatibility alias
 export const SAMPLE_TECH_RESUME = SAMPLE_EXPERIENCED_CV;
 export const BLANK_RESUME_TEMPLATE = BLANK_ACADEMIC_CV;

@@ -130,6 +130,67 @@
           "maxLength": 32,
           "description": "Visual layout template identifier."
         },
+        "internshipTrack": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": ["cs", "cybersecurity", "ece", "research", "non-technical"],
+          "description": "Optional adaptive track selected for Template 10 Internship Resume."
+        },
+        "engineeringBranch": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": ["mechanical", "cse-it", "ece", "ee", "civil", "chemical", "other"],
+          "description": "Optional adaptive engineering branch selected for Template 11 Engineering Resume."
+        },
+        "customEngineeringBranch": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional custom engineering discipline label when engineeringBranch is set to other."
+        },
+        "creativeProfession": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": ["developer", "cybersecurity", "designer", "marketing", "researcher", "engineer", "other"],
+          "description": "Optional profession specialization selected for Template 12 Creative Professional."
+        },
+        "customCreativeProfession": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional custom profession label when creativeProfession is set to other."
+        },
+        "creativeSkillItems": {
+          "type": "array",
+          "description": "Optional categorized skills with detailed descriptions and organizations for Template 12."
+        },
+        "circularProficiencies": {
+          "type": "array",
+          "description": "Optional circular progress indicator items with adjustable 0-100 percentage."
+        },
+        "creativeSkillBars": {
+          "type": "array",
+          "description": "Optional horizontal progress bar skill visualization items with adjustable 0-100 percentage."
+        },
+        "communicationSkills": {
+          "type": "array",
+          "description": "Optional communication skills list with proficiency and context."
+        },
+        "proficiencyHeadingOverride": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Optional user override for the circular proficiency section heading."
+        },
+        "learningActivities": {
+          "type": "array",
+          "description": "Optional structured learning activities, online courses, workshops, or bootcamps."
+        },
+        "careerInterests": {
+          "type": "array",
+          "description": "Optional list of target internship domains or career interests."
+        },
+        "internshipPreferences": {
+          "type": "object",
+          "description": "Optional internship preferences including target role, duration, work arrangement, availability, and preferred technologies."
+        },
         "themeColor": {
           "type": "string",
           "maxLength": 32,

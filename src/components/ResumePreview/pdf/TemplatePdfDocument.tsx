@@ -31,8 +31,10 @@ import {
   SKILL_MATRIX_LEGEND,
   buildClassicPhoneList,
   buildContactLinks,
+  buildCreativeContactItems,
   buildElegantSerifContactItems,
   buildElegantSerifMetadataRows,
+  buildEngineeringContactItems,
   buildFresherHeaderColumns,
   buildHarvardContactItems,
   buildInternshipContactItems,
@@ -45,7 +47,18 @@ import {
   chunkRows,
   cleanHighlights,
   getCourseworkItems,
+  getCreativeCategorizedSkills,
+  getCreativeCertificatesAndGrants,
+  getCreativeCircularProficiencies,
+  getCreativeCommunicationSkills,
+  getCreativeHorizontalSkillBars,
+  getCreativeProficiencyHeading,
+  getCreativeTalksAndPublications,
   getEffectiveInterests,
+  getEngineeringExtracurricularEntries,
+  getEngineeringInternshipAndTrainingEntries,
+  getEngineeringProjectBullets,
+  getEngineeringSkillAndInterestRows,
   getHarvardAdditionalSubsections,
   getHarvardSkillsAndInterests,
   getInternshipCareerInterests,
@@ -62,7 +75,9 @@ import {
   groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
+  splitCreativeName,
   type ContactLinkItem,
+  type CreativeContactKind,
   type ElegantSerifContactKind,
   type InternshipContactKind,
   type ModernCorporateContactKind,
@@ -75,6 +90,7 @@ import {
   wrapDonutLabelLines,
 } from '../../../utils/dailyActivities';
 import {
+  estimateCreativeHeaderHeightPt,
   estimateEditorialHeaderHeightPt,
   estimateInternshipHeaderHeightPt,
   paginateEditorialPdfColumns,
@@ -116,6 +132,10 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     template.id === 'fresher-resume' || template.headerVariant === 'fresher-overleaf';
   const isInternshipResume =
     template.id === 'internship-resume' || template.layout === 'two-column-internship';
+  const isEngineeringResume =
+    template.id === 'engineering-resume' || template.headerVariant === 'engineering-centered';
+  const isCreativeProfessional =
+    template.id === 'creative-professional' || template.layout === 'two-column-creative';
 
   const isSerif = custom.fontFamily === 'serif';
   const fontRegular = isSerif ? 'Times-Roman' : 'Helvetica';
@@ -154,7 +174,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       paddingTop: scale.marginTopPt,
       paddingBottom:
         scale.marginBottomPt +
-        (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isInternshipResume ? 16 : 0),
+        (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isInternshipResume ? 16 : isCreativeProfessional ? 12 : 0),
       paddingLeft: isTwoColumnSidebar ? 0 : scale.marginHorizPt,
       paddingRight: scale.marginHorizPt,
       fontFamily: fontRegular,
@@ -442,6 +462,40 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
             >
               {title}
             </Text>
+          </View>
+        );
+      case 'creative-blue-rule':
+        return (
+          <View
+            minPresenceAhead={opts?.disableMinAhead ? undefined : minAhead}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 5,
+            }}
+          >
+            <View
+              style={{
+                width: 3.5,
+                height: 11,
+                backgroundColor: accent,
+                marginRight: 5,
+              }}
+            />
+            <Text
+              style={{
+                fontSize: scale.headingPt - 0.5,
+                fontFamily: fontBold,
+                textTransform: 'uppercase',
+                letterSpacing: 0.65,
+                color: accent,
+                lineHeight: 1.2,
+                marginRight: 6,
+              }}
+            >
+              {title}
+            </Text>
+            <View style={{ flex: 1, height: 0.75, backgroundColor: '#111827' }} />
           </View>
         );
       case 'uppercase-rule':
@@ -1192,10 +1246,323 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     </Svg>
   );
 
+  const renderCreativeContactIcon = (kind: CreativeContactKind, color: string) => {
+    const iconStyle = { marginRight: 3 };
+    switch (kind) {
+      case 'location':
+        return (
+          <Svg width={7.8} height={7.8} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"
+            />
+          </Svg>
+        );
+      case 'phone':
+        return (
+          <Svg width={7.8} height={7.8} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z"
+            />
+          </Svg>
+        );
+      case 'email':
+        return (
+          <Svg width={7.8} height={7.8} viewBox="0 0 24 24" style={iconStyle}>
+            <Rect x="2" y="4" width="20" height="16" rx="2" stroke={color} strokeWidth={2} fill="none" />
+            <Path stroke={color} strokeWidth={2} fill="none" d="M22 6l-10 7L2 6" />
+          </Svg>
+        );
+      case 'linkedin':
+        return (
+          <Svg width={7.8} height={7.8} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"
+            />
+          </Svg>
+        );
+      case 'github':
+        return (
+          <Svg width={7.8} height={7.8} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"
+            />
+          </Svg>
+        );
+      case 'website':
+      case 'custom':
+      default:
+        return (
+          <Svg width={7.8} height={7.8} viewBox="0 0 24 24" style={iconStyle}>
+            <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={2} fill="none" />
+            <Line x1="2" y1="12" x2="22" y2="12" stroke={color} strokeWidth={2} />
+            <Path
+              stroke={color}
+              strokeWidth={2}
+              fill="none"
+              d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
+            />
+          </Svg>
+        );
+    }
+  };
+
+  const renderCreativeDateTimeline = (
+    dateText: string | undefined,
+    bodyNode: React.ReactNode,
+    headingNode?: React.ReactNode
+  ) => (
+    <View wrap={false}>
+      {headingNode || null}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        <Text
+          style={{
+            width: '24%',
+            paddingRight: 7,
+            fontSize: scale.metaPt - 0.3,
+            lineHeight: 1.3,
+            color: '#475569',
+            textAlign: 'right',
+            paddingTop: 1,
+          }}
+        >
+          {dateText || ''}
+        </Text>
+        <View
+          style={{
+            flex: 1,
+            borderLeftWidth: 0.75,
+            borderLeftColor: '#cbd5e1',
+            paddingLeft: 8,
+            paddingBottom: 1,
+          }}
+        >
+          {bodyNode}
+        </View>
+      </View>
+    </View>
+  );
+
+  const describeCreativeArc = (cx: number, cy: number, r: number, percentage: number): string => {
+    const pct = Math.max(0.5, Math.min(99.5, percentage));
+    const angleDeg = (pct / 100) * 360;
+    const startRad = -Math.PI / 2;
+    const endRad = startRad + (angleDeg * Math.PI) / 180;
+    const x1 = cx + r * Math.cos(startRad);
+    const y1 = cy + r * Math.sin(startRad);
+    const x2 = cx + r * Math.cos(endRad);
+    const y2 = cy + r * Math.sin(endRad);
+    const largeArc = angleDeg > 180 ? 1 : 0;
+    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+  };
+
   const renderHeader = () => {
     const nameText = personalInfo.fullName || 'FULL NAME';
 
     switch (template.headerVariant) {
+      case 'creative-centered': {
+        const { firstPart, lastPart } = splitCreativeName(nameText);
+        const items = buildCreativeContactItems(personalInfo);
+        const roleLine = [
+          personalInfo.jobTitle?.trim(),
+          personalInfo.specialization?.trim(),
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        const quoteText = effectiveResume.personalQuote?.trim();
+
+        return (
+          <View
+            style={{
+              marginBottom: 8,
+              paddingBottom: 6,
+              borderBottomWidth: 0.6,
+              borderBottomColor: '#e2e8f0',
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: scale.namePt,
+                letterSpacing: 0.3,
+                lineHeight: 1.12,
+                color: '#111827',
+                textAlign: 'center',
+                marginBottom: 2,
+              }}
+            >
+              {firstPart ? <Text style={{ fontFamily: fontRegular }}>{firstPart} </Text> : null}
+              <Text style={{ fontFamily: fontBold }}>{lastPart || nameText}</Text>
+            </Text>
+
+            {roleLine ? (
+              <Text
+                style={{
+                  fontSize: scale.jobTitlePt,
+                  fontFamily: fontBold,
+                  color: accent,
+                  lineHeight: 1.25,
+                  textAlign: 'center',
+                  marginBottom: personalInfo.tagline?.trim() ? 1.5 : 3,
+                }}
+              >
+                {roleLine}
+              </Text>
+            ) : null}
+
+            {personalInfo.tagline?.trim() ? (
+              <Text
+                style={{
+                  fontSize: scale.metaPt,
+                  color: '#475569',
+                  lineHeight: 1.3,
+                  textAlign: 'center',
+                  marginBottom: 3.5,
+                }}
+              >
+                {personalInfo.tagline.trim()}
+              </Text>
+            ) : null}
+
+            {items.length > 0 ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  fontSize: scale.metaPt - 0.25,
+                  lineHeight: 1.3,
+                  marginTop: 2,
+                }}
+              >
+                {items.map((item, idx) => (
+                  <View
+                    key={`${item.kind}-${idx}`}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginRight: idx < items.length - 1 ? 10 : 0,
+                      marginBottom: 2.5,
+                    }}
+                  >
+                    {renderCreativeContactIcon(item.kind, accent)}
+                    {item.url ? (
+                      <Link src={item.url} style={{ color: '#1f2937', textDecoration: 'none' }}>
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <Text style={{ color: '#1f2937' }}>{item.label}</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {quoteText ? (
+              <Text
+                style={{
+                  fontFamily: fontItalic,
+                  fontSize: scale.metaPt - 0.2,
+                  color: '#475569',
+                  textAlign: 'center',
+                  marginTop: 4,
+                  lineHeight: 1.32,
+                }}
+              >
+                &ldquo;{quoteText}&rdquo;
+              </Text>
+            ) : null}
+          </View>
+        );
+      }
+
+      case 'engineering-centered': {
+        const items = buildEngineeringContactItems(personalInfo);
+        const totalChars = items.reduce((sum, it) => sum + it.label.length, 0) + Math.max(0, items.length - 1) * 3;
+        const contactRows =
+          items.length >= 4 && totalChars > 78
+            ? [
+                items.slice(0, items.length >= 5 ? 3 : Math.ceil(items.length / 2)),
+                items.slice(items.length >= 5 ? 3 : Math.ceil(items.length / 2)),
+              ]
+            : items.length > 0
+            ? [items]
+            : [];
+        return (
+          <View
+            style={{
+              marginBottom: 6,
+              paddingBottom: 4,
+              borderBottomWidth: 0.75,
+              borderBottomColor: textCol,
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                fontSize: scale.namePt,
+                fontFamily: fontBold,
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+                lineHeight: 1.12,
+                color: textCol,
+                textAlign: 'center',
+                marginBottom: personalInfo.jobTitle?.trim() ? 1.5 : 2.5,
+              }}
+            >
+              {nameText}
+            </Text>
+            {personalInfo.jobTitle?.trim() ? (
+              <Text
+                style={{
+                  fontSize: scale.jobTitlePt,
+                  color: '#374151',
+                  lineHeight: 1.25,
+                  textAlign: 'center',
+                  marginBottom: 2.5,
+                }}
+              >
+                {personalInfo.jobTitle.trim()}
+              </Text>
+            ) : null}
+            {contactRows.map((rowItems, rowIdx) => (
+              <View
+                key={rowIdx}
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  fontSize: scale.metaPt,
+                  lineHeight: 1.32,
+                }}
+              >
+                {rowItems.map((item, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx > 0 ? (
+                      <Text style={{ color: textCol, opacity: 0.55, marginHorizontal: 4 }}>
+                        |
+                      </Text>
+                    ) : null}
+                    {item.url ? (
+                      <Link src={item.url} style={{ color: textCol, textDecoration: 'none' }}>
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <Text style={{ color: textCol }}>{item.label}</Text>
+                    )}
+                  </React.Fragment>
+                ))}
+              </View>
+            ))}
+          </View>
+        );
+      }
+
       case 'internship-kunal': {
         const items = buildInternshipContactItems(personalInfo);
         return (
@@ -2705,13 +3072,16 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     key: ResumeSectionKey,
     opts: { isSidebar: boolean; inverted: boolean; slice?: EditorialPdfSectionSlice }
   ) => {
-    const title = getSectionDisplayTitle(key, template.id);
+    const title =
+      key === 'proficiency-circles' && isCreativeProfessional
+        ? getCreativeProficiencyHeading(effectiveResume)
+        : getSectionDisplayTitle(key, template.id);
     const col = opts.inverted ? '#ffffff' : textCol;
     const subCol = opts.inverted ? '#e2e8f0' : '#1a1a1a';
     const metaCol = opts.inverted ? '#cbd5e1' : '#222222';
     const showEditorialHeading = !opts.slice || opts.slice.includeHeading;
     const sliceItems = <T,>(arr: T[]): T[] =>
-      opts.slice && (isEditorialTwoColumn || isInternshipResume)
+      opts.slice && (isEditorialTwoColumn || isInternshipResume || isCreativeProfessional)
         ? arr.slice(opts.slice.sliceStart, opts.slice.sliceEnd)
         : arr;
 
@@ -2758,6 +3128,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       strengths: 36,
       languages: 36,
       skills: 36,
+      'proficiency-circles': 54,
+      'skill-bars': 40,
+      communication: 36,
       'skill-matrix': 42,
       learning: 40,
       interests: 36,
@@ -2868,7 +3241,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       : renderSectionHeading(title, {
           inverted: opts.inverted,
           compact: opts.isSidebar,
-          disableMinAhead: isElegantSerif || isInternshipResume,
+          disableMinAhead: isElegantSerif || isInternshipResume || isCreativeProfessional,
           minAhead: sectionMinAheadMap[key] ?? 42,
         });
 
@@ -3210,6 +3583,113 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   })}
                 </View>
               ) : null}
+            </View>
+          );
+        }
+
+        if (isEngineeringResume) {
+          const entries = getInternshipEducationEntries(effectiveResume);
+          if (entries.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {entries.map((edu) => (
+                <View key={edu.id} style={{ marginBottom: scale.entryGapPt }} wrap={false}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: col, flex: 1, marginRight: 8 }}>
+                      {edu.heading}
+                    </Text>
+                    {edu.dateRange ? (
+                      <Text style={{ fontSize: scale.metaPt, color: col, textAlign: 'right' }}>
+                        {edu.dateRange}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {edu.institution || edu.location ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 0.5 }}>
+                      <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: subCol, flex: 1, marginRight: 8 }}>
+                        {edu.institution}
+                      </Text>
+                      {edu.location ? (
+                        <Text style={{ fontSize: scale.metaPt, color: metaCol, textAlign: 'right' }}>
+                          {edu.location}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {edu.subDetails.length > 0 ? (
+                    <View style={{ marginTop: 1 }}>
+                      {edu.subDetails.map((detail, dIdx) => (
+                        <Text key={dIdx} style={{ fontSize: scale.bodyPt - 0.15, color: subCol, lineHeight: 1.32 }}>
+                          {detail}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          );
+        }
+
+        if (isCreativeProfessional) {
+          const allEntries = getInternshipEducationEntries(effectiveResume);
+          const entries = sliceItems(allEntries);
+          if (entries.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+              {showEditorialHeading ? headingIfNormal : null}
+              {entries.map((edu) => (
+                <View key={edu.id} style={{ marginBottom: scale.entryGapPt }}>
+                  {renderCreativeDateTimeline(
+                    edu.dateRange,
+                    <View>
+                      <Text
+                        style={{
+                          fontFamily: fontBold,
+                          fontSize: scale.entryTitlePt,
+                          color: '#111827',
+                          lineHeight: 1.24,
+                        }}
+                      >
+                        {edu.heading}
+                      </Text>
+                      {edu.institution || edu.location ? (
+                        <Text
+                          style={{
+                            fontSize: scale.entrySubtitlePt - 0.25,
+                            color: accent,
+                            lineHeight: 1.25,
+                            marginTop: 0.5,
+                          }}
+                        >
+                          {edu.institution}
+                          {edu.institution && edu.location ? ' · ' : ''}
+                          {edu.location ? (
+                            <Text style={{ color: '#475569' }}>{edu.location}</Text>
+                          ) : null}
+                        </Text>
+                      ) : null}
+                      {edu.subDetails.length > 0 ? (
+                        <View style={{ marginTop: 1.5 }}>
+                          {edu.subDetails.map((detail, dIdx) => (
+                            <Text
+                              key={dIdx}
+                              style={{
+                                fontSize: scale.bodyPt - 0.2,
+                                color: '#374151',
+                                lineHeight: 1.32,
+                              }}
+                            >
+                              {detail}
+                            </Text>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  )}
+                </View>
+              ))}
             </View>
           );
         }
@@ -3874,6 +4354,91 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       }
 
       case 'experience': {
+        if (isEngineeringResume) {
+          const engEntries = getEngineeringInternshipAndTrainingEntries(effectiveResume);
+          if (engEntries.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {engEntries.map((entry) => {
+                const firstBullet = entry.bullets[0];
+                const remainingBullets = entry.bullets.slice(1);
+                return (
+                  <View key={entry.id} style={{ marginBottom: scale.entryGapPt }}>
+                    <View wrap={false}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: col, flex: 1, marginRight: 8 }}>
+                          {entry.title}
+                          {entry.kindLabel && !entry.title.toLowerCase().includes(entry.kindLabel.toLowerCase()) ? (
+                            <Text style={{ fontFamily: fontRegular, fontSize: scale.metaPt, color: metaCol }}>
+                              {` [${entry.kindLabel}]`}
+                            </Text>
+                          ) : null}
+                        </Text>
+                        {entry.dateRange ? (
+                          <Text style={{ fontSize: scale.metaPt, color: col, textAlign: 'right' }}>
+                            {entry.dateRange}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {entry.organization || entry.location ? (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 0.5 }}>
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: subCol, flex: 1, marginRight: 8 }}>
+                            {entry.organization}
+                          </Text>
+                          {entry.location ? (
+                            <Text style={{ fontSize: scale.metaPt, color: metaCol, textAlign: 'right' }}>
+                              {entry.location}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {entry.technologies.length > 0 ? (
+                        <Text style={{ fontSize: scale.metaPt - 0.15, color: subCol, marginTop: 1 }}>
+                          <Text style={{ fontFamily: fontBold }}>Tools / Focus: </Text>
+                          <Text>{entry.technologies.join(', ')}</Text>
+                        </Text>
+                      ) : null}
+                      {entry.description ? (
+                        <Text style={{ fontSize: scale.bodyPt, color: col, lineHeight: scale.lineHeight, marginTop: 1 }}>
+                          {entry.description}
+                        </Text>
+                      ) : null}
+                      {entry.linkUrl ? (
+                        <View style={{ marginTop: 1 }}>
+                          <Link src={entry.linkUrl} style={{ fontSize: scale.metaPt, color: col, textDecoration: 'underline' }}>
+                            [Certificate / Link]
+                          </Link>
+                        </View>
+                      ) : null}
+                      {firstBullet ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 8 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: col }}>
+                            {bulletChar}
+                          </Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                            {firstBullet}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    {remainingBullets.map((b, bIdx) => (
+                      <View key={bIdx} style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 8 }} wrap={false}>
+                        <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: col }}>
+                          {bulletChar}
+                        </Text>
+                        <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                          {b}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
+
         const expGroups =
           isClassic || isModernCorporate
             ? groupExperienceByCategory(effectiveResume.experience || [])
@@ -3882,7 +4447,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         let globalExpIndex = 0;
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 1 : 4 }}>
-            {!isTwoColumnPro && !isElegantSerif && !(isInternshipResume && !showEditorialHeading)
+            {!isTwoColumnPro &&
+            !isElegantSerif &&
+            !((isInternshipResume || isCreativeProfessional) && !showEditorialHeading)
               ? headingIfNormal
               : null}
             {expGroups.map((group, gIdx) => (
@@ -4212,6 +4779,75 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                               </View>
                             ) : null}
                           </View>
+                        ) : isCreativeProfessional ? (
+                          renderCreativeDateTimeline(
+                            expDateRange,
+                            <View>
+                              <Text
+                                style={{
+                                  fontFamily: fontBold,
+                                  fontSize: scale.entryTitlePt,
+                                  color: '#111827',
+                                  lineHeight: 1.24,
+                                }}
+                              >
+                                {exp.position}
+                                {exp.employmentType ? (
+                                  <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.2, color: '#475569' }}>
+                                    {` (${exp.employmentType})`}
+                                  </Text>
+                                ) : null}
+                              </Text>
+                              {exp.company || exp.location ? (
+                                <Text
+                                  style={{
+                                    fontFamily: fontBold,
+                                    fontSize: scale.entrySubtitlePt - 0.2,
+                                    color: accent,
+                                    marginTop: 0.5,
+                                  }}
+                                >
+                                  {exp.company}
+                                  {exp.company && exp.location ? ' · ' : ''}
+                                  {exp.location ? (
+                                    <Text style={{ fontFamily: fontRegular, color: '#475569' }}>
+                                      {exp.location}
+                                    </Text>
+                                  ) : null}
+                                </Text>
+                              ) : null}
+                              {exp.description?.trim() ? (
+                                <Text style={{ fontSize: scale.bodyPt - 0.1, color: '#374151', lineHeight: scale.lineHeight, marginTop: 1.5 }}>
+                                  {exp.description.trim()}
+                                </Text>
+                              ) : null}
+                              {exp.technologies && exp.technologies.length > 0 ? (
+                                <Text style={{ fontSize: scale.metaPt - 0.25, color: '#475569', marginTop: 1 }}>
+                                  {exp.technologies.join(' · ')}
+                                </Text>
+                              ) : null}
+                              {firstBullet ? (
+                                <View>
+                                  <View style={{ flexDirection: 'row', marginTop: 1.5 }}>
+                                    <Text style={{ width: 8.5, fontSize: scale.entrySubtitlePt, color: '#334155' }}>
+                                      {bulletChar}
+                                    </Text>
+                                    <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                                      {firstBullet}
+                                    </Text>
+                                  </View>
+                                  {(subMap.get(0) || []).map((subItem, sIdx) => (
+                                    <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 9 }}>
+                                      <Text style={{ width: 8, fontSize: scale.bodyPt, color: '#374151' }}>–</Text>
+                                      <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: '#374151' }}>
+                                        {subItem}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              ) : null}
+                            </View>
+                          )
                         ) : (
                           <View wrap={false}>
                             {isHarvard ? (
@@ -4321,6 +4957,28 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                                 </View>
                                 {nestedSubs.map((subItem, sIdx) => (
                                   <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 10 }}>
+                                    <Text style={{ width: 8, fontSize: scale.bodyPt, color: '#374151' }}>–</Text>
+                                    <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: '#374151' }}>
+                                      {subItem}
+                                    </Text>
+                                  </View>
+                                ))}
+                              </View>
+                            </View>
+                          ) : isCreativeProfessional ? (
+                            <View key={bIdx} style={{ flexDirection: 'row', alignItems: 'flex-start' }} wrap={false}>
+                              <View style={{ width: '24%', paddingRight: 7 }} />
+                              <View style={{ flex: 1, borderLeftWidth: 0.75, borderLeftColor: '#cbd5e1', paddingLeft: 8, paddingTop: 1 }}>
+                                <View style={{ flexDirection: 'row' }}>
+                                  <Text style={{ width: 8.5, fontSize: scale.entrySubtitlePt, color: '#334155' }}>
+                                    {bulletChar}
+                                  </Text>
+                                  <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                                    {hl}
+                                  </Text>
+                                </View>
+                                {nestedSubs.map((subItem, sIdx) => (
+                                  <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 9 }}>
                                     <Text style={{ width: 8, fontSize: scale.bodyPt, color: '#374151' }}>–</Text>
                                     <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: '#374151' }}>
                                       {subItem}
@@ -4761,6 +5419,77 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           );
         }
 
+        if (isCreativeProfessional) {
+          const talks = sliceItems(getCreativeTalksAndPublications(effectiveResume));
+          if (talks.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+              {showEditorialHeading ? headingIfNormal : null}
+              {talks.map((pub) => {
+                const { doiUrl, venue } = getPublicationParts(pub);
+                const extUrl = pub.url?.trim()
+                  ? pub.url.trim().startsWith('http')
+                    ? pub.url.trim()
+                    : `https://${pub.url.trim()}`
+                  : doiUrl;
+                const dateLabel = pub.year?.trim() || pub.publicationDate?.trim() || '';
+                return (
+                  <View key={pub.id} style={{ marginBottom: 4 }} wrap={false}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <Text
+                        style={{
+                          fontFamily: fontBold,
+                          fontSize: scale.entryTitlePt - 0.25,
+                          color: '#111827',
+                          lineHeight: 1.25,
+                          flex: 1,
+                          marginRight: 6,
+                        }}
+                      >
+                        {pub.title}
+                      </Text>
+                      {dateLabel ? (
+                        <Text
+                          style={{
+                            fontFamily: fontBold,
+                            fontSize: scale.metaPt - 0.25,
+                            color: accent,
+                            textAlign: 'right',
+                          }}
+                        >
+                          {dateLabel}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {venue || pub.authors ? (
+                      <Text style={{ fontSize: scale.metaPt - 0.15, color: '#475569', marginTop: 0.5 }}>
+                        {venue}
+                        {venue && pub.authors ? ' · ' : ''}
+                        {pub.authors}
+                      </Text>
+                    ) : null}
+                    {pub.description?.trim() ? (
+                      <Text style={{ fontSize: scale.bodyPt - 0.2, color: '#374151', marginTop: 1, lineHeight: 1.32 }}>
+                        {pub.description.trim()}
+                      </Text>
+                    ) : null}
+                    {extUrl ? (
+                      <View style={{ marginTop: 0.5 }}>
+                        <Link
+                          src={extUrl}
+                          style={{ fontSize: scale.metaPt - 0.3, color: accent, textDecoration: 'none' }}
+                        >
+                          {pub.doi ? `DOI: ${pub.doi}` : pub.url?.replace(/^https?:\/\//, '')}
+                        </Link>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
+
         return (
           <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
             {headingIfNormal}
@@ -4789,7 +5518,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       case 'projects':
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 1 : 4 }}>
-            {!isTwoColumnPro && !isElegantSerif ? headingIfNormal : null}
+            {!isTwoColumnPro && !isElegantSerif && !(isCreativeProfessional && !showEditorialHeading)
+              ? headingIfNormal
+              : null}
             {sliceItems(effectiveResume.projects || []).map((proj, idx) => {
               const baseBullets = cleanHighlights(proj.highlights);
               const softwareDevExtraBullets = isSoftwareDev
@@ -4807,7 +5538,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                     ...cleanHighlights(proj.achievements),
                   ]
                 : [];
-              const bullets = [...baseBullets, ...softwareDevExtraBullets];
+              const bullets = isEngineeringResume
+                ? getEngineeringProjectBullets(proj)
+                : [...baseBullets, ...softwareDevExtraBullets];
               const firstBullet = bullets[0];
               const remainingBullets = bullets.slice(1);
               const cleanProjUrl = proj.link
@@ -5250,6 +5983,68 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           </View>
                         ) : null}
                       </View>
+                    ) : isEngineeringResume ? (
+                      <View wrap={false}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
+                          <Text style={{ flex: 1, marginRight: 8, fontSize: scale.entryTitlePt, color: col }}>
+                            <Text style={{ fontFamily: fontBold }}>{proj.title}</Text>
+                            {proj.projectType?.trim() || proj.teamType?.trim() || proj.domain?.trim() ? (
+                              <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: subCol }}>
+                                {` (${[proj.projectType?.trim(), proj.teamType?.trim(), proj.domain?.trim()].filter(Boolean).join(' · ')})`}
+                              </Text>
+                            ) : null}
+                            {cleanGithubUrl ? (
+                              <Text style={{ fontSize: scale.metaPt }}>
+                                {' '}
+                                <Link src={cleanGithubUrl} style={{ color: col, textDecoration: 'underline' }}>
+                                  [GitHub]
+                                </Link>
+                              </Text>
+                            ) : null}
+                            {cleanProjUrl ? (
+                              <Text style={{ fontSize: scale.metaPt }}>
+                                {' '}
+                                <Link src={cleanProjUrl} style={{ color: col, textDecoration: 'underline' }}>
+                                  [Link]
+                                </Link>
+                              </Text>
+                            ) : null}
+                          </Text>
+                          {proj.startDate || proj.endDate || proj.current ? (
+                            <Text style={{ fontSize: scale.metaPt, color: col, textAlign: 'right' }}>
+                              {proj.startDate}
+                              {proj.current ? ' – Present' : proj.endDate && proj.endDate !== proj.startDate ? ` – ${proj.endDate}` : ''}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {(proj.technologies && proj.technologies.length > 0) ||
+                        (proj.tools && proj.tools.length > 0) ||
+                        proj.mentor?.trim() ? (
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: subCol, marginBottom: 1.5, lineHeight: 1.25 }}>
+                            {[
+                              proj.technologies && proj.technologies.length > 0
+                                ? `Technologies: ${proj.technologies.join(', ')}`
+                                : '',
+                              proj.tools && proj.tools.length > 0
+                                ? `Tools: ${proj.tools.join(', ')}`
+                                : '',
+                              proj.mentor?.trim() ? `Mentor: ${proj.mentor.trim()}` : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' | ')}
+                          </Text>
+                        ) : null}
+                        {firstBullet ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 8 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: col }}>
+                              {bulletChar}
+                            </Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                              {firstBullet}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     ) : (
                       <View wrap={false}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -5535,6 +6330,31 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           );
         }
 
+        if (isEngineeringResume) {
+          const engRows = getEngineeringSkillAndInterestRows(effectiveResume);
+          if (engRows.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {engRows.map((row) => (
+                <Text
+                  key={row.key}
+                  style={{
+                    marginBottom: 2.5,
+                    fontSize: scale.bodyPt,
+                    lineHeight: scale.lineHeight,
+                    color: col,
+                  }}
+                  wrap={false}
+                >
+                  <Text style={{ fontFamily: fontBold }}>{row.label}: </Text>
+                  <Text>{row.text}</Text>
+                </Text>
+              ))}
+            </View>
+          );
+        }
+
         if (isInternshipResume) {
           const skillRows = sliceItems(getInternshipSkillRows(effectiveResume));
           if (skillRows.length === 0) return null;
@@ -5598,6 +6418,53 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   </View>
                 );
               })}
+            </View>
+          );
+        }
+
+        if (isCreativeProfessional) {
+          const groups = sliceItems(getCreativeCategorizedSkills(effectiveResume));
+          if (groups.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+              {showEditorialHeading ? headingIfNormal : null}
+              {groups.map((grp, gIdx) => (
+                <View key={`creative-skill-${gIdx}-${grp.category}`} style={{ marginBottom: 4 }} wrap={false}>
+                  <Text
+                    style={{
+                      fontFamily: fontBold,
+                      fontSize: scale.metaPt - 0.2,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.45,
+                      color: accent,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {grp.category}
+                  </Text>
+                  {grp.items.map((item) => (
+                    <Text
+                      key={item.id}
+                      style={{
+                        fontSize: scale.bodyPt - 0.1,
+                        lineHeight: 1.34,
+                        color: col,
+                        marginBottom: 1.5,
+                      }}
+                    >
+                      <Text style={{ fontFamily: fontBold, color: '#111827' }}>{item.name}</Text>
+                      {item.organization?.trim() ? (
+                        <Text style={{ color: '#475569', fontSize: scale.metaPt - 0.25 }}>
+                          {` (${item.organization.trim()})`}
+                        </Text>
+                      ) : null}
+                      {item.description?.trim() ? (
+                        <Text style={{ color: '#374151' }}>{` — ${item.description.trim()}`}</Text>
+                      ) : null}
+                    </Text>
+                  ))}
+                </View>
+              ))}
             </View>
           );
         }
@@ -5796,6 +6663,49 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       }
 
       case 'achievements':
+        if (isEngineeringResume) {
+          const engExtras = getEngineeringExtracurricularEntries(effectiveResume);
+          if (engExtras.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {engExtras.map((entry) => (
+                <View key={entry.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 2.5 }} wrap={false}>
+                  <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: col }}>
+                    {bulletChar}
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      <Text style={{ fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col, flex: 1, marginRight: 8 }}>
+                        <Text style={{ fontFamily: fontBold }}>{entry.title}</Text>
+                        {entry.subtitle ? <Text style={{ color: subCol }}>{` — ${entry.subtitle}`}</Text> : null}
+                        {entry.url ? (
+                          <Text style={{ fontSize: scale.metaPt - 0.15 }}>
+                            {' '}
+                            <Link src={entry.url} style={{ color: col, textDecoration: 'underline' }}>
+                              [Link]
+                            </Link>
+                          </Text>
+                        ) : null}
+                      </Text>
+                      {entry.date ? (
+                        <Text style={{ fontSize: scale.metaPt, color: col, textAlign: 'right' }}>
+                          {entry.date}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {entry.detail ? (
+                      <Text style={{ fontSize: scale.bodyPt - 0.15, color: subCol, lineHeight: 1.32, marginTop: 0.5 }}>
+                        {entry.detail}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          );
+        }
+
         if (isFresherResume) {
           const yearGroups = groupAwardsByYearForFresher(effectiveResume.achievements || []);
           if (yearGroups.length === 0) return null;
@@ -5858,7 +6768,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
 
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
-            {!isTwoColumnPro && !isElegantSerif && !(isInternshipResume && !showEditorialHeading)
+            {!isTwoColumnPro &&
+            !isElegantSerif &&
+            !((isInternshipResume || isCreativeProfessional) && !showEditorialHeading)
               ? headingIfNormal
               : null}
             {sliceItems(effectiveResume.achievements || []).map((ach, idx) =>
@@ -6052,7 +6964,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       case 'leadership':
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 1 : 4 }}>
-            {!isElegantSerif ? headingIfNormal : null}
+            {!isElegantSerif && !(isCreativeProfessional && !showEditorialHeading)
+              ? headingIfNormal
+              : null}
             {sliceItems(effectiveResume.leadership || []).map((lead, idx) => {
               const bullets = cleanHighlights(lead.highlights);
               const firstBullet = bullets[0];
@@ -6339,7 +7253,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       case 'memberships':
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
-            {!isElegantSerif ? headingIfNormal : null}
+            {!isElegantSerif && !(isCreativeProfessional && !showEditorialHeading)
+              ? headingIfNormal
+              : null}
             {sliceItems(effectiveResume.memberships || []).map((mem, idx) => {
               const memDateRange = [
                 mem.startDate?.trim(),
@@ -6407,6 +7323,65 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         );
 
       case 'certifications':
+        if (isCreativeProfessional) {
+          const items = sliceItems(getCreativeCertificatesAndGrants(effectiveResume));
+          if (items.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+              {showEditorialHeading ? headingIfNormal : null}
+              {items.map((cg) => (
+                <View key={cg.id} style={{ marginBottom: 3.5 }} wrap={false}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <Text
+                      style={{
+                        fontFamily: fontBold,
+                        fontSize: scale.bodyPt,
+                        color: '#111827',
+                        flex: 1,
+                        marginRight: 6,
+                      }}
+                    >
+                      {cg.title}
+                    </Text>
+                    {cg.date ? (
+                      <Text
+                        style={{
+                          fontFamily: fontBold,
+                          fontSize: scale.metaPt - 0.25,
+                          color: accent,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {cg.date}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {cg.issuer ? (
+                    <Text style={{ fontSize: scale.metaPt - 0.15, color: '#475569', lineHeight: 1.32 }}>
+                      {cg.issuer}
+                    </Text>
+                  ) : null}
+                  {cg.description ? (
+                    <Text style={{ fontSize: scale.metaPt - 0.25, color: '#374151', marginTop: 0.5, lineHeight: 1.32 }}>
+                      {cg.description}
+                    </Text>
+                  ) : null}
+                  {cg.url ? (
+                    <View style={{ marginTop: 0.5 }}>
+                      <Link
+                        src={cg.url}
+                        style={{ fontSize: scale.metaPt - 0.3, color: accent, textDecoration: 'none' }}
+                      >
+                        {cg.url.replace(/^https?:\/\//, '')}
+                      </Link>
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          );
+        }
+
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
             {!isElegantSerif && !(isInternshipResume && !showEditorialHeading) ? headingIfNormal : null}
@@ -7182,7 +8157,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         const langs = sliceItems((effectiveResume.languages || []).filter((l) => l.language?.trim()));
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
-            {!isTwoColumnPro && !isElegantSerif && !(isInternshipResume && !showEditorialHeading)
+            {!isTwoColumnPro &&
+            !isElegantSerif &&
+            !((isInternshipResume || isCreativeProfessional) && !showEditorialHeading)
               ? headingIfNormal
               : null}
             {langs.map((lang, idx) => {
@@ -7291,6 +8268,28 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           : lang.comment.trim()
                         : ''}
                     </Text>
+                  </View>
+                ) : isCreativeProfessional ? (
+                  <View key={lang.id} style={{ marginBottom: 3 }} wrap={false}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: scale.bodyPt, color: col, flex: 1, marginRight: 6 }}>
+                        <Text style={{ fontFamily: fontBold, color: '#111827' }}>{lang.language}</Text>
+                        {profText ? (
+                          <Text style={{ fontSize: scale.metaPt - 0.15, color: '#475569' }}>
+                            {` · ${profText}`}
+                          </Text>
+                        ) : null}
+                      </Text>
+                      {(() => {
+                        const score = getLanguageDotScore(lang.proficiency);
+                        return score !== null ? renderLanguageDots(score, accent) : null;
+                      })()}
+                    </View>
+                    {lang.comment?.trim() ? (
+                      <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.35, color: '#475569', marginTop: 0.5 }}>
+                        {lang.comment.trim()}
+                      </Text>
+                    ) : null}
                   </View>
                 ) : (
                   <View key={lang.id} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2.5 }} wrap={false}>
@@ -7620,6 +8619,51 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
             (cs) => cs.title?.trim() && cs.bullets?.some((b) => b.trim())
           )
         );
+        if (isEngineeringResume) {
+          const hiddenSet = new Set(effectiveResume.hiddenSections || []);
+          const langs = !hiddenSet.has('languages')
+            ? (effectiveResume.languages || []).filter((l) => l.language?.trim())
+            : [];
+          if (langs.length === 0 && customs.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {langs.length > 0 ? (
+                <Text
+                  style={{ fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col, marginBottom: customs.length > 0 ? 3 : 0 }}
+                  wrap={false}
+                >
+                  <Text style={{ fontFamily: fontBold }}>Languages: </Text>
+                  <Text>
+                    {langs
+                      .map((l) => (l.proficiency?.trim() ? `${l.language.trim()} (${l.proficiency.trim()})` : l.language.trim()))
+                      .join(', ')}
+                  </Text>
+                </Text>
+              ) : null}
+              {customs.map((cs) => {
+                const cleaned = cleanHighlights(cs.bullets);
+                return (
+                  <View key={cs.id} style={{ marginBottom: 3 }}>
+                    <Text style={{ fontFamily: fontBold, fontSize: scale.entrySubtitlePt, color: col, marginBottom: 1.5 }} minPresenceAhead={30}>
+                      {cs.title.trim()}
+                    </Text>
+                    {cleaned.map((bullet, bIdx) => (
+                      <View key={bIdx} style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 8 }} wrap={false}>
+                        <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: col }}>
+                          {bulletChar}
+                        </Text>
+                        <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                          {bullet}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
         return (
           <View key={key}>
             {customs.map((cs) => {
@@ -7666,6 +8710,235 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                 </View>
               );
             })}
+          </View>
+        );
+      }
+
+      case 'proficiency-circles': {
+        const rows = sliceItems(chunkPairs(getCreativeCircularProficiencies(effectiveResume)));
+        if (rows.length === 0) return null;
+        return (
+          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+            {showEditorialHeading ? headingIfNormal : null}
+            {rows.map((pair, rIdx) => (
+              <View
+                key={`creative-circles-pdf-${rIdx}`}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  marginBottom: 6,
+                }}
+                wrap={false}
+              >
+                {pair.map((item) => {
+                  const r = 17;
+                  const pct = Math.max(0, Math.min(100, item.percentage));
+                  return (
+                    <View
+                      key={item.id}
+                      style={{
+                        width: '48%',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 42,
+                          height: 42,
+                          position: 'relative',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Svg width={42} height={42} viewBox="0 0 48 48">
+                          <Circle
+                            cx="24"
+                            cy="24"
+                            r={String(r)}
+                            fill="none"
+                            stroke="#e5e7eb"
+                            strokeWidth={3.5}
+                          />
+                          {pct >= 99.5 ? (
+                            <Circle
+                              cx="24"
+                              cy="24"
+                              r={String(r)}
+                              fill="none"
+                              stroke={accent}
+                              strokeWidth={3.5}
+                            />
+                          ) : pct > 0.5 ? (
+                            <Path
+                              d={describeCreativeArc(24, 24, r, pct)}
+                              fill="none"
+                              stroke={accent}
+                              strokeWidth={3.5}
+                              strokeLinecap="round"
+                            />
+                          ) : null}
+                        </Svg>
+                        <View
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontFamily: fontBold,
+                              fontSize: 7.4,
+                              color: '#111827',
+                              textAlign: 'center',
+                            }}
+                          >
+                            {item.shortLabel || item.name.slice(0, 3).toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text
+                        style={{
+                          fontFamily: fontBold,
+                          fontSize: scale.metaPt - 0.2,
+                          color: '#111827',
+                          textAlign: 'center',
+                          marginTop: 2,
+                          lineHeight: 1.22,
+                        }}
+                      >
+                        {item.name}
+                      </Text>
+                      {item.description?.trim() ? (
+                        <Text
+                          style={{
+                            fontSize: scale.metaPt - 0.65,
+                            color: '#475569',
+                            textAlign: 'center',
+                            marginTop: 0.5,
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {item.description.trim()}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+                {pair.length === 1 ? <View style={{ width: '48%' }} /> : null}
+              </View>
+            ))}
+          </View>
+        );
+      }
+
+      case 'skill-bars': {
+        const bars = sliceItems(getCreativeHorizontalSkillBars(effectiveResume));
+        if (bars.length === 0) return null;
+        return (
+          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+            {showEditorialHeading ? headingIfNormal : null}
+            {bars.map((bar) => {
+              const pct = Math.max(0, Math.min(100, bar.percentage));
+              return (
+                <View
+                  key={bar.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 4,
+                  }}
+                  wrap={false}
+                >
+                  <Text
+                    style={{
+                      width: '42%',
+                      paddingRight: 6,
+                      fontFamily: fontBold,
+                      fontSize: scale.bodyPt - 0.15,
+                      color: '#111827',
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {bar.name}
+                  </Text>
+                  <View
+                    style={{
+                      flex: 1,
+                      height: 5.5,
+                      backgroundColor: '#e5e7eb',
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: `${pct}%`,
+                        height: 5.5,
+                        backgroundColor: accent,
+                        borderRadius: 3,
+                      }}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        );
+      }
+
+      case 'communication': {
+        const comms = sliceItems(getCreativeCommunicationSkills(effectiveResume));
+        if (comms.length === 0) return null;
+        return (
+          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+            {showEditorialHeading ? headingIfNormal : null}
+            {comms.map((comm) => (
+              <View key={comm.id} style={{ marginBottom: 3.5 }} wrap={false}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <Text
+                    style={{
+                      fontFamily: fontBold,
+                      fontSize: scale.bodyPt,
+                      color: '#111827',
+                      flex: 1,
+                      marginRight: 6,
+                    }}
+                  >
+                    {comm.skill}
+                  </Text>
+                  {comm.proficiency?.trim() ? (
+                    <Text
+                      style={{
+                        fontFamily: fontBold,
+                        fontSize: scale.metaPt - 0.25,
+                        color: accent,
+                        textAlign: 'right',
+                      }}
+                    >
+                      {comm.proficiency.trim()}
+                    </Text>
+                  ) : null}
+                </View>
+                {comm.context?.trim() ? (
+                  <Text
+                    style={{
+                      fontSize: scale.metaPt - 0.2,
+                      color: '#475569',
+                      lineHeight: 1.32,
+                      marginTop: 0.5,
+                    }}
+                  >
+                    {comm.context.trim()}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
           </View>
         );
       }
@@ -7962,6 +9235,70 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
               <View style={{ width: '48.5%', paddingLeft: 7 }}>
                 {pg.right.map((slice) => (
                   <React.Fragment key={`IR-${pg.pageNumber}-${slice.sectionKey}-${slice.sliceStart}`}>
+                    {renderSection(slice.sectionKey, {
+                      isSidebar: false,
+                      inverted: false,
+                      slice,
+                    })}
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
+            <Text
+              style={styles.pageNumber}
+              render={({ pageNumber, totalPages }) =>
+                totalPages > 1 ? `Page ${pageNumber} of ${totalPages}` : ''
+              }
+              fixed
+            />
+          </Page>
+        ))}
+      </Document>
+    );
+  }
+
+  if (isCreativeProfessional) {
+    const creativePages = paginateEditorialPdfColumns({
+      leftSections: mainKeys,
+      rightSections: sidebarKeys,
+      resume: effectiveResume,
+      scale,
+      headerHeightPt: estimateCreativeHeaderHeightPt(
+        effectiveResume,
+        buildCreativeContactItems(personalInfo).length,
+        scale
+      ),
+      mode: 'creative',
+    });
+
+    return (
+      <Document
+        title={
+          effectiveResume.title ||
+          `${personalInfo.fullName || 'Creative Professional'} Resume`
+        }
+        author={personalInfo.fullName || 'Resume Builder'}
+        subject="Creative Professional Resume / Curriculum Vitae"
+        keywords="Creative Professional Resume, Curriculum Vitae, A4, Template"
+      >
+        {creativePages.map((pg, pageIdx) => (
+          <Page key={`creative-page-${pg.pageNumber}`} size="A4" style={styles.page}>
+            {pageIdx === 0 ? renderHeader() : null}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ width: '48.5%', paddingRight: 7 }}>
+                {pg.left.map((slice) => (
+                  <React.Fragment key={`CL-${pg.pageNumber}-${slice.sectionKey}-${slice.sliceStart}`}>
+                    {renderSection(slice.sectionKey, {
+                      isSidebar: false,
+                      inverted: false,
+                      slice,
+                    })}
+                  </React.Fragment>
+                ))}
+              </View>
+              <View style={{ width: '48.5%', paddingLeft: 7 }}>
+                {pg.right.map((slice) => (
+                  <React.Fragment key={`CR-${pg.pageNumber}-${slice.sectionKey}-${slice.sliceStart}`}>
                     {renderSection(slice.sectionKey, {
                       isSidebar: false,
                       inverted: false,

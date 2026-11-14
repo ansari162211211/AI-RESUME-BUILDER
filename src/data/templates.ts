@@ -19,6 +19,9 @@ export type ResumeSectionKey =
   | 'strengths'
   | 'languages'
   | 'skills'
+  | 'proficiency-circles'
+  | 'skill-bars'
+  | 'communication'
   | 'skill-matrix'
   | 'learning'
   | 'interests'
@@ -40,7 +43,8 @@ export type TemplateLayoutMode =
   | 'sidebar-dark' // 31% dark accent left sidebar + 69% main column
   | 'main-left-sidebar-right' // ~61% left main column + ~37% right white sidebar (AltaCV Two Column Professional)
   | 'two-column-editorial' // 50% / 50% balanced white 2-column Overleaf Modern Simple CV (Elegant Serif)
-  | 'two-column-internship'; // 50% / 50% balanced white 2-column Kunal Gehlot Internship Resume
+  | 'two-column-internship' // 50% / 50% balanced white 2-column Kunal Gehlot Internship Resume
+  | 'two-column-creative'; // 50% / 50% balanced white 2-column Creative Professional CV (Template 12)
 
 export type TemplateHeaderVariant =
   | 'centered-academic' // Centered uppercase name + thick bottom border
@@ -59,7 +63,9 @@ export type TemplateHeaderVariant =
   | 'executive-framed' // Centered name + subtle top/bottom framed summary feel (Executive)
   | 'left-scholar' // Left-aligned scholar header with prominent ORCID/Scholar line (Research Scholar)
   | 'fresher-overleaf' // 3-column Overleaf fresher header: phone/email left, name/target role center, links right
-  | 'internship-kunal'; // Left-aligned uppercase name + headline + compact horizontal icon contact row (Template 10)
+  | 'internship-kunal' // Left-aligned uppercase name + headline + compact horizontal icon contact row (Template 10)
+  | 'engineering-centered' // Centered bold monochrome black name + compact horizontal contact row (Template 11)
+  | 'creative-centered'; // Centered regular-first + bold-last name, role/specialization, tagline, compact contact bar, optional quote (Template 12)
 
 export interface TemplateDefinition {
   id: TemplateId;
@@ -271,6 +277,54 @@ export const INTERNSHIP_RESUME_ORDER: ResumeSectionKey[] = [
   'experience',
   'certifications',
   'languages',
+  'custom-sections',
+];
+
+export const ENGINEERING_RESUME_ORDER: ResumeSectionKey[] = [
+  'objective',
+  'education',
+  'skills',
+  'projects',
+  'experience',
+  'leadership',
+  'achievements',
+  'custom-sections',
+];
+
+export const CREATIVE_LEFT_ORDER: ResumeSectionKey[] = [
+  'experience',
+  'skills',
+  'proficiency-circles',
+  'communication',
+  'projects',
+  'leadership',
+];
+
+export const CREATIVE_RIGHT_ORDER: ResumeSectionKey[] = [
+  'education',
+  'skill-bars',
+  'certifications',
+  'languages',
+  'publications',
+  'volunteer',
+  'memberships',
+  'custom-sections',
+];
+
+export const CREATIVE_PROFESSIONAL_ORDER: ResumeSectionKey[] = [
+  'experience',
+  'education',
+  'skills',
+  'skill-bars',
+  'proficiency-circles',
+  'certifications',
+  'communication',
+  'languages',
+  'publications',
+  'projects',
+  'leadership',
+  'volunteer',
+  'memberships',
   'custom-sections',
 ];
 
@@ -578,6 +632,60 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       headingStyle: 'internship-rule',
     },
   },
+  {
+    id: 'engineering-resume',
+    name: 'Engineering Resume',
+    shortTag: 'Engineering & Technical',
+    description:
+      'Clean monochrome single-column engineering resume for B.E./B.Tech, M.Tech, and technical candidates across Mechanical, CSE/IT, ECE, EE, Civil, and Chemical branches with structured skills, academic projects, internships/trainings, positions of responsibility, and extra-curriculars.',
+    categories: [
+      'Technical & Developer',
+      'Student & Fresher',
+      'ATS-Friendly',
+      'Professional',
+    ],
+    layout: 'single-column',
+    headerVariant: 'engineering-centered',
+    sectionOrder: ENGINEERING_RESUME_ORDER,
+    bulletSymbol: '•',
+    citationStyle: 'numbered',
+    centeredHeadings: false,
+    skillsLayout: 'rows',
+    defaultCustomization: {
+      fontFamily: 'sans',
+      fontSize: 'standard',
+      textColor: '#000000',
+      accentColor: '#000000',
+      sectionSpacing: 'balanced',
+      pageMargins: 'standard',
+      headingStyle: 'uppercase-rule',
+    },
+  },
+  {
+    id: 'creative-professional',
+    name: 'Creative Professional',
+    shortTag: '2-Column Creative',
+    description:
+      'Clean two-column creative & modern professional CV with regular+bold centered name header, blue-accented section headings with extending horizontal rules, date-rail Short Resume, circular proficiency rings, horizontal skill bars, communication skills, certificates & grants, 5-dot languages, and talks & publications.',
+    categories: ['Creative', 'Professional', 'Technical & Developer'],
+    layout: 'two-column-creative',
+    headerVariant: 'creative-centered',
+    sectionOrder: CREATIVE_PROFESSIONAL_ORDER,
+    sidebarSections: CREATIVE_RIGHT_ORDER,
+    bulletSymbol: '•',
+    citationStyle: 'numbered',
+    centeredHeadings: false,
+    skillsLayout: 'rows',
+    defaultCustomization: {
+      fontFamily: 'sans',
+      fontSize: 'standard',
+      textColor: '#111827',
+      accentColor: '#1d4ed8',
+      sectionSpacing: 'balanced',
+      pageMargins: 'narrow',
+      headingStyle: 'creative-blue-rule',
+    },
+  },
 ];
 
 export const TEXT_COLOR_SWATCHES = [
@@ -587,6 +695,7 @@ export const TEXT_COLOR_SWATCHES = [
 ];
 
 export const ACCENT_COLOR_SWATCHES = [
+  { label: 'Creative Blue', value: '#1d4ed8' },
   { label: 'Crimson Burgundy', value: '#8f131b' },
   { label: 'Classic Blue', value: '#1e4e8c' },
   { label: 'Monochrome', value: '#000000' },
@@ -651,14 +760,16 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
   const isModernCorporate = templateId === 'modern-corporate';
   const isFresherResume = templateId === 'fresher-resume';
   const isInternshipResume = templateId === 'internship-resume';
+  const isEngineeringResume = templateId === 'engineering-resume';
+  const isCreativeProfessional = templateId === 'creative-professional';
   const baseFontPt =
     custom.fontSize === 'compact'
       ? 8.75
       : custom.fontSize === 'large'
       ? 10.25
-      : isTwoColumn || isElegantSerif || isInternshipResume
+      : isTwoColumn || isElegantSerif || isInternshipResume || isCreativeProfessional
       ? 9.0
-      : isModernCorporate || isFresherResume
+      : isModernCorporate || isFresherResume || isEngineeringResume
       ? 9.25
       : 9.5;
   const delta = baseFontPt - 9.5;
@@ -681,12 +792,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 46
       : 36
-    : isInternshipResume
+    : isInternshipResume || isCreativeProfessional
     ? custom.pageMargins === 'narrow'
       ? 26
       : custom.pageMargins === 'wide'
       ? 44
       : 34
+    : isEngineeringResume
+    ? custom.pageMargins === 'narrow'
+      ? 28
+      : custom.pageMargins === 'wide'
+      ? 48
+      : 38
     : isModernCorporate
     ? custom.pageMargins === 'narrow'
       ? 32
@@ -734,12 +851,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 48
       : 38
-    : isInternshipResume
+    : isInternshipResume || isCreativeProfessional
     ? custom.pageMargins === 'narrow'
       ? 28
       : custom.pageMargins === 'wide'
       ? 46
       : 36
+    : isEngineeringResume
+    ? custom.pageMargins === 'narrow'
+      ? 32
+      : custom.pageMargins === 'wide'
+      ? 52
+      : 42
     : isModernCorporate
     ? custom.pageMargins === 'narrow'
       ? 34
@@ -788,12 +911,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 12
       : 8.5
-    : isInternshipResume
+    : isInternshipResume || isCreativeProfessional
     ? custom.sectionSpacing === 'tight'
-      ? 6.5
+      ? 6
       : custom.sectionSpacing === 'relaxed'
       ? 11.5
-      : 8.5
+      : 8
+    : isEngineeringResume
+    ? custom.sectionSpacing === 'tight'
+      ? 5.5
+      : custom.sectionSpacing === 'relaxed'
+      ? 11
+      : 8
     : isModernCorporate
     ? custom.sectionSpacing === 'tight'
       ? 6.5
@@ -841,12 +970,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 9
       : 6.5
-    : isInternshipResume
+    : isInternshipResume || isCreativeProfessional
     ? custom.sectionSpacing === 'tight'
       ? 4
       : custom.sectionSpacing === 'relaxed'
       ? 8
-      : 5.5
+      : 5.25
+    : isEngineeringResume
+    ? custom.sectionSpacing === 'tight'
+      ? 3.75
+      : custom.sectionSpacing === 'relaxed'
+      ? 7.5
+      : 5
     : isModernCorporate
     ? custom.sectionSpacing === 'tight'
       ? 4
@@ -894,12 +1029,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 1.38
       : 1.3
-    : isInternshipResume
+    : isInternshipResume || isCreativeProfessional
     ? custom.sectionSpacing === 'tight'
       ? 1.2
       : custom.sectionSpacing === 'relaxed'
       ? 1.36
       : 1.27
+    : isEngineeringResume
+    ? custom.sectionSpacing === 'tight'
+      ? 1.18
+      : custom.sectionSpacing === 'relaxed'
+      ? 1.35
+      : 1.26
     : isModernCorporate
     ? custom.sectionSpacing === 'tight'
       ? 1.22
@@ -940,6 +1081,10 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 20 + delta * 1.4
       : isInternshipResume
       ? 22 + delta * 1.4
+      : isCreativeProfessional
+      ? 21 + delta * 1.4
+      : isEngineeringResume
+      ? 19 + delta * 1.4
       : isModernCorporate
       ? 25 + delta * 1.4
       : isFresherResume
@@ -953,7 +1098,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 11.5 + delta * 0.6
       : isTwoColumn
       ? 11.25 + delta * 0.6
-      : isInternshipResume
+      : isInternshipResume || isEngineeringResume || isCreativeProfessional
       ? 10.5 + delta * 0.6
       : isFresherResume
       ? 10.5 + delta * 0.6
@@ -966,6 +1111,10 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 11.5 + delta * 0.5
       : isInternshipResume
       ? 11.5 + delta * 0.5
+      : isCreativeProfessional
+      ? 11 + delta * 0.5
+      : isEngineeringResume
+      ? 10.5 + delta * 0.5
       : isModernCorporate
       ? 12.25 + delta * 0.5
       : isFresherResume
@@ -979,8 +1128,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 9.75 + delta
       : isElegantSerif
       ? 9.25 + delta
-      : isInternshipResume
-      ? 9.5 + delta
+      : isInternshipResume || isCreativeProfessional
+      ? 9.25 + delta
       : isModernCorporate
       ? 9.5 + delta
       : isFresherResume
@@ -990,7 +1139,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 9 + delta
       : isElegantSerif
       ? 8.75 + delta
-      : isInternshipResume
+      : isInternshipResume || isCreativeProfessional
       ? 8.75 + delta
       : isModernCorporate
       ? 9.0 + delta
@@ -999,15 +1148,17 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 9 + delta,
     bodyPt: isElegantSerif
       ? 8.5 + delta
-      : isInternshipResume
+      : isInternshipResume || isCreativeProfessional
       ? 8.5 + delta
+      : isEngineeringResume
+      ? 8.75 + delta
       : isFresherResume
       ? 8.6 + delta
       : 8.75 + delta,
     metaPt:
-      isElegantSerif || isModernCorporate || isInternshipResume
+      isElegantSerif || isModernCorporate || isInternshipResume || isCreativeProfessional
         ? 8.15 + delta * 0.5
-        : isFresherResume
+        : isFresherResume || isEngineeringResume
         ? 8.35 + delta * 0.5
         : 8.5 + delta * 0.5,
     marginTopPt: marginPt,

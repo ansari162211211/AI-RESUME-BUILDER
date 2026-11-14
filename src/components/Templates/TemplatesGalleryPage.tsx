@@ -16,7 +16,9 @@ import {
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_CREATIVE_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_ENGINEERING_RESUME_CV,
   SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
@@ -73,6 +75,10 @@ export const TemplatesGalleryPage: React.FC<TemplatesGalleryPageProps> = ({
         ? SAMPLE_FRESHER_RESUME_CV
         : templateId === 'internship-resume'
         ? SAMPLE_INTERNSHIP_RESUME_CV
+        : templateId === 'engineering-resume'
+        ? SAMPLE_ENGINEERING_RESUME_CV
+        : templateId === 'creative-professional'
+        ? SAMPLE_CREATIVE_PROFESSIONAL_CV
         : SAMPLE_ACADEMIC_CV;
     return {
       ...sampleBase,

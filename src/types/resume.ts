@@ -1,6 +1,8 @@
 export interface PersonalInfo {
   fullName: string;
   jobTitle?: string;
+  specialization?: string;
+  tagline?: string;
   email: string;
   phone: string;
   secondaryPhone?: string;
@@ -35,14 +37,22 @@ export interface ExperienceSubHighlights {
   items: string[];
 }
 
+export type ExperienceEntryKind =
+  | 'internship'
+  | 'training'
+  | 'workshop'
+  | 'industrial_visit'
+  | 'employment';
+
 export interface ExperienceItem {
   id: string;
   company: string;
   position: string;
+  entryKind?: ExperienceEntryKind;
   department?: string;
   teamSize?: string;
   location?: string;
-  employmentType?: string; // Full-time, Internship, Postdoctoral Fellow, Graduate Assistant, etc.
+  employmentType?: string; // Full-time, Internship, Industrial Training, Workshop, Industrial Visit, etc.
   category?: ExperienceCategory;
   description?: string;
   results?: string;
@@ -167,21 +177,29 @@ export type ReferencesDisplayMode = 'detailed' | 'on-request' | 'hidden';
 export interface ProjectItem {
   id: string;
   title: string;
-  projectType?: string; // Personal, Academic, Open Source, Client, Hackathon, Capstone
+  projectType?: string; // Academic, Mini Project, Final-Year, Research, Industrial, Personal, Prototype, Engineering Design
   teamType?: 'Individual' | 'Team';
+  domain?: string; // e.g. Thermal Engineering, Robotics, Embedded Systems, Full-Stack Web
   institution?: string; // Funding agency / institution
+  mentor?: string;
   technologies: string[];
   frameworks?: string[];
   database?: string;
   tools?: string[];
+  componentsMaterials?: string[]; // Physical components, materials, sensors, actuators
   link?: string;
   githubUrl?: string;
   startDate?: string;
   endDate?: string;
   current?: boolean;
+  objective?: string;
   description?: string;
+  methodology?: string;
+  designApproach?: string;
   problemSolved?: string;
   contribution?: string;
+  testingValidation?: string;
+  results?: string;
   technicalChallenges?: string;
   keyFeatures?: string[];
   achievements?: string[];
@@ -242,6 +260,8 @@ export type LearningActivityType =
   | 'Workshop'
   | 'Bootcamp'
   | 'Lab Training'
+  | 'Industrial Training'
+  | 'Industrial Visit'
   | 'Online Course'
   | 'Certification Prep'
   | 'Other';
@@ -266,6 +286,53 @@ export type InternshipTrack =
   | 'ece'
   | 'research'
   | 'non-technical';
+
+export type EngineeringBranch =
+  | 'mechanical'
+  | 'cse-it'
+  | 'ece'
+  | 'ee'
+  | 'civil'
+  | 'chemical'
+  | 'other';
+
+export type CreativeProfession =
+  | 'developer'
+  | 'cybersecurity'
+  | 'designer'
+  | 'marketing'
+  | 'researcher'
+  | 'engineer'
+  | 'other';
+
+export interface CreativeSkillDetailItem {
+  id: string;
+  category: string; // e.g., Technical, Professional, Creative, National / International, or custom
+  name: string;
+  description?: string;
+  organization?: string;
+}
+
+export interface CreativeCircularProficiencyItem {
+  id: string;
+  name: string;
+  shortLabel: string; // Shown inside circular progress ring (e.g., TS, UX, SEC)
+  description?: string;
+  percentage: number; // 0 - 100
+}
+
+export interface CreativeSkillBarItem {
+  id: string;
+  name: string;
+  percentage: number; // 0 - 100
+}
+
+export interface CreativeCommunicationSkillItem {
+  id: string;
+  skill: string;
+  proficiency?: string;
+  context?: string;
+}
 
 export interface InternshipPreferences {
   targetRole?: string;
@@ -383,7 +450,8 @@ export type TemplateHeadingStyle =
   | 'filled-band'
   | 'clean-caps'
   | 'italic-serif'
-  | 'internship-rule';
+  | 'internship-rule'
+  | 'creative-blue-rule';
 
 export interface TemplateCustomization {
   fontFamily: CvFontFamily;
@@ -437,6 +505,15 @@ export interface Resume {
     | 'non-technical'
     | 'graduate';
   internshipTrack?: InternshipTrack;
+  engineeringBranch?: EngineeringBranch;
+  customEngineeringBranch?: string;
+  creativeProfession?: CreativeProfession;
+  customCreativeProfession?: string;
+  creativeSkillItems?: CreativeSkillDetailItem[];
+  circularProficiencies?: CreativeCircularProficiencyItem[];
+  creativeSkillBars?: CreativeSkillBarItem[];
+  communicationSkills?: CreativeCommunicationSkillItem[];
+  proficiencyHeadingOverride?: string;
   learningActivities?: LearningActivityItem[];
   careerInterests?: string[];
   internshipPreferences?: InternshipPreferences;

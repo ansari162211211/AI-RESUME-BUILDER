@@ -1,9 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  CREATIVE_LEFT_ORDER,
+  CREATIVE_PROFESSIONAL_ORDER,
+  CREATIVE_RIGHT_ORDER,
   ELEGANT_SERIF_LEFT_ORDER,
   ELEGANT_SERIF_ORDER,
   ELEGANT_SERIF_RIGHT_ORDER,
+  ENGINEERING_RESUME_ORDER,
   FRESHER_RESUME_ORDER,
   INTERNSHIP_LEFT_ORDER,
   INTERNSHIP_RESUME_ORDER,
@@ -19,7 +23,15 @@ import {
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_CREATIVE_CYBERSECURITY_CV,
+  SAMPLE_CREATIVE_DESIGNER_CV,
+  SAMPLE_CREATIVE_MARKETING_CV,
+  SAMPLE_CREATIVE_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_ENGINEERING_CSE_CV,
+  SAMPLE_ENGINEERING_ECE_CV,
+  SAMPLE_ENGINEERING_MECHANICAL_CV,
+  SAMPLE_ENGINEERING_RESUME_CV,
   SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
@@ -31,8 +43,10 @@ import {
 import {
   SKILL_MATRIX_LEGEND,
   buildClassicPhoneList,
+  buildCreativeContactItems,
   buildElegantSerifContactItems,
   buildElegantSerifMetadataRows,
+  buildEngineeringContactItems,
   buildFresherHeaderColumns,
   buildHarvardContactItems,
   buildInternshipContactItems,
@@ -42,7 +56,18 @@ import {
   buildTwoColumnContactItems,
   chunkRows,
   getCourseworkItems,
+  getCreativeCategorizedSkills,
+  getCreativeCertificatesAndGrants,
+  getCreativeCircularProficiencies,
+  getCreativeCommunicationSkills,
+  getCreativeHorizontalSkillBars,
+  getCreativeProficiencyHeading,
+  getCreativeTalksAndPublications,
   getEffectiveInterests,
+  getEngineeringExtracurricularEntries,
+  getEngineeringInternshipAndTrainingEntries,
+  getEngineeringProjectBullets,
+  getEngineeringSkillAndInterestRows,
   getHarvardAdditionalSubsections,
   getHarvardSkillsAndInterests,
   getInternshipCareerInterests,
@@ -60,11 +85,12 @@ import {
   groupPublicationsForTwoColumn,
   isSectionVisibleAndPopulated,
   matchSoftwareDevSkillBucket,
+  splitCreativeName,
 } from '../utils/resumePresentation';
 import type { Resume } from '../types/resume';
 
-test("keeps Templates 1 through 10 active in TEMPLATE_DEFINITIONS", () => {
-  assert.equal(TEMPLATE_DEFINITIONS.length, 10);
+test('keeps Templates 1 through 12 active in TEMPLATE_DEFINITIONS', () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 12);
   assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
   assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
   assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
@@ -85,11 +111,13 @@ test("keeps Templates 1 through 10 active in TEMPLATE_DEFINITIONS", () => {
   assert.equal(TEMPLATE_DEFINITIONS[8].name, 'Fresher Resume');
   assert.equal(TEMPLATE_DEFINITIONS[9].id, 'internship-resume');
   assert.equal(TEMPLATE_DEFINITIONS[9].name, 'Internship Resume');
+  assert.equal(TEMPLATE_DEFINITIONS[10].id, 'engineering-resume');
+  assert.equal(TEMPLATE_DEFINITIONS[10].name, 'Engineering Resume');
+  assert.equal(TEMPLATE_DEFINITIONS[11].id, 'creative-professional');
+  assert.equal(TEMPLATE_DEFINITIONS[11].name, 'Creative Professional');
 
   const removedIds = [
     'modern-minimalist',
-    'engineering-resume',
-    'creative-professional',
     'executive-resume',
     'research-scholar',
     'simple-one-page',
@@ -135,6 +163,8 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(resolveTemplateId('modern-corporate'), 'modern-corporate');
   assert.equal(resolveTemplateId('fresher-resume'), 'fresher-resume');
   assert.equal(resolveTemplateId('internship-resume'), 'internship-resume');
+  assert.equal(resolveTemplateId('engineering-resume'), 'engineering-resume');
+  assert.equal(resolveTemplateId('creative-professional'), 'creative-professional');
   assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
   assert.equal(getTemplateById('harvard-style').id, 'harvard-style');
   assert.equal(getTemplateById('harvard-style').name, 'Harvard Style');
@@ -146,6 +176,10 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(getTemplateById('fresher-resume').name, 'Fresher Resume');
   assert.equal(getTemplateById('internship-resume').id, 'internship-resume');
   assert.equal(getTemplateById('internship-resume').name, 'Internship Resume');
+  assert.equal(getTemplateById('engineering-resume').id, 'engineering-resume');
+  assert.equal(getTemplateById('engineering-resume').name, 'Engineering Resume');
+  assert.equal(getTemplateById('creative-professional').id, 'creative-professional');
+  assert.equal(getTemplateById('creative-professional').name, 'Creative Professional');
   assert.equal(getTemplateById('academic-cv').name, 'Academic CV');
   assert.equal(getTemplateById('classic-professional').name, 'Classic Professional');
   assert.equal(getTemplateById('jakes-resume').name, "Jake's Resume");
@@ -1119,6 +1153,212 @@ test('Internship Resume (Template 10) enforces two-column layout, unconfirmed sk
   assert.equal(visibleMin.includes('languages'), false);
   assert.equal(visibleMin.includes('custom-sections'), false);
 });
+
+test('Engineering Resume (Template 11) enforces monochrome single-column layout, branch samples, structured helpers, and empty section omission', () => {
+  const engTpl = getTemplateById('engineering-resume');
+  assert.equal(engTpl.layout, 'single-column');
+  assert.equal(engTpl.headerVariant, 'engineering-centered');
+  assert.equal(engTpl.defaultCustomization.fontFamily, 'sans');
+  assert.equal(engTpl.defaultCustomization.textColor, '#000000');
+  assert.equal(engTpl.defaultCustomization.accentColor, '#000000');
+  assert.equal(engTpl.defaultCustomization.headingStyle, 'uppercase-rule');
+  assert.deepEqual(engTpl.sectionOrder, ENGINEERING_RESUME_ORDER);
+  assert.ok(engTpl.categories.includes('Technical & Developer'));
+  assert.ok(engTpl.categories.includes('Student & Fresher'));
+  assert.ok(engTpl.categories.includes('ATS-Friendly'));
+  assert.ok(engTpl.categories.includes('Professional'));
+
+  assert.equal(getSectionDisplayTitle('objective', 'engineering-resume'), 'OBJECTIVE');
+  assert.equal(getSectionDisplayTitle('education', 'engineering-resume'), 'EDUCATION');
+  assert.equal(getSectionDisplayTitle('skills', 'engineering-resume'), 'SKILLS AND INTERESTS');
+  assert.equal(getSectionDisplayTitle('projects', 'engineering-resume'), 'PROJECTS');
+  assert.equal(getSectionDisplayTitle('experience', 'engineering-resume'), 'INTERNSHIP / TRAININGS');
+  assert.equal(getSectionDisplayTitle('leadership', 'engineering-resume'), 'POSITION OF RESPONSIBILITY');
+  assert.equal(getSectionDisplayTitle('achievements', 'engineering-resume'), 'EXTRA-CURRICULAR ACTIVITIES');
+  assert.equal(getSectionDisplayTitle('custom-sections', 'engineering-resume'), 'ADDITIONAL INFORMATION');
+
+  // Verify branch sample profiles (Mechanical, CSE/IT, ECE) contain zero photoUrl
+  const mechCv: Resume = {
+    ...SAMPLE_ENGINEERING_MECHANICAL_CV,
+    id: 'eng_mech_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+  const cseCv: Resume = {
+    ...SAMPLE_ENGINEERING_CSE_CV,
+    id: 'eng_cse_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+  const eceCv: Resume = {
+    ...SAMPLE_ENGINEERING_ECE_CV,
+    id: 'eng_ece_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  assert.equal(SAMPLE_ENGINEERING_RESUME_CV.engineeringBranch, 'mechanical');
+  assert.equal(Boolean(mechCv.personalInfo.photoUrl?.trim()), false);
+  assert.equal(cseCv.engineeringBranch, 'cse-it');
+  assert.equal(eceCv.engineeringBranch, 'ece');
+
+  // Contact builder produces pipe-ready clickable links without fabrication
+  const contacts = buildEngineeringContactItems(mechCv.personalInfo);
+  assert.ok(contacts.some((c) => c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.url?.includes('linkedin.com')));
+
+  // Skills & Interests combines skill rows + Interests row cleanly
+  const skillRows = getEngineeringSkillAndInterestRows(mechCv);
+  assert.ok(skillRows.length >= 2);
+  assert.equal(skillRows[skillRows.length - 1].key, 'interests');
+  assert.equal(skillRows[skillRows.length - 1].label, 'Interests');
+
+  // Engineering project bullets format objective, methodology, designApproach, componentsMaterials, testingValidation, results
+  const sampleProjBullets = getEngineeringProjectBullets({
+    id: 'ep-test',
+    title: 'Solar Thermal Collector',
+    description: '',
+    technologies: ['SolidWorks', 'ANSYS'],
+    highlights: [],
+    objective: 'Increase outlet fluid temperature by 15%.',
+    methodology: 'Transient CFD thermal coupling.',
+    testingValidation: 'Validated against pyranometer bench rig.',
+    results: 'Achieved 17.4% thermal efficiency improvement.',
+  });
+  assert.ok(sampleProjBullets.some((b) => b.startsWith('Objective:')));
+  assert.ok(sampleProjBullets.some((b) => b.startsWith('Methodology:')));
+  assert.ok(sampleProjBullets.some((b) => b.startsWith('Testing & Validation:')));
+  assert.ok(sampleProjBullets.some((b) => b.startsWith('Results & Outcomes:')));
+
+  // Internship / Trainings merges experience + learningActivities with deduplication
+  const mergedInternTrain = getEngineeringInternshipAndTrainingEntries(mechCv);
+  assert.ok(mergedInternTrain.length >= 1);
+
+  // Extra-Curricular merges achievements + volunteer + certifications cleanly
+  const mergedExtra = getEngineeringExtracurricularEntries({
+    ...cseCv,
+    volunteer: [{ id: 'v1', role: 'NSS Volunteer', organization: 'NSS', startDate: '2024', endDate: '2025', current: false, highlights: ['STEM camp'] }],
+  });
+  assert.ok(mergedExtra.some((e) => e.id.startsWith('ach-') || e.id.startsWith('cert-')));
+  assert.ok(mergedExtra.some((e) => e.id === 'vol-v1'));
+
+  // Empty optional sections omit automatically cleanly while core sections stay visible
+  const fresherEmptyOpt: Resume = {
+    ...mechCv,
+    objective: '',
+    experience: [],
+    learningActivities: [],
+    leadership: [],
+    achievements: [],
+    volunteer: [],
+    certifications: [],
+    languages: [],
+    customSections: [],
+  };
+  const visibleMin = getOrderedVisibleSections(fresherEmptyOpt, engTpl);
+  assert.deepEqual(visibleMin, ['education', 'skills', 'projects']);
+});
+
+test('Creative Professional (Template 12) configures blue-rule two-column layout, dynamic profession headings, circular & bar helpers, and optional hiding', () => {
+  const creativeTpl = getTemplateById('creative-professional');
+  assert.equal(creativeTpl.layout, 'two-column-creative');
+  assert.equal(creativeTpl.headerVariant, 'creative-centered');
+  assert.equal(creativeTpl.defaultCustomization.fontFamily, 'sans');
+  assert.equal(creativeTpl.defaultCustomization.textColor, '#111827');
+  assert.equal(creativeTpl.defaultCustomization.accentColor, '#1d4ed8');
+  assert.equal(creativeTpl.defaultCustomization.headingStyle, 'creative-blue-rule');
+  assert.deepEqual(creativeTpl.sectionOrder, CREATIVE_PROFESSIONAL_ORDER);
+  assert.deepEqual(creativeTpl.sidebarSections, CREATIVE_RIGHT_ORDER);
+  assert.ok(CREATIVE_LEFT_ORDER.includes('proficiency-circles'));
+  assert.ok(CREATIVE_RIGHT_ORDER.includes('skill-bars'));
+
+  assert.equal(getSectionDisplayTitle('experience', 'creative-professional'), 'SHORT RESUME');
+  assert.equal(getSectionDisplayTitle('education', 'creative-professional'), 'DEGREES');
+  assert.equal(getSectionDisplayTitle('skills', 'creative-professional'), 'SKILLS');
+  assert.equal(getSectionDisplayTitle('skill-bars', 'creative-professional'), 'SKILLS & PROFICIENCY');
+  assert.equal(getSectionDisplayTitle('communication', 'creative-professional'), 'COMMUNICATION SKILLS');
+  assert.equal(getSectionDisplayTitle('certifications', 'creative-professional'), 'CERTIFICATES & GRANTS');
+  assert.equal(getSectionDisplayTitle('publications', 'creative-professional'), 'TALKS & PUBLICATIONS');
+
+  // Split surname formatting
+  assert.deepEqual(splitCreativeName('Lukas Lindqvist-Meyer'), {
+    firstPart: 'Lukas',
+    lastPart: 'Lindqvist-Meyer',
+  });
+
+  const devCv: Resume = {
+    ...SAMPLE_CREATIVE_PROFESSIONAL_CV,
+    id: 'cr_dev_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+  const designerCv: Resume = { ...devCv, ...SAMPLE_CREATIVE_DESIGNER_CV };
+  const cyberCv: Resume = { ...devCv, ...SAMPLE_CREATIVE_CYBERSECURITY_CV };
+  const marketingCv: Resume = { ...devCv, ...SAMPLE_CREATIVE_MARKETING_CV };
+
+  assert.equal(getCreativeProficiencyHeading(devCv), 'PROGRAMMING PROFICIENCY');
+  assert.equal(getCreativeProficiencyHeading(designerCv), 'CREATIVE TOOLS');
+  assert.equal(getCreativeProficiencyHeading(cyberCv), 'SECURITY TOOLS');
+  assert.equal(getCreativeProficiencyHeading(marketingCv), 'MARKETING PLATFORMS');
+  assert.equal(
+    getCreativeProficiencyHeading({ ...devCv, proficiencyHeadingOverride: 'Core Architecture' }),
+    'CORE ARCHITECTURE'
+  );
+
+  const contacts = buildCreativeContactItems(devCv.personalInfo);
+  assert.ok(contacts.some((c) => c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.url?.includes('linkedin.com')));
+  assert.ok(contacts.some((c) => c.url?.includes('github.com')));
+
+  const skillGroups = getCreativeCategorizedSkills(devCv);
+  assert.ok(skillGroups.length >= 1);
+
+  const circles = getCreativeCircularProficiencies({
+    ...devCv,
+    circularProficiencies: [
+      { id: 'c1', name: 'TypeScript', shortLabel: '', description: 'Types', percentage: 135 },
+    ],
+  });
+  assert.equal(circles[0].percentage, 100);
+  assert.equal(circles[0].shortLabel, 'TYP');
+
+  const bars = getCreativeHorizontalSkillBars(devCv);
+  assert.ok(bars.length >= 2);
+  assert.ok(getCreativeCommunicationSkills(devCv).length >= 1);
+  assert.ok(getCreativeCertificatesAndGrants(devCv).length >= 1);
+  assert.ok(getCreativeTalksAndPublications(devCv).length >= 1);
+
+  const minimalCreative: Resume = {
+    ...devCv,
+    communicationSkills: [],
+    certifications: [],
+    achievements: [],
+    languages: [],
+    publications: [],
+    projects: [],
+    leadership: [],
+    volunteer: [],
+    memberships: [],
+    customSections: [],
+  };
+  const visibleMin = getOrderedVisibleSections(minimalCreative, creativeTpl);
+  assert.ok(visibleMin.includes('experience'));
+  assert.ok(visibleMin.includes('education'));
+  assert.ok(visibleMin.includes('skills'));
+  assert.ok(visibleMin.includes('proficiency-circles'));
+  assert.ok(visibleMin.includes('skill-bars'));
+  assert.equal(visibleMin.includes('communication'), false);
+  assert.equal(visibleMin.includes('certifications'), false);
+  assert.equal(visibleMin.includes('languages'), false);
+  assert.equal(visibleMin.includes('publications'), false);
+});
+
 
 
 

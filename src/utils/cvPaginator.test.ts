@@ -238,11 +238,18 @@ test('paginateEditorialPdfColumns packs Template 10 Internship Resume cleanly ac
   const internshipTpl = getTemplateById('internship-resume');
   const scale = getTypographyScale(internshipTpl.defaultCustomization, 'internship-resume');
   const headerHeightPt = estimateInternshipHeaderHeightPt(5, scale);
+  const sampleInternshipResume: Resume = {
+    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    id: 'res-internship-1',
+    userId: 'user-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
 
   const singlePagePlan = paginateEditorialPdfColumns({
     leftSections: INTERNSHIP_LEFT_ORDER,
     rightSections: INTERNSHIP_RIGHT_ORDER,
-    resume: SAMPLE_INTERNSHIP_RESUME_CV,
+    resume: sampleInternshipResume,
     scale,
     headerHeightPt,
     mode: 'internship',
@@ -255,7 +262,7 @@ test('paginateEditorialPdfColumns packs Template 10 Internship Resume cleanly ac
 
   // Overflow scenario: add extensive research/project items and co-curricular items to verify 2+ page A4 flow
   const longInternshipResume: Resume = {
-    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    ...sampleInternshipResume,
     researchExperience: Array.from({ length: 8 }, (_, idx) => ({
       id: `re-over-${idx}`,
       title: `Distributed Systems & Applied ML Study #${idx + 1}`,

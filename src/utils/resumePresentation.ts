@@ -1,6 +1,10 @@
 import type {
   AwardItem,
   CertificationItem,
+  CreativeCircularProficiencyItem,
+  CreativeCommunicationSkillItem,
+  CreativeSkillBarItem,
+  CreativeSkillDetailItem,
   CustomSectionItem,
   ExperienceCategory,
   ExperienceItem,
@@ -1692,6 +1696,686 @@ export function getInternshipSkillRows(resume: Resume): InternshipSkillRow[] {
   return rows;
 }
 
+export interface EngineeringContactItem {
+  label: string;
+  url: string | null;
+}
+
+export function buildEngineeringContactItems(
+  personalInfo: PersonalInfo
+): EngineeringContactItem[] {
+  const items: EngineeringContactItem[] = [];
+  const loc = [
+    personalInfo.city?.trim(),
+    personalInfo.state?.trim(),
+    personalInfo.country?.trim(),
+  ]
+    .filter(Boolean)
+    .join(', ') || personalInfo.location?.trim() || '';
+
+  if (loc) {
+    items.push({ label: loc, url: null });
+  }
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+  if (personalInfo.email?.trim()) {
+    items.push({
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const clean = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com')
+      ? raw
+      : `https://linkedin.com/in/${clean.replace(/^linkedin\.com\/in\//i, '')}`;
+    items.push({
+      label: clean.includes('linkedin.com') ? clean : `linkedin.com/in/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const clean = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com')
+      ? raw
+      : `https://github.com/${clean.replace(/^github\.com\//i, '')}`;
+    items.push({
+      label: clean.includes('github.com') ? clean : `github.com/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    items.push({
+      label: raw.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+      url: sanitizePdfUrl(raw),
+    });
+  }
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (link.label?.trim() || link.url?.trim()) {
+        items.push({
+          label:
+            link.label?.trim() ||
+            link.url.trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+          url: link.url?.trim() ? sanitizePdfUrl(link.url.trim()) : null,
+        });
+      }
+    }
+  }
+  return items;
+}
+
+export interface EngineeringSkillInterestRow {
+  key: string;
+  label: string;
+  text: string;
+}
+
+export function getEngineeringSkillAndInterestRows(
+  resume: Resume
+): EngineeringSkillInterestRow[] {
+  const rows: EngineeringSkillInterestRow[] = [];
+  for (const cat of getVisibleSkills(resume.skills)) {
+    const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+    if (items.length === 0) continue;
+    rows.push({
+      key: `sk-${cat.id}`,
+      label: cat.category?.trim() || 'Technical Skills',
+      text: items.join(', '),
+    });
+  }
+  const hidden = new Set(resume.hiddenSections || []);
+  if (!hidden.has('interests')) {
+    const eff = getEffectiveInterests(resume);
+    if (eff.text.trim()) {
+      rows.push({
+        key: 'interests',
+        label: 'Interests',
+        text: eff.text.trim(),
+      });
+    }
+  }
+  return rows;
+}
+
+export interface EngineeringInternshipTrainingEntry {
+  id: string;
+  kindLabel: string; // e.g. 'Internship' | 'Industrial Training' | 'Workshop' | 'Industrial Visit'
+  title: string;
+  organization: string;
+  location: string;
+  dateRange: string;
+  technologies: string[];
+  description: string;
+  bullets: string[];
+  linkUrl: string | null;
+}
+
+export function getEngineeringInternshipAndTrainingEntries(
+  resume: Resume
+): EngineeringInternshipTrainingEntry[] {
+  const entries: EngineeringInternshipTrainingEntry[] = [];
+  const seenKeys = new Set<string>();
+
+  for (const exp of resume.experience || []) {
+    const hasContent =
+      Boolean(exp.company?.trim()) ||
+      Boolean(exp.position?.trim()) ||
+      Boolean(exp.description?.trim()) ||
+      cleanHighlights(exp.highlights).length > 0;
+    if (!hasContent) continue;
+
+    const kindMap: Record<string, string> = {
+      internship: 'Internship',
+      training: 'Industrial Training',
+      workshop: 'Workshop',
+      industrial_visit: 'Industrial Visit',
+      employment: exp.employmentType?.trim() || 'Experience',
+    };
+    const kindLabel = exp.entryKind
+      ? kindMap[exp.entryKind] || 'Internship'
+      : exp.employmentType?.trim() || 'Internship';
+
+    const dateRange = exp.current
+      ? [exp.startDate?.trim(), 'Present'].filter(Boolean).join(' – ')
+      : [exp.startDate?.trim(), exp.endDate?.trim()].filter(Boolean).join(' – ');
+
+    const bullets = cleanHighlights(exp.highlights);
+    if (exp.results?.trim()) {
+      bullets.push(`Outcome: ${exp.results.trim()}`);
+    }
+    const dedupeKey = `${(exp.position || '').trim().toLowerCase()}|${(exp.company || '').trim().toLowerCase()}`;
+    seenKeys.add(dedupeKey);
+
+    entries.push({
+      id: exp.id,
+      kindLabel,
+      title: exp.position?.trim() || kindLabel,
+      organization: exp.company?.trim() || '',
+      location: exp.location?.trim() || '',
+      dateRange,
+      technologies: (exp.technologies || []).map((t) => t.trim()).filter(Boolean),
+      description: exp.description?.trim() || '',
+      bullets,
+      linkUrl: null,
+    });
+  }
+
+  for (const item of resume.learningActivities || []) {
+    const hasContent =
+      Boolean(item.title?.trim()) ||
+      Boolean(item.provider?.trim()) ||
+      Boolean(item.description?.trim());
+    if (!hasContent) continue;
+
+    const title = item.title?.trim() || item.subject?.trim() || 'Technical Training';
+    const provider = item.provider?.trim() || '';
+    const dedupeKey = `${title.toLowerCase()}|${provider.toLowerCase()}`;
+    if (seenKeys.has(dedupeKey)) continue;
+    seenKeys.add(dedupeKey);
+
+    const bullets: string[] = [];
+    if (item.instructor?.trim()) bullets.push(`Instructor: ${item.instructor.trim()}`);
+    if (item.certificateId?.trim()) bullets.push(`Credential ID: ${item.certificateId.trim()}`);
+
+    entries.push({
+      id: `learn-${item.id}`,
+      kindLabel: item.activityType || 'Technical Training',
+      title,
+      organization: provider,
+      location: '',
+      dateRange: item.completionDate?.trim() || '',
+      technologies: (item.skillsAcquired || []).map((s) => s.trim()).filter(Boolean),
+      description: item.description?.trim() || '',
+      bullets,
+      linkUrl: item.credentialUrl?.trim() ? sanitizePdfUrl(item.credentialUrl.trim()) : null,
+    });
+  }
+
+  return entries;
+}
+
+export function getEngineeringProjectBullets(proj: ProjectItem): string[] {
+  const bullets: string[] = [];
+  if (proj.objective?.trim()) {
+    bullets.push(`Objective: ${proj.objective.trim()}`);
+  }
+  if (proj.description?.trim()) {
+    bullets.push(proj.description.trim());
+  }
+  if (proj.problemSolved?.trim()) {
+    bullets.push(`Problem Statement: ${proj.problemSolved.trim()}`);
+  }
+  if (proj.methodology?.trim()) {
+    bullets.push(`Methodology: ${proj.methodology.trim()}`);
+  }
+  if (proj.designApproach?.trim()) {
+    bullets.push(`Design Approach: ${proj.designApproach.trim()}`);
+  }
+  if (proj.componentsMaterials && proj.componentsMaterials.length > 0) {
+    const items = proj.componentsMaterials.map((c) => c.trim()).filter(Boolean);
+    if (items.length > 0) bullets.push(`Components & Materials: ${items.join(', ')}`);
+  }
+  if (proj.contribution?.trim()) {
+    bullets.push(`Individual Contribution: ${proj.contribution.trim()}`);
+  }
+  if (proj.testingValidation?.trim()) {
+    bullets.push(`Testing & Validation: ${proj.testingValidation.trim()}`);
+  }
+  if (proj.results?.trim()) {
+    bullets.push(`Results & Outcomes: ${proj.results.trim()}`);
+  }
+  if (proj.technicalChallenges?.trim()) {
+    bullets.push(`Challenges Solved: ${proj.technicalChallenges.trim()}`);
+  }
+  for (const h of cleanHighlights(proj.highlights)) {
+    if (!bullets.some((b) => b.toLowerCase() === h.toLowerCase())) {
+      bullets.push(h);
+    }
+  }
+  for (const a of (proj.achievements || []).map((x) => x.trim()).filter(Boolean)) {
+    if (!bullets.some((b) => b.toLowerCase() === a.toLowerCase())) {
+      bullets.push(a);
+    }
+  }
+  return bullets;
+}
+
+export interface EngineeringExtracurricularItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  date: string;
+  detail: string;
+  url: string | null;
+}
+
+export function getEngineeringExtracurricularEntries(
+  resume: Resume
+): EngineeringExtracurricularItem[] {
+  const out: EngineeringExtracurricularItem[] = [];
+  const seen = new Set<string>();
+
+  for (const ach of resume.achievements || []) {
+    if (!ach.title?.trim() && !ach.description?.trim()) continue;
+    const key = `${(ach.title || '').trim().toLowerCase()}|${(ach.issuer || '').trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const sub = [
+      ach.participationType?.trim(),
+      ach.rank?.trim(),
+      ach.role?.trim(),
+      ach.issuer?.trim(),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+    const detailParts = [
+      ach.description?.trim(),
+      ach.responsibilities?.trim(),
+      ach.outcome?.trim(),
+      ach.achievementDetails?.trim(),
+    ].filter(Boolean);
+
+    out.push({
+      id: `ach-${ach.id}`,
+      title: ach.title?.trim() || 'Achievement',
+      subtitle: sub,
+      date: ach.date?.trim() || '',
+      detail: detailParts.join(' — '),
+      url: ach.url?.trim() ? sanitizePdfUrl(ach.url.trim()) : null,
+    });
+  }
+
+  for (const vol of resume.volunteer || []) {
+    if (!vol.role?.trim() && !vol.organization?.trim()) continue;
+    const key = `${(vol.role || '').trim().toLowerCase()}|${(vol.organization || '').trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const dateRange = vol.current
+      ? [vol.startDate?.trim(), 'Present'].filter(Boolean).join(' – ')
+      : [vol.startDate?.trim(), vol.endDate?.trim()].filter(Boolean).join(' – ');
+    out.push({
+      id: `vol-${vol.id}`,
+      title: vol.role?.trim() || 'Volunteer',
+      subtitle: [vol.organization?.trim(), vol.location?.trim()].filter(Boolean).join(', '),
+      date: dateRange,
+      detail: cleanHighlights(vol.highlights).join(' • '),
+      url: null,
+    });
+  }
+
+  for (const cert of resume.certifications || []) {
+    if (!cert.name?.trim()) continue;
+    const key = `${cert.name.trim().toLowerCase()}|${(cert.issuer || '').trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: `cert-${cert.id}`,
+      title: cert.name.trim(),
+      subtitle: cert.issuer?.trim() ? `Certification · ${cert.issuer.trim()}` : 'Certification',
+      date: cert.issueDate?.trim() || '',
+      detail: cert.skillsCovered?.length ? `Skills: ${cert.skillsCovered.join(', ')}` : '',
+      url: cert.link?.trim() ? sanitizePdfUrl(cert.link.trim()) : null,
+    });
+  }
+
+  return out;
+}
+
+export function splitCreativeName(fullName?: string): {
+  firstPart: string;
+  lastPart: string;
+} {
+  const clean = (fullName || '').trim().replace(/\s+/g, ' ');
+  if (!clean) return { firstPart: '', lastPart: '' };
+  const parts = clean.split(' ');
+  if (parts.length === 1) return { firstPart: '', lastPart: parts[0] };
+  return {
+    firstPart: parts.slice(0, -1).join(' '),
+    lastPart: parts[parts.length - 1],
+  };
+}
+
+export type CreativeContactKind =
+  | 'location'
+  | 'phone'
+  | 'email'
+  | 'website'
+  | 'linkedin'
+  | 'github'
+  | 'custom';
+
+export interface CreativeContactItem {
+  kind: CreativeContactKind;
+  label: string;
+  url: string | null;
+}
+
+export function buildCreativeContactItems(
+  personalInfo: PersonalInfo
+): CreativeContactItem[] {
+  const items: CreativeContactItem[] = [];
+  const loc =
+    [
+      personalInfo.city?.trim(),
+      personalInfo.state?.trim(),
+      personalInfo.country?.trim(),
+    ]
+      .filter(Boolean)
+      .join(', ') ||
+    personalInfo.location?.trim() ||
+    personalInfo.streetAddress?.trim() ||
+    '';
+  if (loc) {
+    items.push({ kind: 'location', label: loc, url: null });
+  }
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      kind: 'phone',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+  if (personalInfo.email?.trim()) {
+    items.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    items.push({
+      kind: 'website',
+      label: raw.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+      url: sanitizePdfUrl(raw),
+    });
+  }
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const clean = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com')
+      ? raw
+      : `https://linkedin.com/in/${clean.replace(/^linkedin\.com\/in\//i, '')}`;
+    items.push({
+      kind: 'linkedin',
+      label: clean.includes('linkedin.com') ? clean : `linkedin.com/in/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const clean = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com')
+      ? raw
+      : `https://github.com/${clean.replace(/^github\.com\//i, '')}`;
+    items.push({
+      kind: 'github',
+      label: clean.includes('github.com') ? clean : `github.com/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (link.label?.trim() || link.url?.trim()) {
+        items.push({
+          kind: 'custom',
+          label:
+            link.label?.trim() ||
+            link.url.trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+          url: link.url?.trim() ? sanitizePdfUrl(link.url.trim()) : null,
+        });
+      }
+    }
+  }
+  return items;
+}
+
+export function getCreativeProficiencyHeading(resume: Resume): string {
+  if (resume.proficiencyHeadingOverride?.trim()) {
+    return resume.proficiencyHeadingOverride.trim().toUpperCase();
+  }
+  switch (resume.creativeProfession) {
+    case 'developer':
+      return 'PROGRAMMING PROFICIENCY';
+    case 'cybersecurity':
+      return 'SECURITY TOOLS';
+    case 'designer':
+      return 'CREATIVE TOOLS';
+    case 'marketing':
+      return 'MARKETING PLATFORMS';
+    case 'researcher':
+      return 'RESEARCH & ANALYSIS';
+    case 'engineer':
+      return 'ENGINEERING SOFTWARE';
+    default: {
+      const corpus = [
+        resume.personalInfo?.jobTitle,
+        resume.personalInfo?.specialization,
+        resume.customCreativeProfession,
+        ...(resume.circularProficiencies || []).map((c) => c.name),
+        ...(resume.creativeSkillItems || []).map((c) => c.name),
+        ...(resume.skills || []).flatMap((s) => s.skills || []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (/(figma|illustrator|photoshop|ux|ui\/ux|typography|brand|adobe|motion)/i.test(corpus)) {
+        return 'CREATIVE TOOLS';
+      }
+      if (/(cyber|pentest|siem|soc|owasp|zero-trust|security|wireshark|nmap)/i.test(corpus)) {
+        return 'SECURITY TOOLS';
+      }
+      if (/(marketing|seo|hubspot|growth|campaign|funnel|analytics)/i.test(corpus)) {
+        return 'MARKETING PLATFORMS';
+      }
+      if (/(research|spss|stata|r studio|empirical|qualitative|quantitative)/i.test(corpus)) {
+        return 'RESEARCH & ANALYSIS';
+      }
+      if (/(solidworks|autocad|ansys|catia|matlab|simulink|cad)/i.test(corpus)) {
+        return 'ENGINEERING SOFTWARE';
+      }
+      if (/(typescript|javascript|python|react|java|golang|kubernetes|docker|node)/i.test(corpus)) {
+        return 'PROGRAMMING PROFICIENCY';
+      }
+      return 'PROFESSIONAL EXPERTISE';
+    }
+  }
+}
+
+export interface CreativeSkillCategoryGroup {
+  category: string;
+  items: CreativeSkillDetailItem[];
+}
+
+export function getCreativeCategorizedSkills(
+  resume: Resume
+): CreativeSkillCategoryGroup[] {
+  const groups: CreativeSkillCategoryGroup[] = [];
+  const byCat = new Map<string, CreativeSkillDetailItem[]>();
+
+  const explicit = (resume.creativeSkillItems || []).filter(
+    (item) => item.name?.trim() || item.description?.trim()
+  );
+
+  if (explicit.length > 0) {
+    for (const item of explicit) {
+      const cat = item.category?.trim() || 'Technical';
+      const arr = byCat.get(cat) || [];
+      arr.push(item);
+      byCat.set(cat, arr);
+    }
+    byCat.forEach((items, category) => groups.push({ category, items }));
+    return groups;
+  }
+
+  for (const cat of getVisibleSkills(resume.skills)) {
+    const clean = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+    if (clean.length === 0) continue;
+    const catName = cat.category?.trim() || 'Technical';
+    const arr = byCat.get(catName) || [];
+    arr.push({
+      id: `mapped-${cat.id}`,
+      category: catName,
+      name: clean.join(', '),
+      description: '',
+      organization: '',
+    });
+    byCat.set(catName, arr);
+  }
+  byCat.forEach((items, category) => groups.push({ category, items }));
+  return groups;
+}
+
+function deriveShortSkillLabel(name: string): string {
+  const clean = name.trim();
+  if (!clean) return 'SK';
+  const upperWords = clean
+    .replace(/[^a-zA-Z0-9+#.\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (upperWords.length === 1) {
+    return upperWords[0].slice(0, 3).toUpperCase();
+  }
+  return upperWords
+    .slice(0, 3)
+    .map((w) => w[0]?.toUpperCase() || '')
+    .join('');
+}
+
+export function getCreativeCircularProficiencies(
+  resume: Resume
+): CreativeCircularProficiencyItem[] {
+  const explicit = (resume.circularProficiencies || [])
+    .filter((c) => c.name?.trim() || c.shortLabel?.trim())
+    .map((c) => ({
+      ...c,
+      shortLabel: (c.shortLabel?.trim() || deriveShortSkillLabel(c.name)).slice(0, 5),
+      percentage: Math.max(0, Math.min(100, Number(c.percentage) || 0)),
+    }));
+  if (explicit.length > 0) return explicit;
+
+  // Fallback mapping only for explicitly rated skillMatrix rows (never fabricate for unrated skills)
+  return (resume.skillMatrix || [])
+    .filter((m) => m.skill?.trim() && m.level !== null && m.level !== undefined)
+    .slice(0, 6)
+    .map((m) => ({
+      id: `circ-mat-${m.id}`,
+      name: m.skill.trim(),
+      shortLabel: deriveShortSkillLabel(m.skill),
+      description: m.comment?.trim() || m.category?.trim() || '',
+      percentage: Math.max(20, Math.min(100, Number(m.level) * 20)),
+    }));
+}
+
+export function getCreativeHorizontalSkillBars(
+  resume: Resume
+): CreativeSkillBarItem[] {
+  const explicit = (resume.creativeSkillBars || [])
+    .filter((b) => b.name?.trim())
+    .map((b) => ({
+      ...b,
+      percentage: Math.max(0, Math.min(100, Number(b.percentage) || 0)),
+    }));
+  if (explicit.length > 0) return explicit;
+
+  return (resume.skillMatrix || [])
+    .filter((m) => m.skill?.trim() && m.level !== null && m.level !== undefined)
+    .map((m) => ({
+      id: `bar-mat-${m.id}`,
+      name: m.skill.trim(),
+      percentage: Math.max(20, Math.min(100, Number(m.level) * 20)),
+    }));
+}
+
+export function getCreativeCommunicationSkills(
+  resume: Resume
+): CreativeCommunicationSkillItem[] {
+  return (resume.communicationSkills || []).filter(
+    (c) => Boolean(c.skill?.trim()) || Boolean(c.proficiency?.trim()) || Boolean(c.context?.trim())
+  );
+}
+
+export interface CreativeCertificateGrantItem {
+  id: string;
+  date: string;
+  title: string;
+  issuer: string;
+  description: string;
+  url: string | null;
+}
+
+export function getCreativeCertificatesAndGrants(
+  resume: Resume
+): CreativeCertificateGrantItem[] {
+  const out: CreativeCertificateGrantItem[] = [];
+  const seen = new Set<string>();
+
+  for (const cert of resume.certifications || []) {
+    if (!cert.name?.trim() && !cert.issuer?.trim()) continue;
+    const key = `${(cert.name || '').trim().toLowerCase()}|${(cert.issuer || '').trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const details = [
+      cert.credentialId?.trim() ? `ID: ${cert.credentialId.trim()}` : '',
+      cert.skillsCovered?.length ? cert.skillsCovered.filter(Boolean).join(', ') : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    out.push({
+      id: `cert-${cert.id}`,
+      date: cert.issueDate?.trim() || '',
+      title: cert.name?.trim() || 'Certificate',
+      issuer: cert.issuer?.trim() || '',
+      description: details,
+      url: cert.link?.trim() ? sanitizePdfUrl(cert.link.trim()) : null,
+    });
+  }
+
+  for (const ach of resume.achievements || []) {
+    if (!ach.title?.trim() && !ach.description?.trim()) continue;
+    const key = `${(ach.title || '').trim().toLowerCase()}|${(ach.issuer || '').trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const details = [
+      ach.rank?.trim(),
+      ach.description?.trim(),
+      ach.achievementDetails?.trim(),
+    ]
+      .filter(Boolean)
+      .join(' — ');
+    out.push({
+      id: `grant-${ach.id}`,
+      date: ach.date?.trim() || '',
+      title: ach.title?.trim() || 'Grant / Award',
+      issuer: ach.issuer?.trim() || ach.participationType?.trim() || '',
+      description: details,
+      url: ach.url?.trim() ? sanitizePdfUrl(ach.url.trim()) : null,
+    });
+  }
+
+  return out;
+}
+
+export function getCreativeTalksAndPublications(
+  resume: Resume
+): PublicationItem[] {
+  return (resume.publications || []).filter(
+    (p) => Boolean(p.title?.trim()) || Boolean(p.journalOrConference?.trim())
+  );
+}
+
 export function isSectionVisibleAndPopulated(
   resume: Resume,
   sectionKey: ResumeSectionKey,
@@ -1739,7 +2423,11 @@ export function isSectionVisibleAndPopulated(
           Boolean(resume.highSchool && resume.highSchool.some((h) => h.schoolName?.trim()));
         return hasUniv || hasAbroad || hasHs;
       }
-      if (effectiveTplId === 'internship-resume') {
+      if (
+        effectiveTplId === 'internship-resume' ||
+        effectiveTplId === 'engineering-resume' ||
+        effectiveTplId === 'creative-professional'
+      ) {
         return getInternshipEducationEntries(resume).length > 0;
       }
       return Boolean(resume.education && resume.education.length > 0);
@@ -1754,6 +2442,9 @@ export function isSectionVisibleAndPopulated(
     case 'coursework':
       return getCourseworkItems(resume).length > 0;
     case 'experience':
+      if (effectiveTplId === 'engineering-resume') {
+        return getEngineeringInternshipAndTrainingEntries(resume).length > 0;
+      }
       return Boolean(resume.experience && resume.experience.length > 0);
     case 'research':
       if (effectiveTplId === 'internship-resume') {
@@ -1770,6 +2461,9 @@ export function isSectionVisibleAndPopulated(
           )
       );
     case 'publications':
+      if (effectiveTplId === 'creative-professional') {
+        return getCreativeTalksAndPublications(resume).length > 0;
+      }
       return Boolean(resume.publications && resume.publications.length > 0);
     case 'projects':
       return Boolean(resume.projects && resume.projects.length > 0);
@@ -1785,7 +2479,19 @@ export function isSectionVisibleAndPopulated(
       if (effectiveTplId === 'internship-resume') {
         return getInternshipSkillRows(resume).length > 0;
       }
+      if (effectiveTplId === 'engineering-resume') {
+        return getEngineeringSkillAndInterestRows(resume).length > 0;
+      }
+      if (effectiveTplId === 'creative-professional') {
+        return getCreativeCategorizedSkills(resume).length > 0;
+      }
       return getVisibleSkills(resume.skills).length > 0;
+    case 'proficiency-circles':
+      return getCreativeCircularProficiencies(resume).length > 0;
+    case 'skill-bars':
+      return getCreativeHorizontalSkillBars(resume).length > 0;
+    case 'communication':
+      return getCreativeCommunicationSkills(resume).length > 0;
     case 'skill-matrix':
       return Boolean(
         resume.skillMatrix &&
@@ -1804,6 +2510,20 @@ export function isSectionVisibleAndPopulated(
         Boolean(resume.internshipPreferences?.preferredIndustry?.trim())
       );
     case 'custom-sections':
+      if (effectiveTplId === 'engineering-resume') {
+        const hasCustom = Boolean(
+          resume.customSections &&
+            resume.customSections.some(
+              (cs) =>
+                cs.title?.trim().length > 0 &&
+                cs.bullets?.some((b) => b.trim().length > 0)
+            )
+        );
+        const hasLang = Boolean(
+          resume.languages && resume.languages.some((l) => l.language?.trim().length > 0)
+        );
+        return hasCustom || hasLang;
+      }
       return Boolean(
         resume.customSections &&
           resume.customSections.some(
@@ -1813,6 +2533,9 @@ export function isSectionVisibleAndPopulated(
           )
       );
     case 'achievements':
+      if (effectiveTplId === 'engineering-resume') {
+        return getEngineeringExtracurricularEntries(resume).length > 0;
+      }
       return Boolean(resume.achievements && resume.achievements.length > 0);
     case 'leadership':
       return Boolean(resume.leadership && resume.leadership.length > 0);
@@ -1821,6 +2544,9 @@ export function isSectionVisibleAndPopulated(
     case 'memberships':
       return Boolean(resume.memberships && resume.memberships.length > 0);
     case 'certifications':
+      if (effectiveTplId === 'creative-professional') {
+        return getCreativeCertificatesAndGrants(resume).length > 0;
+      }
       return Boolean(resume.certifications && resume.certifications.length > 0);
     case 'additional': {
       if (effectiveTplId === 'harvard-style') {
@@ -1855,7 +2581,9 @@ export function getOrderedVisibleSections(
     (template.id === 'elegant-serif' ||
       template.id === 'modern-corporate' ||
       template.id === 'fresher-resume' ||
-      template.id === 'internship-resume') &&
+      template.id === 'internship-resume' ||
+      template.id === 'engineering-resume' ||
+      template.id === 'creative-professional') &&
     Array.isArray(resume.sectionOrderOverride) &&
     resume.sectionOrderOverride.length > 0
   ) {
@@ -2081,6 +2809,64 @@ export function getSectionDisplayTitle(
     }
   }
 
+  if (templateId === 'engineering-resume') {
+    switch (key) {
+      case 'objective':
+        return 'OBJECTIVE';
+      case 'education':
+        return 'EDUCATION';
+      case 'skills':
+        return 'SKILLS AND INTERESTS';
+      case 'projects':
+        return 'PROJECTS';
+      case 'experience':
+        return 'INTERNSHIP / TRAININGS';
+      case 'leadership':
+        return 'POSITION OF RESPONSIBILITY';
+      case 'achievements':
+        return 'EXTRA-CURRICULAR ACTIVITIES';
+      case 'custom-sections':
+        return 'ADDITIONAL INFORMATION';
+      default:
+        break;
+    }
+  }
+
+  if (templateId === 'creative-professional') {
+    switch (key) {
+      case 'experience':
+        return 'SHORT RESUME';
+      case 'skills':
+        return 'SKILLS';
+      case 'proficiency-circles':
+        return 'PROGRAMMING PROFICIENCY';
+      case 'communication':
+        return 'COMMUNICATION SKILLS';
+      case 'projects':
+        return 'PROJECTS & CREATIVE WORK';
+      case 'leadership':
+        return 'LEADERSHIP & ACTIVITIES';
+      case 'education':
+        return 'DEGREES';
+      case 'skill-bars':
+        return 'SKILLS & PROFICIENCY';
+      case 'certifications':
+        return 'CERTIFICATES & GRANTS';
+      case 'languages':
+        return 'LANGUAGES';
+      case 'publications':
+        return 'TALKS & PUBLICATIONS';
+      case 'volunteer':
+        return 'VOLUNTEER & COMMUNITY';
+      case 'memberships':
+        return 'MEMBERSHIPS';
+      case 'custom-sections':
+        return 'ADDITIONAL INFORMATION';
+      default:
+        break;
+    }
+  }
+
   switch (key) {
     case 'objective':
       if (templateId === 'executive-resume') return 'EXECUTIVE SUMMARY';
@@ -2122,7 +2908,7 @@ export function getSectionDisplayTitle(
     case 'skills':
       if (templateId === 'classic-professional') return 'COMPUTER SKILLS';
       if (templateId === 'executive-resume') return 'CORE COMPETENCIES';
-      if (templateId === 'software-developer' || templateId === 'engineering-resume') {
+      if (templateId === 'software-developer') {
         return 'TECHNICAL SKILLS';
       }
       return 'SKILLS';

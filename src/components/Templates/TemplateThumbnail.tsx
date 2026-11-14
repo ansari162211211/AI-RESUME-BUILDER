@@ -1,9 +1,18 @@
 import React from 'react';
 import type { Resume } from '../../types/resume';
 import {
+  buildCreativeContactItems,
   buildFresherHeaderColumns,
   buildHarvardContactItems,
+  getCreativeCategorizedSkills,
+  getCreativeCertificatesAndGrants,
+  getCreativeCircularProficiencies,
+  getCreativeCommunicationSkills,
+  getCreativeHorizontalSkillBars,
+  getCreativeProficiencyHeading,
+  getCreativeTalksAndPublications,
   getEffectiveInterests,
+  getEngineeringSkillAndInterestRows,
   getHarvardSkillsAndInterests,
   getInternshipCareerInterests,
   getInternshipEducationEntries,
@@ -13,7 +22,9 @@ import {
   getSectionDisplayTitle,
   getOrderedVisibleSections,
   getVisibleSkills,
+  splitCreativeName,
 } from '../../utils/resumePresentation';
+import { getLanguageDotScore } from '../../utils/dailyActivities';
 import {
   hexToLightSolidBg,
   resolveTemplateCustomization,
@@ -46,8 +57,9 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
   const fontClass = isSerif ? 'font-cv-serif' : 'font-cv-sans';
 
   const personName = resume?.personalInfo?.fullName?.trim() || 'Dr. Elena Rostova';
+  const explicitJobTitle = resume?.personalInfo?.jobTitle?.trim() || '';
   const jobTitle =
-    resume?.personalInfo?.jobTitle?.trim() || 'Senior Machine Learning Scientist';
+    explicitJobTitle || 'Senior Machine Learning Scientist';
   const email = resume?.personalInfo?.email?.trim() || 'elena.rostova@university.edu';
   const phone = resume?.personalInfo?.phone?.trim() || '+1 (650) 555-0192';
   const location =
@@ -329,6 +341,25 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
           return (
             <div className="space-y-0.5">
               {harvardRows.map((row) => (
+                <div key={row.key} className="text-[4.8px] truncate" style={{ color: bodyCol }}>
+                  <span className="font-bold">{row.label}: </span>
+                  <span>{row.text}</span>
+                </div>
+              ))}
+            </div>
+          );
+        }
+        if (template.id === 'engineering-resume') {
+          const engRows = resume
+            ? getEngineeringSkillAndInterestRows(resume).slice(0, 3)
+            : [
+                { key: 'sk', label: 'Technical Skills', text: 'CAD, SolidWorks, ANSYS, GD&T' },
+                { key: 'sw', label: 'Programming & Simulation', text: 'MATLAB, Python, C++, Simulink' },
+                { key: 'in', label: 'Interests', text: 'Robotics, Mechatronics, Formula Student' },
+              ];
+          return (
+            <div className="space-y-0.5">
+              {engRows.map((row) => (
                 <div key={row.key} className="text-[4.8px] truncate" style={{ color: bodyCol }}>
                   <span className="font-bold">{row.label}: </span>
                   <span>{row.text}</span>
@@ -879,6 +910,23 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
             </div>
             <div className="text-[4.7px] mt-0.5 truncate" style={{ color: '#475569' }}>
               {phone} | {email} | {location}
+            </div>
+          </div>
+        );
+
+      case 'engineering-centered':
+        return (
+          <div className="text-center pb-1 mb-1.5" style={{ borderBottom: `0.75px solid ${textCol}` }}>
+            <div className="text-[9.5px] font-bold uppercase tracking-[0.04em] truncate" style={{ color: textCol }}>
+              {personName}
+            </div>
+            {explicitJobTitle && (
+              <div className="text-[4.6px] truncate" style={{ color: '#475569' }}>
+                {explicitJobTitle}
+              </div>
+            )}
+            <div className="text-[4.3px] mt-0.5 truncate" style={{ color: textCol }}>
+              {location} | {phone} | {email}
             </div>
           </div>
         );
@@ -1618,6 +1666,244 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (template.layout === 'two-column-creative') {
+    const nameSplit = splitCreativeName(personName);
+    const contactItems = resume ? buildCreativeContactItems(resume.personalInfo).slice(0, 4) : [];
+    const expPreview = (resume?.experience || []).slice(0, 2);
+    const skillGroups = resume ? getCreativeCategorizedSkills(resume).slice(0, 2) : [];
+    const circleProf = resume ? getCreativeCircularProficiencies(resume).slice(0, 4) : [];
+    const barSkills = resume ? getCreativeHorizontalSkillBars(resume).slice(0, 4) : [];
+    const eduPreview = resume ? getInternshipEducationEntries(resume).slice(0, 2) : [];
+    const certGrants = resume ? getCreativeCertificatesAndGrants(resume).slice(0, 2) : [];
+    const langs = (resume?.languages || []).filter((l) => l.language?.trim()).slice(0, 3);
+    const talks = resume ? getCreativeTalksAndPublications(resume).slice(0, 1) : [];
+    const profHeading = resume ? getCreativeProficiencyHeading(resume) : 'PROGRAMMING PROFICIENCY';
+
+    const renderCreativeHeading = (label: string) => (
+      <div className="flex items-center gap-1 mb-1">
+        <span
+          className="inline-block w-[2px] h-[6px] shrink-0"
+          style={{ backgroundColor: accent }}
+        />
+        <span
+          className="text-[4.6px] font-bold uppercase tracking-[0.04em] shrink-0"
+          style={{ color: accent }}
+        >
+          {label}
+        </span>
+        <span className="flex-1 h-[0.6px] bg-[#111827]" />
+      </div>
+    );
+
+    const renderMiniCircle = (shortLabel: string, pct: number, sub: string) => {
+      const r = 7;
+      const circ = 2 * Math.PI * r;
+      const offset = circ * (1 - Math.max(0, Math.min(100, pct)) / 100);
+      return (
+        <div className="flex flex-col items-center text-center min-w-0">
+          <svg width="18" height="18" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r={r} fill="none" stroke="#e5e7eb" strokeWidth="2.2" />
+            <circle
+              cx="10"
+              cy="10"
+              r={r}
+              fill="none"
+              stroke={accent}
+              strokeWidth="2.2"
+              strokeDasharray={circ}
+              strokeDashoffset={offset}
+              strokeLinecap="round"
+              transform="rotate(-90 10 10)"
+            />
+            <text
+              x="10"
+              y="11.5"
+              textAnchor="middle"
+              fontSize="4.2"
+              fontWeight="700"
+              fill="#111827"
+            >
+              {shortLabel}
+            </text>
+          </svg>
+          <div className="text-[3.4px] text-[#475569] truncate w-full leading-tight mt-[0.5px]">
+            {sub}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div
+        aria-hidden="true"
+        className="w-full aspect-[210/297] bg-white overflow-hidden select-none p-2.5 flex flex-col font-cv-sans text-[#111827]"
+      >
+        {/* Centered Header */}
+        <div className="text-center pb-1.5 mb-1.5 border-b border-slate-200">
+          <div className="text-[9px] leading-tight truncate">
+            {nameSplit.firstPart && (
+              <span className="font-normal text-[#111827]">{nameSplit.firstPart} </span>
+            )}
+            <span className="font-bold text-[#111827]">{nameSplit.lastPart || personName}</span>
+          </div>
+          <div className="text-[4.8px] font-semibold truncate mt-[0.5px]" style={{ color: accent }}>
+            {jobTitle}
+            {resume?.personalInfo?.specialization ? ` · ${resume.personalInfo.specialization}` : ''}
+          </div>
+          {resume?.personalInfo?.tagline && (
+            <div className="text-[3.8px] text-[#475569] truncate">
+              {resume.personalInfo.tagline}
+            </div>
+          )}
+          <div className="text-[3.6px] text-[#374151] truncate mt-[1px]">
+            {contactItems.length > 0
+              ? contactItems.map((c) => c.label).join(' · ')
+              : `${location} · ${email}`}
+          </div>
+        </div>
+
+        {/* 2-Column Body */}
+        <div className="flex flex-1 min-h-0 gap-2">
+          {/* Left Column */}
+          <div className="w-[49%] space-y-1.5">
+            <div>
+              {renderCreativeHeading('SHORT RESUME')}
+              <div className="space-y-1">
+                {expPreview.map((exp) => (
+                  <div key={exp.id} className="flex items-start gap-1">
+                    <div className="w-[24%] text-[3.5px] text-[#475569] shrink-0 text-right pr-1 leading-tight">
+                      {exp.startDate}–{exp.current ? 'Now' : exp.endDate}
+                    </div>
+                    <div className="flex-1 min-w-0 border-l border-slate-300 pl-1">
+                      <div className="text-[4.1px] font-bold truncate">{exp.position}</div>
+                      <div className="text-[3.6px] truncate" style={{ color: accent }}>
+                        {exp.company}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderCreativeHeading('SKILLS')}
+              <div className="space-y-0.5">
+                {skillGroups.map((grp) => (
+                  <div key={grp.category} className="text-[3.6px] leading-[1.25] truncate">
+                    <span className="font-bold" style={{ color: accent }}>{grp.category}: </span>
+                    <span className="text-[#374151]">{grp.items.map((i) => i.name).join(', ')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderCreativeHeading(profHeading)}
+              <div className="grid grid-cols-2 gap-1 pt-0.5">
+                {circleProf.map((c) => (
+                  <React.Fragment key={c.id}>
+                    {renderMiniCircle(c.shortLabel || 'SK', c.percentage, c.name)}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="w-[49%] space-y-1.5">
+            <div>
+              {renderCreativeHeading('DEGREES')}
+              <div className="space-y-1">
+                {eduPreview.map((ed) => (
+                  <div key={ed.id} className="flex items-start gap-1">
+                    <div className="w-[24%] text-[3.5px] text-[#475569] shrink-0 text-right pr-1 leading-tight">
+                      {ed.dateRange}
+                    </div>
+                    <div className="flex-1 min-w-0 border-l border-slate-300 pl-1">
+                      <div className="text-[4.1px] font-bold truncate">{ed.heading}</div>
+                      <div className="text-[3.6px] text-[#475569] truncate">{ed.institution}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderCreativeHeading('SKILLS & PROFICIENCY')}
+              <div className="space-y-[3px]">
+                {barSkills.map((b) => (
+                  <div key={b.id} className="flex items-center gap-1">
+                    <span className="w-[44%] text-[3.6px] font-medium truncate text-[#111827]">
+                      {b.name}
+                    </span>
+                    <div className="flex-1 h-[3px] bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${b.percentage}%`, backgroundColor: accent }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {certGrants.length > 0 && (
+              <div>
+                {renderCreativeHeading('CERTIFICATES & GRANTS')}
+                <div className="space-y-0.5">
+                  {certGrants.map((cg) => (
+                    <div key={cg.id} className="text-[3.6px] truncate">
+                      <span className="font-bold">{cg.title}</span>
+                      {cg.issuer ? <span className="text-[#475569]"> · {cg.issuer}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {langs.length > 0 && (
+              <div>
+                {renderCreativeHeading('LANGUAGES')}
+                <div className="space-y-0.5">
+                  {langs.map((l) => {
+                    const dots = getLanguageDotScore(l.proficiency);
+                    return (
+                      <div key={l.id} className="flex items-center justify-between gap-1 text-[3.6px]">
+                        <span className="font-semibold truncate">{l.language}</span>
+                        {dots !== null && (
+                          <span className="flex items-center gap-[1px] shrink-0">
+                            {[1, 2, 3, 4, 5].map((d) => (
+                              <span
+                                key={d}
+                                className="inline-block w-[2.5px] h-[2.5px] rounded-full"
+                                style={{ backgroundColor: d <= dots ? accent : '#d1d5db' }}
+                              />
+                            ))}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {talks.length > 0 && (
+              <div>
+                {renderCreativeHeading('TALKS & PUBLICATIONS')}
+                {talks.map((t) => (
+                  <div key={t.id} className="text-[3.6px] truncate text-[#374151]">
+                    <span className="font-semibold text-[#111827]">{t.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

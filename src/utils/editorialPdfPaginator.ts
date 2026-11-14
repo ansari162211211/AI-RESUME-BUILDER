@@ -1,6 +1,12 @@
 import type { Resume } from '../types/resume';
 import type { ResumeSectionKey } from '../data/templates';
 import {
+  getCreativeCategorizedSkills,
+  getCreativeCertificatesAndGrants,
+  getCreativeCircularProficiencies,
+  getCreativeCommunicationSkills,
+  getCreativeHorizontalSkillBars,
+  getCreativeTalksAndPublications,
   getEffectiveInterests,
   getInternshipCareerInterests,
   getInternshipEducationEntries,
@@ -85,11 +91,29 @@ export function estimateInternshipHeaderHeightPt(
   return Math.ceil(nameHeight + headlineHeight + contactHeight + 16);
 }
 
+export function estimateCreativeHeaderHeightPt(
+  resume: Resume,
+  contactItemCount: number,
+  scale: EditorialPdfScale
+): number {
+  const nameHeight = scale.namePt * 1.18;
+  const titleLines = [resume.personalInfo?.jobTitle, resume.personalInfo?.specialization]
+    .filter((s) => Boolean(s?.trim()))
+    .join(' · ');
+  const titleHeight = titleLines ? scale.jobTitlePt * 1.35 + 3 : 0;
+  const taglineHeight = resume.personalInfo?.tagline?.trim() ? scale.metaPt * 1.4 + 2 : 0;
+  const contactRows = contactItemCount === 0 ? 0 : Math.ceil(contactItemCount / 3.2);
+  const contactHeight = contactRows * (scale.metaPt * 1.35 + 4) + (contactRows > 0 ? 4 : 0);
+  const quoteLines = wrappedLines(resume.personalQuote, 72);
+  const quoteHeight = quoteLines > 0 ? quoteLines * (scale.metaPt * 1.35) + 6 : 0;
+  return Math.ceil(nameHeight + titleHeight + taglineHeight + contactHeight + quoteHeight + 18);
+}
+
 function buildSectionAtomicUnits(
   sectionKey: ResumeSectionKey,
   resume: Resume,
   scale: EditorialPdfScale,
-  mode: 'editorial' | 'internship' = 'editorial'
+  mode: 'editorial' | 'internship' | 'creative' = 'editorial'
 ): AtomicUnit[] {
   const headingPt = scale.sectionGapPt + (scale.headingPt + 0.5) * 1.25 + 8;
   const bodyLinePt = scale.bodyPt * scale.lineHeight;
@@ -97,7 +121,7 @@ function buildSectionAtomicUnits(
   const titleLinePt = scale.entryTitlePt * 1.26;
 
   // Body width in date-rail (~186pt) vs full column (~248pt)
-  const railChars = mode === 'internship' ? 48 : 42;
+  const railChars = mode === 'internship' ? 48 : mode === 'creative' ? 38 : 42;
   const fullChars = 54;
 
   switch (sectionKey) {
@@ -124,7 +148,7 @@ function buildSectionAtomicUnits(
     }
 
     case 'education': {
-      if (mode === 'internship') {
+      if (mode === 'internship' || mode === 'creative') {
         const list = getInternshipEducationEntries(resume);
         return list.map((edu, idx) => {
           let pt = scale.entryGapPt + 6;
@@ -264,13 +288,17 @@ function buildSectionAtomicUnits(
     }
 
     case 'publications': {
-      const list = resume.publications || [];
+      const list =
+        mode === 'creative' ? getCreativeTalksAndPublications(resume) : resume.publications || [];
       return list.map((pub, idx) => {
         let pt = 4 + 2;
         pt += wrappedLines(pub.title, railChars) * bodyLinePt;
         if (pub.authors?.trim()) pt += wrappedLines(pub.authors, railChars) * metaLinePt;
         if (pub.journalOrConference?.trim() || pub.publisher?.trim()) {
           pt += wrappedLines(pub.journalOrConference || pub.publisher, railChars) * metaLinePt;
+        }
+        if (mode === 'creative' && pub.description?.trim()) {
+          pt += wrappedLines(pub.description, railChars) * bodyLinePt;
         }
         if (pub.doi?.trim() || pub.url?.trim()) pt += metaLinePt;
         return {
@@ -305,6 +333,25 @@ function buildSectionAtomicUnits(
     }
 
     case 'skills': {
+      if (mode === 'creative') {
+        const groups = getCreativeCategorizedSkills(resume);
+        return groups.map((grp, idx) => {
+          let pt = scale.entryGapPt + metaLinePt + 4;
+          grp.items.forEach((it) => {
+            pt += wrappedLines(it.name, fullChars) * bodyLinePt + 2;
+            if (it.description?.trim()) {
+              pt += wrappedLines(it.description, fullChars) * metaLinePt;
+            }
+          });
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: groups.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        });
+      }
       if (mode === 'internship') {
         const list = getInternshipSkillRows(resume);
         return list.map((row, idx) => {
@@ -338,13 +385,63 @@ function buildSectionAtomicUnits(
       });
     }
 
+    case 'proficiency-circles': {
+      const circles = getCreativeCircularProficiencies(resume);
+      if (circles.length === 0) return [];
+      const rowCount = Math.ceil(circles.length / 2);
+      const units: AtomicUnit[] = [];
+      for (let r = 0; r < rowCount; r++) {
+        const pair = circles.slice(r * 2, r * 2 + 2);
+        const maxDescLines = Math.max(
+          1,
+          ...pair.map((p) => wrappedLines(p.description || p.name, 22))
+        );
+        const rowPt = 48 + maxDescLines * metaLinePt + 8;
+        units.push({
+          sectionKey,
+          itemIndex: r,
+          itemCount: rowCount,
+          includeHeading: r === 0,
+          heightPt: Math.ceil((r === 0 ? headingPt : 0) + rowPt),
+        });
+      }
+      return units;
+    }
+
+    case 'skill-bars': {
+      const bars = getCreativeHorizontalSkillBars(resume);
+      return bars.map((b, idx) => ({
+        sectionKey,
+        itemIndex: idx,
+        itemCount: bars.length,
+        includeHeading: idx === 0,
+        heightPt: Math.ceil((idx === 0 ? headingPt : 0) + bodyLinePt + 7),
+      }));
+    }
+
+    case 'communication': {
+      const comms = getCreativeCommunicationSkills(resume);
+      return comms.map((c, idx) => {
+        let pt = bodyLinePt + 4;
+        if (c.proficiency?.trim()) pt += metaLinePt;
+        if (c.context?.trim()) pt += wrappedLines(c.context, fullChars) * metaLinePt;
+        return {
+          sectionKey,
+          itemIndex: idx,
+          itemCount: comms.length,
+          includeHeading: idx === 0,
+          heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+        };
+      });
+    }
+
     case 'languages': {
       const list = (resume.languages || []).filter((l) => l.language?.trim());
       return list.map((lang, idx) => {
         const line = `${lang.language}${lang.proficiency ? ` — ${lang.proficiency}` : ''}${
           lang.comment ? ` (${lang.comment})` : ''
         }`;
-        const pt = wrappedLines(line, fullChars) * bodyLinePt + 2.5;
+        const pt = wrappedLines(line, fullChars) * bodyLinePt + (mode === 'creative' ? 5 : 2.5);
         return {
           sectionKey,
           itemIndex: idx,
@@ -356,6 +453,21 @@ function buildSectionAtomicUnits(
     }
 
     case 'certifications': {
+      if (mode === 'creative') {
+        const items = getCreativeCertificatesAndGrants(resume);
+        return items.map((c, idx) => {
+          let pt = scale.entryGapPt + wrappedLines(c.title, railChars) * bodyLinePt + 3;
+          if (c.issuer) pt += wrappedLines(c.issuer, railChars) * metaLinePt;
+          if (c.description) pt += wrappedLines(c.description, railChars) * metaLinePt;
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: items.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        });
+      }
       const list = resume.certifications || [];
       return list.map((c, idx) => {
         const line = `${c.name}${c.issuer ? ` — ${c.issuer}` : ''}${
@@ -536,7 +648,7 @@ function packColumnUnits(
   scale: EditorialPdfScale,
   firstPageMaxPt: number,
   nextPageMaxPt: number,
-  mode: 'editorial' | 'internship' = 'editorial'
+  mode: 'editorial' | 'internship' | 'creative' = 'editorial'
 ): EditorialPdfSectionSlice[][] {
   const units: AtomicUnit[] = [];
   sectionKeys.forEach((k) => {
@@ -585,7 +697,7 @@ export function paginateEditorialPdfColumns(params: {
   resume: Resume;
   scale: EditorialPdfScale;
   headerHeightPt: number;
-  mode?: 'editorial' | 'internship';
+  mode?: 'editorial' | 'internship' | 'creative';
 }): EditorialPdfPagePlan[] {
   const { leftSections, rightSections, resume, scale, headerHeightPt, mode = 'editorial' } = params;
   const pageVerticalPaddingPt = scale.marginTopPt + scale.marginBottomPt + 24;

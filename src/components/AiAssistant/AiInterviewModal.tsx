@@ -14,10 +14,20 @@ import {
   Briefcase,
   Code2,
   BookOpen,
+  RotateCcw,
 } from 'lucide-react';
 import { sendInterviewStepWithGemini } from '../../services/aiService';
 import { resolveTemplateId } from '../../data/templates';
-import { validateDailyActivities } from '../../utils/dailyActivities';
+import {
+  accumulateStagedUpdates,
+  buildAdaptiveCreativeFallback,
+  buildAdaptiveEngineeringFallback,
+  buildAdaptiveInternshipFallback,
+  clearInterviewDraft,
+  loadInterviewDraft,
+  mergeResumeUpdates,
+  saveInterviewDraft,
+} from '../../utils/aiInterviewHelpers';
 import type { Resume, InterviewChatMessage } from '../../types/resume';
 
 interface AiInterviewModalProps {
@@ -174,8 +184,32 @@ const INTERNSHIP_RESUME_SECTION_FLOW = [
   'achievements',
   'skills',
   'experience',
+  'custom-sections',
+];
+
+const ENGINEERING_RESUME_SECTION_FLOW = [
+  'personalInfo',
+  'objective',
+  'education',
+  'skills',
+  'projects',
+  'experience',
+  'leadership',
+  'achievements',
+  'custom-sections',
+];
+
+const CREATIVE_PROFESSIONAL_SECTION_FLOW = [
+  'personalInfo',
+  'experience',
+  'education',
+  'skills',
+  'proficiency-circles',
+  'skill-bars',
+  'communication',
   'certifications',
   'languages',
+  'publications',
   'custom-sections',
 ];
 
@@ -211,6 +245,63 @@ const SECTION_LABELS: Record<string, string> = {
   references: 'Referees / References',
 };
 
+const INTERNSHIP_SECTION_LABELS: Record<string, string> = {
+  personalInfo: 'Personal Info',
+  education: 'Education',
+  learning: 'Learning & Training',
+  interests: 'Interests',
+  research: 'Research Work & Projects',
+  'career-interests': 'Career Interests',
+  achievements: 'Co-Curricular & Events',
+  skills: 'Technical Skills',
+  experience: 'Internship Experience',
+  'custom-sections': 'Additional Info & Review',
+};
+
+const ENGINEERING_SECTION_LABELS: Record<string, string> = {
+  personalInfo: 'Personal Info',
+  objective: 'Career Objective',
+  education: 'Education',
+  skills: 'Skills & Interests',
+  projects: 'Projects',
+  experience: 'Internship / Trainings',
+  leadership: 'Position of Responsibility',
+  achievements: 'Extra-Curricular Activities',
+  'custom-sections': 'Additional Info',
+};
+
+const CREATIVE_SECTION_LABELS: Record<string, string> = {
+  personalInfo: 'Personal Info & Tagline',
+  experience: 'Short Resume',
+  education: 'Degrees',
+  skills: 'Categorized Skills',
+  'proficiency-circles': 'Circular Proficiencies',
+  'skill-bars': 'Skills & Proficiency Bars',
+  communication: 'Communication Skills',
+  certifications: 'Certificates & Grants',
+  languages: 'Languages',
+  publications: 'Talks & Publications',
+  'custom-sections': 'Projects & Additional Info',
+};
+
+function getSectionLabel(
+  sectionKey: string,
+  isInternshipResume: boolean,
+  isEngineeringResume: boolean = false,
+  isCreativeProfessional: boolean = false
+): string {
+  if (isCreativeProfessional && CREATIVE_SECTION_LABELS[sectionKey]) {
+    return CREATIVE_SECTION_LABELS[sectionKey];
+  }
+  if (isEngineeringResume && ENGINEERING_SECTION_LABELS[sectionKey]) {
+    return ENGINEERING_SECTION_LABELS[sectionKey];
+  }
+  if (isInternshipResume && INTERNSHIP_SECTION_LABELS[sectionKey]) {
+    return INTERNSHIP_SECTION_LABELS[sectionKey];
+  }
+  return SECTION_LABELS[sectionKey] || sectionKey;
+}
+
 export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   isOpen,
   onClose,
@@ -221,8 +312,9 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [stagedResume, setStagedResume] = useState<Resume>(currentResume);
+  const [stagedUpdates, setStagedUpdates] = useState<Partial<Resume>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const loadedDraftKeyRef = useRef<string>('');
 
   const templateId = resolveTemplateId(currentResume.template);
   const isJakes = templateId === 'jakes-resume';
@@ -234,6 +326,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const isModernCorporate = templateId === 'modern-corporate';
   const isFresherResume = templateId === 'fresher-resume';
   const isInternshipResume = templateId === 'internship-resume';
+  const isEngineeringResume = templateId === 'engineering-resume';
+  const isCreativeProfessional = templateId === 'creative-professional';
   const sectionFlow = isJakes
     ? JAKES_SECTION_FLOW
     : isClassic
@@ -252,18 +346,47 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     ? FRESHER_RESUME_SECTION_FLOW
     : isInternshipResume
     ? INTERNSHIP_RESUME_SECTION_FLOW
+    : isEngineeringResume
+    ? ENGINEERING_RESUME_SECTION_FLOW
+    : isCreativeProfessional
+    ? CREATIVE_PROFESSIONAL_SECTION_FLOW
     : ACADEMIC_SECTION_FLOW;
-  const activeSection = sectionFlow[currentSectionIndex] || 'personalInfo';
+  const safeSectionIndex = Math.min(Math.max(0, currentSectionIndex), Math.max(0, sectionFlow.length - 1));
+  const activeSection = sectionFlow[safeSectionIndex] || 'personalInfo';
+  const hasStagedChanges = Object.keys(stagedUpdates).length > 0;
+  const stagedResume = React.useMemo(
+    () => mergeResumeUpdates(currentResume, stagedUpdates, isInternshipResume),
+    [currentResume, stagedUpdates, isInternshipResume]
+  );
 
   useEffect(() => {
-    if (isOpen) {
-      setStagedResume(currentResume);
-      // Start greeting if empty
-      if (messages.length === 0) {
-        startInitialTurn();
-      }
+    if (!isOpen) return;
+    const draftKey = `${currentResume.id}_${templateId}`;
+    const saved = loadInterviewDraft(currentResume.id, templateId);
+    if (saved && saved.messages.length > 0) {
+      setMessages(saved.messages);
+      setCurrentSectionIndex(
+        Math.min(Math.max(0, saved.currentSectionIndex || 0), Math.max(0, sectionFlow.length - 1))
+      );
+      setStagedUpdates(saved.stagedUpdates || {});
+      loadedDraftKeyRef.current = draftKey;
+    } else if (loadedDraftKeyRef.current !== draftKey || messages.length === 0) {
+      loadedDraftKeyRef.current = draftKey;
+      setStagedUpdates({});
+      setCurrentSectionIndex(0);
+      startInitialTurn();
     }
-  }, [isOpen]);
+  }, [isOpen, currentResume.id, templateId]);
+
+  useEffect(() => {
+    if (!currentResume.id || messages.length === 0) return;
+    saveInterviewDraft(currentResume.id, templateId, {
+      messages,
+      currentSectionIndex: safeSectionIndex,
+      stagedUpdates,
+      hasStagedChanges,
+    });
+  }, [currentResume.id, templateId, messages, safeSectionIndex, stagedUpdates, hasStagedChanges]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -308,6 +431,14 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         ? initialName
           ? `Hello ${initialName}! I'm your Internship Resume Advisor. We'll assemble your two-column student & internship resume step by step—Education, optional Learning Activities, Interests, Research & Capstone Projects, Career Interests, Co-Curriculars, Skills (dots stay hidden unless you assign 1–5 yourself), and optional Prior Internships. Which internship track fits you best: Computer Science, Cybersecurity, ECE, Research, or Non-Technical?`
           : `Welcome! I'm your Internship Resume Advisor. I'll guide you through building an authentic two-column internship resume—omitting any optional sections you don't have and never inventing metrics or skill dots. First, which internship track fits you best (CS, Cybersecurity, ECE, Research, or Non-Technical), and what is your full name, target internship role, and email?`
+        : isEngineeringResume
+        ? initialName
+          ? `Hello ${initialName}! I'm your Engineering Resume Advisor. We'll structure your ATS-ready monochrome single-column resume across 9 steps: Contact Info, Career Objective, Education (incl. optional Class 12 / Diploma / Class 10), Skills & Interests, Engineering Projects, optional Internships & Trainings, Position of Responsibility, Extra-Curricular Activities, and Additional Info. Which engineering branch fits you best (Mechanical, CSE/IT, ECE, Electrical, Civil, Chemical, or Other)?`
+          : `Welcome! I'm your Engineering Resume Advisor. Let's build a clean, factual Engineering Resume together—never inventing CGPA, test results, or internships (internships, POR, and extra-curriculars can be skipped cleanly). To start, what is your engineering branch (Mechanical, CSE/IT, ECE, EE, Civil, Chemical, or Other), full name, phone, and email?`
+        : isCreativeProfessional
+        ? initialName
+          ? `Hello ${initialName}! I'm your Creative Professional CV Advisor. Let's shape your balanced 2-column CV—Centered Header & Tagline, Short Resume timeline, Degrees, Categorized Skills, Circular Proficiencies, Horizontal Skill Bars, Communication Skills, Certificates & Grants, Languages, and Talks & Publications—never inventing percentages or quotes. Which profession fits you best (Developer, UI/UX Designer, Cybersecurity, Marketing, Researcher, or Engineer)?`
+          : `Welcome! I'm your Creative Professional CV Advisor. We'll assemble your modern two-column editorial resume step by step—adapting your visual proficiency headings automatically and keeping optional sections flexible. To start, which profession fits you best (Developer, Designer, Cybersecurity, Marketing, Researcher, or Engineer), and what are your full name, title, and email?`
         : isTwoColumn
         ? initialName
           ? `Hello ${initialName}! I'm your Two Column Professional CV Advisor. Let's craft or refine your header & tagline, experience, projects, optional "A Day of My Life" breakdown, publications, philosophy, proudest achievements, strengths, languages, education, and referees. You can skip any optional section at any time—where would you like to focus?`
@@ -370,6 +501,20 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               'Research Internship',
               'ECE / Hardware Internship',
             ]
+          : isEngineeringResume
+          ? [
+              'Mechanical Engineering',
+              'CSE / IT Engineering',
+              'ECE / Electronics Engineering',
+              'Electrical / Civil / Chemical',
+            ]
+          : isCreativeProfessional
+          ? [
+              'Software Developer / Architect',
+              'UI/UX Product Designer',
+              'Cybersecurity Engineer',
+              'Marketing / Brand Strategist',
+            ]
           : isClassic
           ? [
               'Refine Summary & Quote',
@@ -427,264 +572,22 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         text
       );
 
-      // Merge any extracted updates into the staged resume
       if (res.structuredUpdates && Object.keys(res.structuredUpdates).length > 0) {
-        setStagedResume((prev) => {
-          const updated = { ...prev };
-          const u = res.structuredUpdates;
-
-          if (u.personalInfo) {
-            updated.personalInfo = { ...prev.personalInfo, ...u.personalInfo };
-          }
-          if (u.personalQuote) {
-            updated.personalQuote = u.personalQuote;
-          }
-          if (u.objective) {
-            updated.objective = u.objective;
-          }
-          if (u.academicInterests) {
-            updated.academicInterests = u.academicInterests;
-          }
-          if (u.careerGoals) {
-            updated.careerGoals = u.careerGoals;
-          }
-          if (u.thesis && (u.thesis.title || u.thesis.description || u.thesis.supervisors)) {
-            updated.thesis = { ...(prev.thesis || { title: '' }), ...u.thesis };
-          }
-          if (Array.isArray(u.coursework) && u.coursework.length > 0) {
-            const merged = new Set([
-              ...(prev.coursework || []).map((c) => c.trim()).filter(Boolean),
-              ...u.coursework
-                .filter((c): c is string => typeof c === 'string')
-                .map((c) => c.trim())
-                .filter(Boolean),
-            ]);
-            updated.coursework = Array.from(merged);
-          }
-          if (
-            u.targetBackground === 'student' ||
-            u.targetBackground === 'fresher' ||
-            u.targetBackground === 'experienced' ||
-            u.targetBackground === 'researcher' ||
-            u.targetBackground === 'corporate' ||
-            u.targetBackground === 'technical'
-          ) {
-            updated.targetBackground = u.targetBackground;
-          }
-          if (
-            u.fresherTrack === 'engineering' ||
-            u.fresherTrack === 'cs' ||
-            u.fresherTrack === 'cybersecurity' ||
-            u.fresherTrack === 'non-technical' ||
-            u.fresherTrack === 'graduate'
-          ) {
-            updated.fresherTrack = u.fresherTrack;
-          }
-          if (
-            u.internshipTrack === 'cs' ||
-            u.internshipTrack === 'cybersecurity' ||
-            u.internshipTrack === 'ece' ||
-            u.internshipTrack === 'research' ||
-            u.internshipTrack === 'non-technical'
-          ) {
-            updated.internshipTrack = u.internshipTrack;
-          }
-          if (Array.isArray(u.learningActivities) && u.learningActivities.length > 0) {
-            const sanitizedLearning = u.learningActivities
-              .filter((item: any) => item && typeof item.title === 'string' && item.title.trim())
-              .map((item: any, idx: number) => ({
-                id: item.id || `learn_${Date.now()}_${idx}`,
-                title: item.title.trim(),
-                activityType: item.activityType || 'Course',
-                subject: typeof item.subject === 'string' ? item.subject.trim() : '',
-                provider: typeof item.provider === 'string' ? item.provider.trim() : '',
-                instructor: typeof item.instructor === 'string' ? item.instructor.trim() : '',
-                completionDate: typeof item.completionDate === 'string' ? item.completionDate.trim() : '',
-                certificateId: typeof item.certificateId === 'string' ? item.certificateId.trim() : '',
-                credentialUrl: typeof item.credentialUrl === 'string' ? item.credentialUrl.trim() : '',
-                skillsAcquired: Array.isArray(item.skillsAcquired)
-                  ? item.skillsAcquired.filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0).map((s: string) => s.trim())
-                  : [],
-                description: typeof item.description === 'string' ? item.description.trim() : '',
-              }));
-            if (sanitizedLearning.length > 0) {
-              updated.learningActivities = [...(prev.learningActivities || []), ...sanitizedLearning];
-            }
-          }
-          if (Array.isArray(u.careerInterests) && u.careerInterests.length > 0) {
-            const existing = (prev.careerInterests || []).map((c) => c.trim()).filter(Boolean);
-            const seen = new Set(existing.map((c) => c.toLowerCase()));
-            const nextCareer = [...existing];
-            for (const c of u.careerInterests) {
-              if (typeof c === 'string' && c.trim() && !seen.has(c.trim().toLowerCase())) {
-                nextCareer.push(c.trim());
-                seen.add(c.trim().toLowerCase());
-              }
-            }
-            updated.careerInterests = nextCareer;
-          }
-          if (u.internshipPreferences && typeof u.internshipPreferences === 'object') {
-            const p = u.internshipPreferences;
-            updated.internshipPreferences = {
-              ...(prev.internshipPreferences || {}),
-              ...(typeof p.targetRole === 'string' && p.targetRole.trim() ? { targetRole: p.targetRole.trim() } : {}),
-              ...(typeof p.preferredIndustry === 'string' && p.preferredIndustry.trim()
-                ? { preferredIndustry: p.preferredIndustry.trim() }
-                : {}),
-              ...(typeof p.duration === 'string' && p.duration.trim() ? { duration: p.duration.trim() } : {}),
-              ...(p.workArrangement === 'Remote' ||
-              p.workArrangement === 'Hybrid' ||
-              p.workArrangement === 'Onsite' ||
-              p.workArrangement === 'Flexible'
-                ? { workArrangement: p.workArrangement }
-                : {}),
-              ...(typeof p.availabilityDate === 'string' && p.availabilityDate.trim()
-                ? { availabilityDate: p.availabilityDate.trim() }
-                : {}),
-              ...(Array.isArray(p.preferredTechnologies) && p.preferredTechnologies.length > 0
-                ? {
-                    preferredTechnologies: Array.from(
-                      new Set([
-                        ...(prev.internshipPreferences?.preferredTechnologies || []),
-                        ...p.preferredTechnologies
-                          .filter((t: unknown): t is string => typeof t === 'string' && t.trim().length > 0)
-                          .map((t: string) => t.trim()),
-                      ])
-                    ),
-                  }
-                : {}),
-            };
-          }
-          if (typeof u.harvardLeadershipFirst === 'boolean') {
-            updated.harvardLeadershipFirst = u.harvardLeadershipFirst;
-          }
-          if (Array.isArray(u.education) && u.education.length > 0) {
-            updated.education = [...(prev.education || []), ...(u.education as any)];
-          }
-          if (Array.isArray(u.studyAbroad) && u.studyAbroad.length > 0) {
-            updated.studyAbroad = [...(prev.studyAbroad || []), ...(u.studyAbroad as any)];
-          }
-          if (Array.isArray(u.highSchool) && u.highSchool.length > 0) {
-            updated.highSchool = [...(prev.highSchool || []), ...(u.highSchool as any)];
-          }
-          if (Array.isArray(u.labSkills) && u.labSkills.length > 0) {
-            const merged = new Set([
-              ...(prev.labSkills || []).map((s) => s.trim()).filter(Boolean),
-              ...u.labSkills
-                .filter((s): s is string => typeof s === 'string')
-                .map((s) => s.trim())
-                .filter(Boolean),
-            ]);
-            updated.labSkills = Array.from(merged);
-          }
-          if (Array.isArray(u.experience) && u.experience.length > 0) {
-            updated.experience = [...(prev.experience || []), ...(u.experience as any)];
-          }
-          if (Array.isArray(u.researchExperience) && u.researchExperience.length > 0) {
-            updated.researchExperience = [
-              ...(prev.researchExperience || []),
-              ...(u.researchExperience as any),
-            ];
-          }
-          if (Array.isArray(u.projects) && u.projects.length > 0) {
-            updated.projects = [...(prev.projects || []), ...(u.projects as any)];
-          }
-          if (Array.isArray(u.dailyActivities) && u.dailyActivities.length > 0) {
-            const sanitized = u.dailyActivities
-              .filter((d: any) => typeof d?.activity === 'string' && d.activity.trim() && Number(d.hours) > 0)
-              .map((d: any, i: number) => ({
-                id: d.id || `day_${Date.now()}_${i}`,
-                activity: d.activity.trim(),
-                hours: Number(d.hours),
-              }));
-            const check = validateDailyActivities(sanitized);
-            if (check.valid && check.validItems.length > 0) {
-              updated.dailyActivities = check.validItems;
-              updated.showDailyActivityChart = true;
-            }
-          }
-          if (typeof u.showDailyActivityChart === 'boolean') {
-            updated.showDailyActivityChart = u.showDailyActivityChart;
-          }
-          if (Array.isArray(u.publications) && u.publications.length > 0) {
-            updated.publications = [...(prev.publications || []), ...(u.publications as any)];
-          }
-          if (Array.isArray(u.strengths) && u.strengths.length > 0) {
-            const existing = (prev.strengths || []).map((s) => s.trim()).filter(Boolean);
-            const seen = new Set(existing.map((s) => s.toLowerCase()));
-            const nextStrengths = [...existing];
-            for (const s of u.strengths) {
-              if (typeof s === 'string' && s.trim() && !seen.has(s.trim().toLowerCase())) {
-                nextStrengths.push(s.trim());
-                seen.add(s.trim().toLowerCase());
-              }
-            }
-            updated.strengths = nextStrengths;
-          }
-          if (Array.isArray(u.languages) && u.languages.length > 0) {
-            updated.languages = [...(prev.languages || []), ...(u.languages as any)];
-          }
-          if (Array.isArray(u.skills) && u.skills.length > 0) {
-            const sanitizedSkills = u.skills.map((cat: any, i: number) => ({
-              id: cat.id || `sk_${Date.now()}_${i}`,
-              category: typeof cat.category === 'string' ? cat.category : 'Skills',
-              skills: Array.isArray(cat.skills)
-                ? cat.skills.filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0).map((s: string) => s.trim())
-                : [],
-              ...(isInternshipResume
-                ? {
-                    proficiency:
-                      typeof cat.proficiency === 'number' && cat.proficiency >= 1 && cat.proficiency <= 5
-                        ? (Math.round(cat.proficiency) as 1 | 2 | 3 | 4 | 5)
-                        : null,
-                  }
-                : {}),
-            }));
-            updated.skills = [...(prev.skills || []), ...sanitizedSkills];
-          }
-          if (Array.isArray(u.skillMatrix) && u.skillMatrix.length > 0) {
-            const sanitizedMatrix = u.skillMatrix.map((m: any, i: number) => ({
-              id: m.id || `mat_${Date.now()}_${i}`,
-              category: m.category || 'Core',
-              skill: m.skill || '',
-              level:
-                typeof m.level === 'number' && m.level >= 1 && m.level <= 5
-                  ? (Math.round(m.level) as 1 | 2 | 3 | 4 | 5)
-                  : null,
-              yearsOfExperience: m.yearsOfExperience || '',
-              comment: m.comment || '',
-            }));
-            updated.skillMatrix = [...(prev.skillMatrix || []), ...sanitizedMatrix];
-          }
-          if (Array.isArray(u.interestItems) && u.interestItems.length > 0) {
-            updated.interestItems = [...(prev.interestItems || []), ...(u.interestItems as any)];
-          }
-          if (typeof u.interests === 'string' && u.interests.trim()) {
-            updated.interests = u.interests.trim();
-          }
-          if (Array.isArray(u.customSections) && u.customSections.length > 0) {
-            updated.customSections = [...(prev.customSections || []), ...(u.customSections as any)];
-          }
-          if (Array.isArray(u.achievements) && u.achievements.length > 0) {
-            updated.achievements = [...(prev.achievements || []), ...(u.achievements as any)];
-          }
-          if (Array.isArray(u.leadership) && u.leadership.length > 0) {
-            updated.leadership = [...(prev.leadership || []), ...(u.leadership as any)];
-          }
-          if (Array.isArray(u.references) && u.references.length > 0) {
-            updated.references = [...(prev.references || []), ...(u.references as any)];
-          }
-          if (u.referencesDisplayMode) {
-            updated.referencesDisplayMode = u.referencesDisplayMode;
-          }
-          return updated;
-        });
+        setStagedUpdates((prev) =>
+          accumulateStagedUpdates(prev, res.structuredUpdates, currentResume, isInternshipResume)
+        );
       }
 
-      if (res.nextSection && sectionFlow.includes(res.nextSection)) {
-        setCurrentSectionIndex(sectionFlow.indexOf(res.nextSection));
-      } else if (res.isSectionCompleted && currentSectionIndex < sectionFlow.length - 1) {
-        setCurrentSectionIndex((idx) => idx + 1);
+      const normalizedNextSection =
+        isInternshipResume &&
+        (res.nextSection === 'certifications' || res.nextSection === 'languages')
+          ? 'custom-sections'
+          : res.nextSection;
+
+      if (normalizedNextSection && sectionFlow.includes(normalizedNextSection)) {
+        setCurrentSectionIndex(sectionFlow.indexOf(normalizedNextSection));
+      } else if (res.isSectionCompleted && safeSectionIndex < sectionFlow.length - 1) {
+        setCurrentSectionIndex((idx) => Math.min(idx + 1, sectionFlow.length - 1));
       }
 
       const botReply: InterviewChatMessage = {
@@ -699,23 +602,118 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
       setMessages((prev) => [...prev, botReply]);
     } catch (err: any) {
       console.error('Interview turn error:', err);
-      const fallbackMsg: InterviewChatMessage = {
-        id: `msg_err_${Date.now()}`,
-        role: 'assistant',
-        content:
-          "Thank you! I've noted that down. What other achievements, tools, or responsibilities would you like to add next?",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestedChips: ['Skip to Projects', 'Add another role', 'Save & review in editor'],
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
+      if (isInternshipResume) {
+        const adaptive = buildAdaptiveInternshipFallback(
+          text,
+          stagedResume,
+          activeSection,
+          sectionFlow
+        );
+        if (Object.keys(adaptive.structuredUpdates).length > 0) {
+          setStagedUpdates((prev) =>
+            accumulateStagedUpdates(
+              prev,
+              adaptive.structuredUpdates,
+              currentResume,
+              isInternshipResume
+            )
+          );
+        }
+        if (sectionFlow.includes(adaptive.nextSection)) {
+          setCurrentSectionIndex(sectionFlow.indexOf(adaptive.nextSection));
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: adaptive.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            suggestedChips: adaptive.suggestedChips,
+            structuredUpdates: adaptive.structuredUpdates,
+          },
+        ]);
+      } else if (isEngineeringResume) {
+        const adaptive = buildAdaptiveEngineeringFallback(
+          text,
+          stagedResume,
+          activeSection,
+          sectionFlow
+        );
+        if (Object.keys(adaptive.structuredUpdates).length > 0) {
+          setStagedUpdates((prev) =>
+            accumulateStagedUpdates(
+              prev,
+              adaptive.structuredUpdates,
+              currentResume,
+              isInternshipResume
+            )
+          );
+        }
+        if (sectionFlow.includes(adaptive.nextSection)) {
+          setCurrentSectionIndex(sectionFlow.indexOf(adaptive.nextSection));
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: adaptive.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            suggestedChips: adaptive.suggestedChips,
+            structuredUpdates: adaptive.structuredUpdates,
+          },
+        ]);
+      } else if (isCreativeProfessional) {
+        const adaptive = buildAdaptiveCreativeFallback(
+          text,
+          stagedResume,
+          activeSection,
+          sectionFlow
+        );
+        if (Object.keys(adaptive.structuredUpdates).length > 0) {
+          setStagedUpdates((prev) =>
+            accumulateStagedUpdates(
+              prev,
+              adaptive.structuredUpdates,
+              currentResume,
+              isInternshipResume
+            )
+          );
+        }
+        if (sectionFlow.includes(adaptive.nextSection)) {
+          setCurrentSectionIndex(sectionFlow.indexOf(adaptive.nextSection));
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: adaptive.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            suggestedChips: adaptive.suggestedChips,
+            structuredUpdates: adaptive.structuredUpdates,
+          },
+        ]);
+      } else {
+        const fallbackMsg: InterviewChatMessage = {
+          id: `msg_err_${Date.now()}`,
+          role: 'assistant',
+          content:
+            "Thank you! I've noted that down. What other achievements, tools, or responsibilities would you like to add next?",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          suggestedChips: ['Skip to Projects', 'Add another role', 'Save & review in editor'],
+        };
+        setMessages((prev) => [...prev, fallbackMsg]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleSkipSection = () => {
-    if (currentSectionIndex < sectionFlow.length - 1) {
-      const nextIdx = currentSectionIndex + 1;
+    if (safeSectionIndex < sectionFlow.length - 1) {
+      const nextIdx = safeSectionIndex + 1;
       setCurrentSectionIndex(nextIdx);
       handleSendMessage(`Let's skip ${activeSection} for now and move to ${sectionFlow[nextIdx]}.`);
     } else {
@@ -723,8 +721,21 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     }
   };
 
+  const handleDiscardStaged = () => {
+    clearInterviewDraft(currentResume.id, templateId);
+    setStagedUpdates({});
+    setCurrentSectionIndex(0);
+    startInitialTurn();
+  };
+
   const handleApplyAndFinish = () => {
-    onApplyUpdates(stagedResume);
+    const finalResume = mergeResumeUpdates(currentResume, stagedUpdates, isInternshipResume);
+    clearInterviewDraft(currentResume.id, templateId);
+    loadedDraftKeyRef.current = '';
+    setStagedUpdates({});
+    setMessages([]);
+    setCurrentSectionIndex(0);
+    onApplyUpdates(finalResume);
     onClose();
   };
 
@@ -756,6 +767,10 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     ? 'Build Fresher Resume with AI'
                     : isInternshipResume
                     ? 'Build Internship Resume with AI'
+                    : isEngineeringResume
+                    ? 'Build Engineering Resume with AI'
+                    : isCreativeProfessional
+                    ? 'Build Creative Professional CV with AI'
                     : isClassic
                     ? 'Build Classic Professional CV with AI'
                     : isTwoColumn
@@ -767,13 +782,49 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Focusing on: <span className="font-semibold text-slate-700">{SECTION_LABELS[activeSection] || activeSection}</span> • Step {currentSectionIndex + 1} of {sectionFlow.length}
+                Focusing on:{' '}
+                <span className="font-semibold text-slate-700">
+                  {getSectionLabel(
+                    activeSection,
+                    isInternshipResume,
+                    isEngineeringResume,
+                    isCreativeProfessional
+                  )}
+                </span>{' '}
+                • Step {safeSectionIndex + 1} of {sectionFlow.length}
+                {stagedResume.internshipTrack && isInternshipResume ? (
+                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded">
+                    Track: {stagedResume.internshipTrack.toUpperCase()}
+                  </span>
+                ) : null}
+                {stagedResume.engineeringBranch && isEngineeringResume ? (
+                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-700 rounded">
+                    Branch: {stagedResume.engineeringBranch.toUpperCase()}
+                  </span>
+                ) : null}
+                {stagedResume.creativeProfession && isCreativeProfessional ? (
+                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-800 rounded">
+                    Profession: {stagedResume.creativeProfession.toUpperCase()}
+                  </span>
+                ) : null}
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
+            {(hasStagedChanges || messages.length > 1) && (
+              <button
+                type="button"
+                onClick={handleDiscardStaged}
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors cursor-pointer"
+                title="Discard staged AI interview answers and restart without altering saved resume"
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                <span>Discard Staged</span>
+              </button>
+            )}
             <button
+              type="button"
               onClick={handleApplyAndFinish}
               className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-[#0f2b5c] hover:bg-[#0a1e40] rounded-lg shadow-xs cursor-pointer transition-colors"
             >
@@ -781,8 +832,11 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               <span>Apply to CV &amp; Edit Forms</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              aria-label="Close AI interview"
+              title="Close (preserves staged answers for when you reopen)"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -792,7 +846,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         {/* Clickable Section Navigation Bar */}
         <div className="px-4 py-2 bg-white border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto">
           {sectionFlow.map((sec, idx) => {
-            const isCurrent = idx === currentSectionIndex;
+            const isCurrent = idx === safeSectionIndex;
             return (
               <button
                 key={sec}
@@ -804,7 +858,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
-                {idx + 1}. {SECTION_LABELS[sec] || sec}
+                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional)}
               </button>
             );
           })}
@@ -1168,6 +1222,80 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                       <div className="flex items-center text-slate-700 font-semibold mb-0.5">
                         <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
                         <span>Co-Curricular &amp; Awards: {stagedResume.achievements?.length || 0}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : isEngineeringResume ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-slate-800" />
+                        <span>
+                          Branch:{' '}
+                          {stagedResume.engineeringBranch === 'other' && stagedResume.customEngineeringBranch
+                            ? stagedResume.customEngineeringBranch
+                            : (stagedResume.engineeringBranch || 'mechanical').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-indigo-600" />
+                        <span>Skills Categories: {stagedResume.skills?.length || 0}</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Briefcase className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Internships &amp; Trainings: {(stagedResume.experience?.length || 0) + (stagedResume.learningActivities?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Users className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>
+                          POR &amp; Extra-Curricular: {(stagedResume.leadership?.length || 0) + (stagedResume.achievements?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : isCreativeProfessional ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-blue-700" />
+                        <span>
+                          Profession:{' '}
+                          {stagedResume.creativeProfession === 'other' && stagedResume.customCreativeProfession
+                            ? stagedResume.customCreativeProfession
+                            : (stagedResume.creativeProfession || 'developer').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-indigo-600" />
+                        <span>
+                          Circles &amp; Bars: {(stagedResume.circularProficiencies?.length || 0)} / {(stagedResume.creativeSkillBars?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Users className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Comm &amp; Languages: {(stagedResume.communicationSkills?.length || 0) + (stagedResume.languages?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>
+                          Certs, Grants &amp; Talks: {(stagedResume.certifications?.length || 0) + (stagedResume.achievements?.length || 0) + (stagedResume.publications?.length || 0)}
+                        </span>
                       </div>
                     </div>
                   </>

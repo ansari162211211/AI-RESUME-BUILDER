@@ -51,6 +51,7 @@ const HEADING_STYLE_OPTIONS: { value: TemplateHeadingStyle; label: string }[] = 
   { value: 'filled-band', label: 'Filled Header Band' },
   { value: 'clean-caps', label: 'Clean Minimal Caps' },
   { value: 'italic-serif', label: 'Editorial Italic' },
+  { value: 'internship-rule', label: 'Internship Bold Rule' },
 ];
 
 export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
