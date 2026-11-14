@@ -17,8 +17,11 @@ import {
   SAMPLE_ELEGANT_SERIF_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
+  SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
+  SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
+  SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -167,6 +170,9 @@ export type TemplateProfileType =
   | 'software-developer'
   | 'harvard'
   | 'elegant-serif'
+  | 'modern-corporate'
+  | 'fresher-resume'
+  | 'internship-resume'
   | 'experienced'
   | 'fresher'
   | 'student'
@@ -205,6 +211,15 @@ export async function createNewResume(
       break;
     case 'elegant-serif':
       base = SAMPLE_ELEGANT_SERIF_CV;
+      break;
+    case 'modern-corporate':
+      base = SAMPLE_MODERN_CORPORATE_CV;
+      break;
+    case 'fresher-resume':
+      base = SAMPLE_FRESHER_RESUME_CV;
+      break;
+    case 'internship-resume':
+      base = SAMPLE_INTERNSHIP_RESUME_CV;
       break;
     case 'experienced':
       base = SAMPLE_EXPERIENCED_CV;

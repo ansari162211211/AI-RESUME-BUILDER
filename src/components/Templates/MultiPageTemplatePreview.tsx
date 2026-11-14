@@ -19,9 +19,12 @@ import {
   buildContactLinks,
   buildElegantSerifContactItems,
   buildElegantSerifMetadataRows,
+  buildFresherHeaderColumns,
   buildHarvardContactItems,
+  buildInternshipContactItems,
   buildJakesAddressString,
   buildLocationString,
+  buildModernCorporateContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkPairs,
@@ -31,16 +34,24 @@ import {
   getEffectiveInterests,
   getHarvardAdditionalSubsections,
   getHarvardSkillsAndInterests,
+  getInternshipCareerInterests,
+  getInternshipEducationEntries,
+  getInternshipLearningItems,
+  getInternshipResearchAndProjectEntries,
+  getInternshipSkillRows,
   getOrderedVisibleSections,
   getPublicationParts,
   getSectionDisplayTitle,
   getSkillMatrixLevelLabel,
   getSoftwareDevAdditionalSubsections,
   getVisibleSkills,
+  groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
   type ContactLinkItem,
   type ElegantSerifContactKind,
+  type InternshipContactKind,
+  type ModernCorporateContactKind,
   type TwoColumnContactKind,
   type TwoColumnPubCategoryKey,
 } from '../../utils/resumePresentation';
@@ -150,13 +161,19 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   const isSoftwareDev = template.id === 'software-developer';
   const isHarvard = template.id === 'harvard-style';
   const isElegantSerif = template.id === 'elegant-serif';
+  const isModernCorporate =
+    template.id === 'modern-corporate' || template.layout === 'moderncv-classic';
+  const isFresherResume =
+    template.id === 'fresher-resume' || template.headerVariant === 'fresher-overleaf';
+  const isInternshipResume =
+    template.id === 'internship-resume' || template.layout === 'two-column-internship';
   const fontClass = custom.fontFamily === 'serif' ? 'font-cv-serif' : 'font-cv-sans';
   const isTwoColumnSidebar =
     template.layout === 'sidebar-light' || template.layout === 'sidebar-dark';
   const isMainLeftSidebarRight = template.layout === 'main-left-sidebar-right';
   const isEditorialTwoColumn = template.layout === 'two-column-editorial';
   const hasTwoColumns =
-    isTwoColumnSidebar || isMainLeftSidebarRight || isEditorialTwoColumn;
+    isTwoColumnSidebar || isMainLeftSidebarRight || isEditorialTwoColumn || isInternshipResume;
   const isAsymmetric = template.layout === 'asymmetric-labels';
   const isDarkSidebar = template.layout === 'sidebar-dark';
 
@@ -544,16 +561,65 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       case 'title-rule':
         return (
           <h2
-            className={`cv-heading ${template.centeredHeadings ? 'text-center' : ''}`}
+            className={`cv-heading ${template.centeredHeadings ? 'text-center' : ''} ${
+              isFresherResume ? 'uppercase' : ''
+            }`}
             style={{
-              fontSize: `${scale.headingPt + 0.75}pt`,
-              fontWeight: isHarvard ? 700 : 500,
-              letterSpacing: isHarvard ? '0.35pt' : '0.15pt',
+              fontSize: isFresherResume ? `${scale.headingPt}pt` : `${scale.headingPt + 0.75}pt`,
+              fontWeight: isHarvard ? 700 : isFresherResume ? 400 : 500,
+              letterSpacing: isHarvard ? '0.35pt' : isFresherResume ? '0.45pt' : '0.15pt',
               color,
-              borderBottom: `0.65pt solid ${color}`,
-              paddingBottom: '1.5pt',
-              marginBottom: '4pt',
+              borderBottom: isFresherResume
+                ? `0.75pt solid ${color}`
+                : `0.65pt solid ${color}`,
+              paddingBottom: isFresherResume ? '2pt' : '1.5pt',
+              marginBottom: isFresherResume ? '4.5pt' : '4pt',
               lineHeight: 1.22,
+            }}
+          >
+            {title}
+          </h2>
+        );
+      case 'moderncv-bar':
+        return (
+          <div className="cv-heading flex items-center" style={{ marginBottom: '4.5pt' }}>
+            <div
+              style={{
+                width: '19%',
+                paddingRight: '10pt',
+                boxSizing: 'border-box',
+                flexShrink: 0,
+              }}
+            >
+              <div style={{ width: '100%', height: '4.5pt', backgroundColor: color }} />
+            </div>
+            <h2
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: `${scale.headingPt}pt`,
+                fontWeight: 500,
+                color,
+                lineHeight: 1.2,
+                letterSpacing: '0.1pt',
+              }}
+            >
+              {title}
+            </h2>
+          </div>
+        );
+      case 'internship-rule':
+        return (
+          <h2
+            className="cv-heading font-bold uppercase"
+            style={{
+              fontSize: `${scale.headingPt}pt`,
+              letterSpacing: '0.3pt',
+              color,
+              borderBottom: `1.75pt solid ${color}`,
+              paddingBottom: '2pt',
+              marginBottom: '5.5pt',
+              lineHeight: 1.2,
             }}
           >
             {title}
@@ -581,6 +647,106 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         );
     }
   };
+
+  const renderModerncvContactIcon = (kind: ModernCorporateContactKind, color = '#4b5563') => {
+    const size = '7.5pt';
+    const baseStyle: React.CSSProperties = {
+      marginRight: '4pt',
+      flexShrink: 0,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+    };
+    switch (kind) {
+      case 'dob':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" style={baseStyle}>
+            <path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9" />
+          </svg>
+        );
+      case 'mobile':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <rect x="7" y="2" width="10" height="20" rx="2" />
+            <line x1="11" y1="18" x2="13" y2="18" />
+          </svg>
+        );
+      case 'phone':
+      case 'altPhone':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z" />
+          </svg>
+        );
+      case 'email':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="M22 6l-10 7L2 6" />
+          </svg>
+        );
+      case 'website':
+      case 'custom':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+        );
+      case 'linkedin':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+          </svg>
+        );
+      case 'github':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+          </svg>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const renderModerncvRow = (
+    leftContent: React.ReactNode,
+    rightContent: React.ReactNode
+  ) => (
+    <div className="cv-entry flex items-start" style={{ color: custom.textColor }}>
+      <div
+        className="text-right shrink-0"
+        style={{
+          width: '19%',
+          paddingRight: '10pt',
+          boxSizing: 'border-box',
+          fontSize: `${scale.metaPt}pt`,
+          lineHeight: scale.lineHeight,
+          color: '#111827',
+          wordBreak: 'break-word',
+        }}
+      >
+        {leftContent}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>{rightContent}</div>
+    </div>
+  );
+
+  const renderModerncvHollowCircle = (color = '#111827') => (
+    <svg
+      width="4.5pt"
+      height="4.5pt"
+      viewBox="0 0 10 10"
+      style={{
+        display: 'inline-block',
+        marginTop: '3.2pt',
+        flexShrink: 0,
+      }}
+    >
+      <circle cx="5" cy="5" r="3.4" fill="none" stroke={color} strokeWidth="1.25" />
+    </svg>
+  );
 
   // Contact items inline renderer
   const renderContactInline = (
@@ -877,6 +1043,71 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     );
   };
 
+  const renderInternshipContactIcon = (kind: InternshipContactKind, color = '#111827') => {
+    const size = '8pt';
+    const baseStyle: React.CSSProperties = {
+      marginRight: '3.5pt',
+      flexShrink: 0,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+    };
+    switch (kind) {
+      case 'email':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.3" style={baseStyle}>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
+          </svg>
+        );
+      case 'phone':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z" />
+          </svg>
+        );
+      case 'location':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+          </svg>
+        );
+      case 'linkedin':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+          </svg>
+        );
+      case 'github':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+          </svg>
+        );
+      case 'website':
+      case 'custom':
+      default:
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+        );
+    }
+  };
+
+  const renderInternshipTrophyIcon = (color = '#111827') => (
+    <svg
+      width="11pt"
+      height="11pt"
+      viewBox="0 0 24 24"
+      fill={color}
+      style={{ flexShrink: 0, marginTop: '1.5pt' }}
+    >
+      <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />
+    </svg>
+  );
+
   // Header renderer for the distinct header variants
   const renderHeader = (): React.ReactNode => {
     const nameText = personalInfo.fullName || 'FULL NAME';
@@ -884,6 +1115,70 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     const textCol = custom.textColor;
 
     switch (template.headerVariant) {
+      case 'internship-kunal': {
+        const items = buildInternshipContactItems(personalInfo);
+        return (
+          <header style={{ marginBottom: '7pt' }}>
+            <h1
+              className="font-bold uppercase"
+              style={{
+                fontSize: `${scale.namePt}pt`,
+                letterSpacing: '0.3pt',
+                lineHeight: 1.08,
+                color: '#111827',
+                marginBottom: '1.5pt',
+              }}
+            >
+              {nameText}
+            </h1>
+            {personalInfo.jobTitle?.trim() && (
+              <div
+                className="font-semibold"
+                style={{
+                  fontSize: `${scale.jobTitlePt}pt`,
+                  color: '#374151',
+                  lineHeight: 1.25,
+                  marginBottom: '4pt',
+                }}
+              >
+                {personalInfo.jobTitle.trim()}
+              </div>
+            )}
+            {items.length > 0 && (
+              <div
+                className="flex flex-wrap items-center"
+                style={{
+                  columnGap: '12pt',
+                  rowGap: '2.5pt',
+                  fontSize: `${scale.metaPt}pt`,
+                  color: '#1f2937',
+                  lineHeight: 1.3,
+                }}
+              >
+                {items.map((item, idx) => (
+                  <span key={`${item.kind}-${idx}`} className="inline-flex items-center">
+                    {renderInternshipContactIcon(item.kind, '#111827')}
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target={item.url.startsWith('http') ? '_blank' : undefined}
+                        rel={item.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className="no-underline hover:underline"
+                        style={{ color: '#1f2937' }}
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </header>
+        );
+      }
+
       case 'two-column-header': {
         const photoUrl = personalInfo.photoUrl?.trim();
         const photoShape = personalInfo.photoShape || 'circle';
@@ -1486,6 +1781,262 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           </header>
         );
 
+      case 'fresher-overleaf': {
+        const cols = buildFresherHeaderColumns(personalInfo);
+        const targetJob =
+          personalInfo.jobTitle?.trim() || effectiveResume.targetRole?.trim() || '';
+        const hiddenSet = new Set(effectiveResume.hiddenSections || []);
+        const keywords = !hiddenSet.has('strengths')
+          ? (effectiveResume.strengths || []).map((s) => s.trim()).filter(Boolean)
+          : [];
+        const impactText = !hiddenSet.has('objective')
+          ? (effectiveResume.objective || '').trim()
+          : '';
+
+        return (
+          <header style={{ marginBottom: '5pt' }}>
+            <div
+              className="flex justify-between items-end"
+              style={{
+                gap: '10pt',
+                paddingBottom: '5.5pt',
+                borderBottom: '0.75pt solid #334155',
+              }}
+            >
+              {/* Left Column: Phone / Email / Optional City */}
+              <div
+                style={{
+                  width: '31%',
+                  minWidth: 0,
+                  fontSize: `${scale.metaPt - 0.15}pt`,
+                  lineHeight: 1.32,
+                  color: textCol,
+                }}
+              >
+                {cols.left.map((item, idx) => (
+                  <div key={idx} className="break-words">
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        className="no-underline hover:underline"
+                        style={{ color: textCol }}
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Center Column: Name + Target Job */}
+              <div className="text-center" style={{ width: '43%', minWidth: 0 }}>
+                <h1
+                  style={{
+                    fontSize: `${scale.namePt}pt`,
+                    fontWeight: 400,
+                    lineHeight: 1.12,
+                    letterSpacing: '0.2pt',
+                    color: '#111827',
+                    marginBottom: targetJob ? '1.5pt' : 0,
+                  }}
+                >
+                  {nameText}
+                </h1>
+                {targetJob && (
+                  <div
+                    style={{
+                      fontSize: `${scale.jobTitlePt}pt`,
+                      fontWeight: 400,
+                      color: accent,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {targetJob}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: LinkedIn / Portfolio / GitHub / Custom */}
+              <div
+                className="text-right"
+                style={{
+                  width: '26%',
+                  minWidth: 0,
+                  fontSize: `${scale.metaPt - 0.15}pt`,
+                  lineHeight: 1.32,
+                  color: textCol,
+                }}
+              >
+                {cols.right.map((item, idx) => (
+                  <div key={idx} className="break-words">
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target={item.url.startsWith('http') ? '_blank' : undefined}
+                        rel={item.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className="no-underline hover:underline"
+                        style={{ color: textCol }}
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Optional Highlights Keywords & Impact Strip directly below header divider */}
+            {(keywords.length > 0 || impactText) && (
+              <div style={{ marginTop: '4.5pt', marginBottom: '2pt' }}>
+                {keywords.length > 0 && (
+                  <div
+                    className="flex flex-wrap items-center justify-around"
+                    style={{
+                      columnGap: '10pt',
+                      rowGap: '2pt',
+                      fontSize: `${scale.bodyPt - 0.1}pt`,
+                      color: textCol,
+                      lineHeight: 1.3,
+                      marginBottom: impactText ? '3.5pt' : 0,
+                    }}
+                  >
+                    {keywords.map((kw, idx) => (
+                      <span key={idx}>• {kw}</span>
+                    ))}
+                  </div>
+                )}
+                {impactText && (
+                  <p
+                    style={{
+                      fontSize: `${scale.bodyPt - 0.1}pt`,
+                      lineHeight: scale.lineHeight,
+                      color: textCol,
+                    }}
+                  >
+                    <strong style={{ fontWeight: 700 }}>Impact: </strong>
+                    <span>{impactText}</span>
+                  </p>
+                )}
+              </div>
+            )}
+          </header>
+        );
+      }
+
+      case 'modern-corporate-split': {
+        const words = nameText.trim().split(/\s+/).filter(Boolean);
+        const firstPart = words.length > 1 ? words.slice(0, -1).join(' ') : '';
+        const lastPart = words.length > 0 ? words[words.length - 1] : nameText;
+        const mcContacts = buildModernCorporateContactItems(personalInfo);
+        const photoUrl = personalInfo.photoUrl?.trim();
+        const quoteText = effectiveResume.personalQuote?.trim();
+
+        return (
+          <header style={{ marginBottom: '10pt' }}>
+            <div className="flex justify-between items-start" style={{ gap: '14pt' }}>
+              <div style={{ flex: 1, minWidth: 0, paddingTop: '10pt' }}>
+                <h1
+                  style={{
+                    fontSize: `${scale.namePt}pt`,
+                    fontWeight: 300,
+                    lineHeight: 1.08,
+                    letterSpacing: '0.2pt',
+                    marginBottom: personalInfo.jobTitle?.trim() ? '4pt' : 0,
+                  }}
+                >
+                  {firstPart && <span style={{ color: '#6b7280' }}>{firstPart} </span>}
+                  <span style={{ color: '#111827', fontWeight: 400 }}>{lastPart}</span>
+                </h1>
+                {personalInfo.jobTitle?.trim() && (
+                  <div
+                    className="italic"
+                    style={{
+                      fontSize: `${scale.jobTitlePt}pt`,
+                      color: '#4b5563',
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {personalInfo.jobTitle.trim()}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-start shrink-0" style={{ gap: photoUrl ? '10pt' : 0, maxWidth: '56%' }}>
+                <div
+                  className="text-right italic"
+                  style={{
+                    fontSize: `${scale.metaPt - 0.15}pt`,
+                    color: '#4b5563',
+                    lineHeight: 1.32,
+                  }}
+                >
+                  {mcContacts.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-end">
+                      {renderModerncvContactIcon(item.kind, '#374151')}
+                      {item.url ? (
+                        <a
+                          href={item.url}
+                          target={item.url.startsWith('http') ? '_blank' : undefined}
+                          rel={item.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                          className="no-underline hover:underline"
+                          style={{ color: '#4b5563' }}
+                        >
+                          {item.label}
+                        </a>
+                      ) : (
+                        <span>{item.label}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {photoUrl && (
+                  <div
+                    style={{
+                      border: `0.75pt solid ${accent}`,
+                      padding: '2pt',
+                      backgroundColor: '#ffffff',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <img
+                      src={photoUrl}
+                      alt={nameText}
+                      style={{
+                        width: '52pt',
+                        height: '64pt',
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {quoteText && (
+              <div
+                className="italic text-center"
+                style={{
+                  fontSize: `${scale.bodyPt + 0.5}pt`,
+                  color: accent,
+                  marginTop: '9pt',
+                  marginBottom: '2pt',
+                  padding: '0 24pt',
+                  lineHeight: 1.35,
+                }}
+              >
+                {quoteText}
+              </div>
+            )}
+          </header>
+        );
+      }
+
       case 'editorial-double-rule': {
         if (isElegantSerif) {
           const metaRows = buildElegantSerifMetadataRows(effectiveResume);
@@ -2080,16 +2631,31 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  <p
-                    className="text-justify"
-                    style={{
-                      fontSize: `${scale.baseFontPt - 0.25}pt`,
-                      lineHeight: scale.lineHeight,
-                      color: textCol,
-                    }}
-                  >
-                    {para}
-                  </p>,
+                  isModernCorporate ? (
+                    renderModerncvRow(
+                      null,
+                      <p
+                        style={{
+                          fontSize: `${scale.bodyPt}pt`,
+                          lineHeight: scale.lineHeight,
+                          color: textCol,
+                        }}
+                      >
+                        {para}
+                      </p>
+                    )
+                  ) : (
+                    <p
+                      className="text-justify"
+                      style={{
+                        fontSize: `${scale.baseFontPt - 0.25}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      {para}
+                    </p>
+                  ),
                   options.inverted,
                   options.isSidebar
                 ),
@@ -2389,6 +2955,100 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             break;
           }
 
+          if (isInternshipResume) {
+            const entries = getInternshipEducationEntries(effectiveResume);
+            entries.forEach((edu, idx) => {
+              list.push({
+                id: `intern-edu-${edu.id}`,
+                spacing: idx === 0 ? 'section' : 'entry',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry"
+                      style={{
+                        color: textCol,
+                        borderTop: idx > 0 ? '0.75pt dotted #9ca3af' : 'none',
+                        paddingTop: idx > 0 ? '4.5pt' : 0,
+                      }}
+                    >
+                      <div
+                        className="font-bold"
+                        style={{
+                          fontSize: `${scale.entryTitlePt}pt`,
+                          color: '#111827',
+                          lineHeight: 1.24,
+                        }}
+                      >
+                        {edu.heading}
+                      </div>
+                      {edu.institution && (
+                        <div
+                          className="font-bold"
+                          style={{
+                            fontSize: `${scale.entrySubtitlePt}pt`,
+                            color: '#111827',
+                            lineHeight: 1.25,
+                            marginTop: '0.5pt',
+                          }}
+                        >
+                          {edu.institution}
+                        </div>
+                      )}
+                      {(edu.dateRange || edu.location) && (
+                        <div
+                          className="flex flex-wrap items-center"
+                          style={{
+                            fontSize: `${scale.metaPt - 0.15}pt`,
+                            color: '#374151',
+                            marginTop: '1.5pt',
+                            columnGap: '10pt',
+                            rowGap: '1.5pt',
+                          }}
+                        >
+                          {edu.dateRange && (
+                            <span
+                              className="inline-flex items-center"
+                              style={{ minWidth: edu.location ? '88pt' : undefined }}
+                            >
+                              {renderTwoColMetaIcon('calendar', '#4b5563')}
+                              <span>{edu.dateRange}</span>
+                            </span>
+                          )}
+                          {edu.location && (
+                            <span className="inline-flex items-center">
+                              {renderTwoColMetaIcon('pin', '#111827')}
+                              <span>{edu.location}</span>
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {edu.subDetails.length > 0 && (
+                        <div
+                          style={{
+                            marginTop: '1.5pt',
+                            fontSize: `${scale.bodyPt - 0.15}pt`,
+                            color: '#1f2937',
+                            lineHeight: 1.32,
+                          }}
+                        >
+                          {edu.subDetails.map((detail, dIdx) => (
+                            <div key={dIdx}>{detail}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+            break;
+          }
+
           (effectiveResume.education || []).forEach((edu, idx) => {
             const dateRange = [
               edu.startDate?.trim(),
@@ -2485,6 +3145,126 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                       </div>
                     )
+                  ) : isModernCorporate ? (
+                    renderModerncvRow(
+                      dateRange,
+                      <div style={{ color: textCol }}>
+                        <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, lineHeight: 1.3 }}>
+                          <span className="font-bold">
+                            {edu.degree}
+                            {edu.specialization ? ` in ${edu.specialization}` : ''}
+                          </span>
+                          {edu.institution?.trim() && (
+                            <>
+                              <span>, </span>
+                              <span className="italic">{edu.institution.trim()}</span>
+                            </>
+                          )}
+                          {edu.department?.trim() && (
+                            <>
+                              <span>, </span>
+                              <span className="italic">{edu.department.trim()}</span>
+                            </>
+                          )}
+                          {edu.location?.trim() && (
+                            <>
+                              <span>, </span>
+                              <span className="italic">{edu.location.trim()}</span>
+                            </>
+                          )}
+                          {edu.grade?.trim() && (
+                            <>
+                              <span>, </span>
+                              <span className="italic">{edu.grade.trim()}</span>
+                            </>
+                          )}
+                        </div>
+                        {(edu.thesisTitle?.trim() || edu.dissertationDetails?.trim()) && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: '#1f2937', marginTop: '1pt', lineHeight: scale.lineHeight }}>
+                            <span className="font-semibold">Thesis: </span>
+                            <span className="italic">{edu.thesisTitle?.trim()}</span>
+                            {edu.dissertationDetails?.trim() && (
+                              <span>
+                                {edu.thesisTitle?.trim() ? ' — ' : ''}
+                                {edu.dissertationDetails.trim()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {courseworkList.length > 0 && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: '#374151', marginTop: '1pt', lineHeight: scale.lineHeight }}>
+                            <span className="font-semibold">Coursework: </span>
+                            <span>{courseworkList.join(', ')}</span>
+                          </div>
+                        )}
+                        {(edu.honors?.trim() || edu.achievements?.trim()) && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: '#374151', marginTop: '1pt', lineHeight: scale.lineHeight }}>
+                            <span className="font-semibold">Honors: </span>
+                            <span>{edu.honors?.trim() || edu.achievements?.trim()}</span>
+                          </div>
+                        )}
+                        {edu.description?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', marginTop: '1pt', lineHeight: scale.lineHeight }}>
+                            {edu.description.trim()}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : isFresherResume ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div
+                        className="flex justify-between items-baseline"
+                        style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight }}
+                      >
+                        <div style={{ marginRight: '8pt', flex: 1, minWidth: 0 }}>
+                          <span className="font-bold">{edu.degree}</span>
+                          {edu.specialization ? <span>, {edu.specialization}</span> : null}
+                          {edu.institution?.trim() ? <span>, {edu.institution.trim()}</span> : null}
+                          {edu.board?.trim() ? <span> ({edu.board.trim()})</span> : null}
+                          {edu.location?.trim() ? <span>, {edu.location.trim()}</span> : null}
+                          {edu.grade?.trim() ? (
+                            <span>
+                              {', GPA: '}
+                              {edu.grade.trim()}
+                              {edu.gradingScale?.trim() && !edu.grade.includes('/')
+                                ? `/${edu.gradingScale.trim()}`
+                                : ''}
+                            </span>
+                          ) : null}
+                        </div>
+                        {dateRange && (
+                          <span
+                            className="font-bold shrink-0"
+                            style={{ fontSize: `${scale.bodyPt}pt`, color: textCol }}
+                          >
+                            {dateRange}
+                          </span>
+                        )}
+                      </div>
+                      {(edu.honors?.trim() || edu.achievements?.trim()) && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.25}pt`, color: subCol, marginTop: '1pt', lineHeight: 1.32 }}>
+                          <span className="font-semibold">Honors: </span>
+                          <span>{edu.honors?.trim() || edu.achievements?.trim()}</span>
+                        </div>
+                      )}
+                      {edu.thesisTitle?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.25}pt`, color: subCol, marginTop: '1pt', lineHeight: 1.32 }}>
+                          <span className="font-semibold">Thesis: </span>
+                          <span>{edu.thesisTitle.trim()}</span>
+                        </div>
+                      )}
+                      {courseworkList.length > 0 && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.25}pt`, color: subCol, marginTop: '1pt', lineHeight: 1.32 }}>
+                          <span className="font-semibold">Coursework: </span>
+                          <span>{courseworkList.join(', ')}</span>
+                        </div>
+                      )}
+                      {edu.description?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.25}pt`, color: subCol, marginTop: '1pt', lineHeight: scale.lineHeight }}>
+                          {edu.description.trim()}
+                        </div>
+                      )}
+                    </div>
                   ) : options.isSidebar ? (
                     isTwoColumnPro ? (
                       <div
@@ -2733,9 +3513,10 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'experience': {
-          const expGroups = isClassic
-            ? groupExperienceByCategory(effectiveResume.experience || [])
-            : [{ categoryLabel: null as string | null, items: effectiveResume.experience || [] }];
+          const expGroups =
+            isClassic || isModernCorporate
+              ? groupExperienceByCategory(effectiveResume.experience || [])
+              : [{ categoryLabel: null as string | null, items: effectiveResume.experience || [] }];
 
           let globalExpIndex = 0;
           expGroups.forEach((group, gIdx) => {
@@ -2743,7 +3524,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               const isFirstSectionUnit = globalExpIndex === 0;
               globalExpIndex += 1;
               const categoryHeadingForThisItem =
-                isClassic && itemIdx === 0 ? group.categoryLabel : null;
+                (isClassic || isModernCorporate) && itemIdx === 0 ? group.categoryLabel : null;
 
               const bullets = cleanHighlights(exp.highlights);
               const firstBullet = bullets[0];
@@ -2855,6 +3636,103 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           )}
                         </div>
                       )
+                    ) : isModernCorporate ? (
+                      <div>
+                        {categoryHeadingForThisItem && (
+                          <div style={{ marginBottom: '3pt', marginTop: gIdx > 0 ? '3pt' : '0pt' }}>
+                            {renderModerncvRow(
+                              null,
+                              <div
+                                style={{
+                                  fontSize: `${scale.headingPt - 1.5}pt`,
+                                  color: custom.accentColor,
+                                  fontWeight: 500,
+                                  lineHeight: 1.25,
+                                }}
+                              >
+                                {categoryHeadingForThisItem.replace(/\s+Experience$/i, '')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {renderModerncvRow(
+                          [
+                            exp.startDate?.trim(),
+                            exp.current ? 'Present' : exp.endDate?.trim(),
+                          ]
+                            .filter(Boolean)
+                            .join('–'),
+                          <div style={{ color: textCol }}>
+                            <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, lineHeight: 1.3 }}>
+                              <span className="font-bold">{exp.position}</span>
+                              {exp.company?.trim() && (
+                                <>
+                                  <span>, </span>
+                                  <span className="italic">{exp.company.trim()}</span>
+                                </>
+                              )}
+                              {exp.department?.trim() && (
+                                <>
+                                  <span>, </span>
+                                  <span className="italic">{exp.department.trim()}</span>
+                                </>
+                              )}
+                              {exp.location?.trim() && (
+                                <>
+                                  <span>, </span>
+                                  <span className="italic">{exp.location.trim()}</span>
+                                </>
+                              )}
+                              {exp.employmentType?.trim() && (
+                                <span style={{ color: '#4b5563', fontSize: `${scale.metaPt - 0.25}pt` }}>
+                                  {' '}({exp.employmentType.trim()})
+                                </span>
+                              )}
+                            </div>
+                            {exp.description?.trim() && (
+                              <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                                {exp.description.trim()}
+                              </div>
+                            )}
+                            {exp.results?.trim() && (
+                              <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                                <span className="font-semibold">Results: </span>
+                                <span>{exp.results.trim()}</span>
+                              </div>
+                            )}
+                            {exp.technologies && exp.technologies.length > 0 && (
+                              <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#4b5563', marginTop: '1pt' }}>
+                                <span className="font-semibold">Tools: </span>
+                                <span>{exp.technologies.join(', ')}</span>
+                              </div>
+                            )}
+                            {firstBullet && (
+                              <>
+                                <div className="flex items-start" style={{ marginTop: '1.5pt', gap: '5pt' }}>
+                                  {renderModerncvHollowCircle(textCol)}
+                                  <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                    {firstBullet}
+                                  </span>
+                                </div>
+                                {(subMap.get(0) || []).map((subItem, sIdx) => (
+                                  <div
+                                    key={sIdx}
+                                    className="flex items-start"
+                                    style={{ marginTop: '1pt', paddingLeft: '11pt', color: '#374151' }}
+                                  >
+                                    <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                      –
+                                    </span>
+                                    <span style={{ fontSize: `${scale.bodyPt - 0.2}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                      {subItem}
+                                    </span>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ) : isTwoColumnPro ? (
                       <div
                         className="cv-entry"
@@ -2919,6 +3797,89 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             </span>
                           </div>
                         )}
+                      </div>
+                    ) : isFresherResume ? (
+                      <div className="cv-entry" style={{ color: textCol }}>
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, lineHeight: 1.25 }}
+                        >
+                          <span className="font-bold" style={{ marginRight: '8pt' }}>
+                            {exp.position}
+                            {exp.employmentType?.trim() ? (
+                              <span className="font-normal" style={{ fontSize: `${scale.metaPt}pt`, color: subCol }}>
+                                {' '}({exp.employmentType.trim()})
+                              </span>
+                            ) : null}
+                          </span>
+                          {expDateRange && (
+                            <span className="font-bold shrink-0" style={{ fontSize: `${scale.bodyPt}pt` }}>
+                              {expDateRange}
+                            </span>
+                          )}
+                        </div>
+                        {(exp.company?.trim() || exp.location?.trim()) && (
+                          <div
+                            className="flex justify-between items-baseline"
+                            style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: subCol, marginBottom: '1.5pt' }}
+                          >
+                            <span style={{ marginRight: '8pt' }}>
+                              {exp.company?.trim()}
+                              {exp.department?.trim() ? `, ${exp.department.trim()}` : ''}
+                            </span>
+                            {exp.location?.trim() && (
+                              <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                {exp.location.trim()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {exp.description?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: subCol, lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            {exp.description.trim()}
+                          </div>
+                        )}
+                        {firstBullet && (
+                          <>
+                            <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '8pt' }}>
+                              <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                {bulletChar}
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {firstBullet}
+                              </span>
+                            </div>
+                            {(subMap.get(0) || []).map((subItem, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex items-start"
+                                style={{ marginTop: '1pt', paddingLeft: '19pt', color: subCol }}
+                              >
+                                <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                  –
+                                </span>
+                                <span style={{ fontSize: `${scale.bodyPt - 0.25}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                  {subItem}
+                                </span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                        {(() => {
+                          const learned = [
+                            ...(exp.skillsLearned || []),
+                            ...(exp.technologies || []),
+                          ]
+                            .map((s) => s.trim())
+                            .filter(Boolean);
+                          if (learned.length === 0) return null;
+                          return (
+                            <div style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: subCol, marginTop: '1.5pt', paddingLeft: '8pt' }}>
+                              <span className="font-semibold">Skills Learned: </span>
+                              <span>{learned.join(', ')}</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="cv-entry" style={{ color: textCol, paddingLeft: isJakes ? '8pt' : undefined }}>
@@ -3075,6 +4036,32 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             ))}
                           </div>
                         </div>
+                      ) : isModernCorporate ? (
+                        renderModerncvRow(
+                          null,
+                          <div style={{ color: textCol }}>
+                            <div className="flex items-start" style={{ gap: '5pt' }}>
+                              {renderModerncvHollowCircle(textCol)}
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {hl}
+                              </span>
+                            </div>
+                            {nestedSubs.map((subItem, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex items-start"
+                                style={{ marginTop: '1pt', paddingLeft: '11pt', color: '#374151' }}
+                              >
+                                <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                  –
+                                </span>
+                                <span style={{ fontSize: `${scale.bodyPt - 0.2}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                  {subItem}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )
                       ) : (
                         <div style={{ color: textCol }}>
                           <div
@@ -3115,6 +4102,90 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'research': {
+          if (isInternshipResume) {
+            const entries = getInternshipResearchAndProjectEntries(effectiveResume);
+            entries.forEach((entry, idx) => {
+              list.push({
+                id: `intern-research-${entry.id}`,
+                spacing: idx === 0 ? 'section' : 'entry',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div
+                        className="font-bold"
+                        style={{
+                          fontSize: `${scale.entryTitlePt}pt`,
+                          color: '#111827',
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {entry.title}
+                        {entry.dateRange ? ` (${entry.dateRange})` : ''}
+                      </div>
+                      {entry.bullets.map((bullet, bIdx) => (
+                        <div
+                          key={bIdx}
+                          className="flex items-start"
+                          style={{
+                            marginTop: '1.5pt',
+                            paddingLeft: '2pt',
+                            color: '#1f2937',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '9pt',
+                              fontSize: `${scale.entrySubtitlePt}pt`,
+                              flexShrink: 0,
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {bulletChar}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: `${scale.bodyPt - 0.15}pt`,
+                              lineHeight: 1.34,
+                              flex: 1,
+                              minWidth: 0,
+                            }}
+                          >
+                            {bullet}
+                          </span>
+                        </div>
+                      ))}
+                      {entry.linkUrl && entry.linkLabel && (
+                        <div
+                          style={{
+                            marginTop: '1.5pt',
+                            paddingLeft: '11pt',
+                            fontSize: `${scale.metaPt - 0.25}pt`,
+                          }}
+                        >
+                          <a
+                            href={entry.linkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline break-all"
+                            style={{ color: custom.accentColor }}
+                          >
+                            {entry.linkLabel}
+                          </a>
+                        </div>
+                      )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+            break;
+          }
+
           (effectiveResume.researchExperience || []).forEach((res, idx) => {
             const dateRange = [
               res.startDate?.trim(),
@@ -3720,6 +4791,91 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                       </div>
                     )
+                  ) : isModernCorporate ? (
+                    (() => {
+                      const projDateRange = [
+                        proj.startDate?.trim(),
+                        proj.current ? 'Present' : proj.endDate?.trim(),
+                      ]
+                        .filter(Boolean)
+                        .join('–');
+                      return renderModerncvRow(
+                        projDateRange,
+                        <div style={{ color: textCol }}>
+                          <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, lineHeight: 1.3 }}>
+                            <span className="font-bold">{proj.title}</span>
+                            {proj.institution?.trim() && (
+                              <>
+                                <span>, </span>
+                                <span className="italic">{proj.institution.trim()}</span>
+                              </>
+                            )}
+                            {proj.projectType?.trim() && (
+                              <span className="italic" style={{ color: '#4b5563', fontSize: `${scale.metaPt - 0.2}pt` }}>
+                                {' '}({proj.projectType.trim()})
+                              </span>
+                            )}
+                            {(proj.githubUrl || proj.link) && (
+                              <span style={{ fontSize: `${scale.metaPt - 0.25}pt`, marginLeft: '5pt' }}>
+                                {proj.githubUrl && (
+                                  <a
+                                    href={proj.githubUrl.startsWith('http') ? proj.githubUrl : `https://${proj.githubUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="no-underline hover:underline"
+                                    style={{ color: custom.accentColor, marginRight: proj.link ? '4pt' : 0 }}
+                                  >
+                                    {cleanGithubLink}
+                                  </a>
+                                )}
+                                {proj.link && (
+                                  <a
+                                    href={proj.link.startsWith('http') ? proj.link : `https://${proj.link}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="no-underline hover:underline"
+                                    style={{ color: custom.accentColor }}
+                                  >
+                                    {cleanProjLink}
+                                  </a>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                          {proj.technologies && proj.technologies.length > 0 && (
+                            <div className="italic" style={{ fontSize: `${scale.metaPt - 0.2}pt`, color: '#4b5563', marginTop: '0.5pt' }}>
+                              {proj.technologies.join(', ')}
+                            </div>
+                          )}
+                          {proj.description?.trim() && (
+                            <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                              {proj.description.trim()}
+                            </div>
+                          )}
+                          {proj.contribution?.trim() && (
+                            <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                              <span className="font-semibold">Role: </span>
+                              <span>{proj.contribution.trim()}</span>
+                            </div>
+                          )}
+                          {Array.isArray(proj.achievements) &&
+                            proj.achievements.filter((a) => a.trim()).length > 0 && (
+                              <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                                <span className="font-semibold">Outcome: </span>
+                                <span>{proj.achievements.filter((a) => a.trim()).join('; ')}</span>
+                              </div>
+                            )}
+                          {firstBullet && (
+                            <div className="flex items-start" style={{ marginTop: '1.5pt', gap: '5pt' }}>
+                              {renderModerncvHollowCircle(textCol)}
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {firstBullet}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
                   ) : isJakes ? (
                     <div className="cv-entry" style={{ color: textCol, paddingLeft: '8pt' }}>
                       <div
@@ -3784,6 +4940,99 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       {firstBullet && (
                         <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '10pt' }}>
                           <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            {firstBullet}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : isFresherResume ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div
+                        className="flex justify-between items-baseline"
+                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '1pt' }}
+                      >
+                        <div style={{ marginRight: '8pt', flex: 1, minWidth: 0 }}>
+                          <span className="font-bold">{proj.title}</span>
+                          {proj.institution?.trim() && (
+                            <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, color: subCol }}>
+                              , {proj.institution.trim()}
+                            </span>
+                          )}
+                          {proj.technologies && proj.technologies.length > 0 && (
+                            <span style={{ fontSize: `${scale.metaPt}pt`, color: subCol }}>
+                              {' '}({proj.technologies.join(', ')})
+                            </span>
+                          )}
+                          {(proj.githubUrl || proj.link) && (
+                            <span style={{ fontSize: `${scale.metaPt}pt`, marginLeft: '5pt' }}>
+                              {proj.githubUrl && (
+                                <a
+                                  href={
+                                    proj.githubUrl.startsWith('http')
+                                      ? proj.githubUrl
+                                      : `https://${proj.githubUrl}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                  style={{
+                                    color: custom.accentColor,
+                                    marginRight: proj.link ? '4pt' : 0,
+                                  }}
+                                >
+                                  [GitHub]
+                                </a>
+                              )}
+                              {proj.link && (
+                                <a
+                                  href={proj.link.startsWith('http') ? proj.link : `https://${proj.link}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                  style={{ color: custom.accentColor }}
+                                >
+                                  [{cleanProjLink.includes('github.com') ? 'GitHub' : 'Link'}]
+                                </a>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        {(proj.startDate || proj.endDate || proj.current) && (
+                          <span className="font-bold shrink-0" style={{ fontSize: `${scale.bodyPt}pt` }}>
+                            {proj.startDate}
+                            {proj.current
+                              ? ' — Present'
+                              : proj.endDate && proj.endDate !== proj.startDate
+                              ? ` — ${proj.endDate}`
+                              : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      {proj.description?.trim() && (
+                        <p style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: subCol, marginBottom: '1.5pt' }}>
+                          {proj.description.trim()}
+                        </p>
+                      )}
+                      {proj.problemSolved?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: subCol, lineHeight: scale.lineHeight }}>
+                          <span className="font-semibold">Problem Solved: </span>
+                          <span>{proj.problemSolved.trim()}</span>
+                        </div>
+                      )}
+                      {proj.contribution?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.15}pt`, color: subCol, lineHeight: scale.lineHeight }}>
+                          <span className="font-semibold">Contribution: </span>
+                          <span>{proj.contribution.trim()}</span>
+                        </div>
+                      )}
+
+                      {firstBullet && (
+                        <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '8pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
                             {bulletChar}
                           </span>
                           <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
@@ -3896,6 +5145,16 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           </span>
                         </div>
                       </div>
+                    ) : isModernCorporate ? (
+                      renderModerncvRow(
+                        null,
+                        <div className="flex items-start" style={{ gap: '5pt', color: textCol }}>
+                          {renderModerncvHollowCircle(textCol)}
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            {hl}
+                          </span>
+                        </div>
+                      )
                     ) : (
                       <div
                         className="cv-entry flex items-start"
@@ -4027,25 +5286,40 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  <div className="cv-entry flex flex-wrap" style={{ gap: '4pt' }}>
-                    {items.map((chip, cIdx) => (
-                      <span
-                        key={cIdx}
+                  isModernCorporate ? (
+                    renderModerncvRow(
+                      null,
+                      <div
                         style={{
-                          display: 'inline-block',
-                          padding: '2pt 5.5pt',
-                          border: '0.75pt solid #cbd5e1',
-                          borderRadius: '3pt',
-                          fontSize: `${scale.metaPt - 0.35}pt`,
-                          fontWeight: 500,
-                          color: '#1f2937',
-                          lineHeight: 1.25,
+                          fontSize: `${scale.bodyPt}pt`,
+                          lineHeight: scale.lineHeight,
+                          color: textCol,
                         }}
                       >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>,
+                        {items.join('  •  ')}
+                      </div>
+                    )
+                  ) : (
+                    <div className="cv-entry flex flex-wrap" style={{ gap: '4pt' }}>
+                      {items.map((chip, cIdx) => (
+                        <span
+                          key={cIdx}
+                          style={{
+                            display: 'inline-block',
+                            padding: '2pt 5.5pt',
+                            border: '0.75pt solid #cbd5e1',
+                            borderRadius: '3pt',
+                            fontSize: `${scale.metaPt - 0.35}pt`,
+                            fontWeight: 500,
+                            color: '#1f2937',
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  ),
                   options.inverted,
                   options.isSidebar
                 ),
@@ -4086,8 +5360,126 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             break;
           }
 
+          if (isInternshipResume) {
+            const skillRows = getInternshipSkillRows(effectiveResume);
+            skillRows.forEach((row, idx) => {
+              const hasProficiency =
+                row.proficiency !== null &&
+                row.proficiency !== undefined &&
+                row.proficiency >= 1 &&
+                row.proficiency <= 5;
+              list.push({
+                id: `intern-skill-${row.id}`,
+                spacing: idx === 0 ? 'section' : 'skill',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry"
+                      style={{
+                        color: textCol,
+                        borderTop: idx > 0 ? '0.75pt dotted #9ca3af' : 'none',
+                        paddingTop: idx > 0 ? '4.5pt' : 0,
+                      }}
+                    >
+                      <div className="flex items-start justify-between" style={{ gap: '8pt' }}>
+                        <div
+                          className="font-bold"
+                          style={{
+                            fontSize: `${scale.entrySubtitlePt}pt`,
+                            color: '#111827',
+                            lineHeight: 1.32,
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          {row.label}
+                        </div>
+                        {hasProficiency && (
+                          <span
+                            className="inline-flex items-center shrink-0"
+                            style={{ gap: '2.5pt', marginTop: '2pt' }}
+                          >
+                            {[1, 2, 3, 4, 5].map((dot) => (
+                              <svg
+                                key={`${row.id}-${dot}`}
+                                width="8pt"
+                                height="8pt"
+                                viewBox="0 0 12 12"
+                                aria-hidden="true"
+                              >
+                                <circle
+                                  cx="6"
+                                  cy="6"
+                                  r="5.5"
+                                  fill={dot <= (row.proficiency as number) ? '#111827' : '#d1d5db'}
+                                />
+                              </svg>
+                            ))}
+                          </span>
+                        )}
+                      </div>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+            break;
+          }
+
           const visibleSkills = getVisibleSkills(effectiveResume.skills);
-          if (isElegantSerif) {
+          if (isModernCorporate) {
+            const skillPairs = chunkPairs(visibleSkills);
+            skillPairs.forEach((pair, pIdx) => {
+              list.push({
+                id: `skill-mc-${pIdx}`,
+                spacing: pIdx === 0 ? 'section' : 'skill',
+                sectionHeading: pIdx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry flex justify-between items-start" style={{ color: textCol }}>
+                      {pair.map((cat) => (
+                        <div key={cat.id} className="flex items-start" style={{ width: '49%' }}>
+                          <div
+                            className="text-right shrink-0"
+                            style={{
+                              width: '38.8%',
+                              paddingRight: '10pt',
+                              boxSizing: 'border-box',
+                              fontSize: `${scale.metaPt}pt`,
+                              lineHeight: scale.lineHeight,
+                              color: '#111827',
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {cat.category}
+                          </div>
+                          <div
+                            style={{
+                              width: '61.2%',
+                              fontSize: `${scale.bodyPt}pt`,
+                              lineHeight: scale.lineHeight,
+                              color: textCol,
+                            }}
+                          >
+                            {(cat.skills || []).join(', ')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+          } else if (isElegantSerif) {
             visibleSkills.forEach((cat, idx) => {
               const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
               if (items.length === 0) return;
@@ -4171,6 +5563,40 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   ),
               });
             });
+          } else if (isFresherResume) {
+            visibleSkills.forEach((cat, idx) => {
+              const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+              if (items.length === 0) return;
+              list.push({
+                id: `skill-fresher-${cat.id}`,
+                spacing: idx === 0 ? 'section' : 'skill',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry flex items-baseline"
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      <span
+                        className="font-bold shrink-0"
+                        style={{ width: '98pt', paddingRight: '8pt' }}
+                      >
+                        {cat.category}
+                      </span>
+                      <span style={{ flex: 1 }}>{items.join(', ')}</span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
           } else {
             visibleSkills.forEach((cat, idx) => {
               list.push({
@@ -4214,6 +5640,78 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'achievements': {
+          if (isFresherResume) {
+            const yearGroups = groupAwardsByYearForFresher(effectiveResume.achievements || []);
+            yearGroups.forEach((group, gIdx) => {
+              list.push({
+                id: `ach-year-${gIdx}-${group.year || 'unlisted'}`,
+                spacing: gIdx === 0 ? 'section' : 'compact',
+                sectionHeading: gIdx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry flex items-baseline"
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      <span
+                        className="font-bold shrink-0"
+                        style={{ width: '46pt', paddingRight: '6pt', color: '#111827' }}
+                      >
+                        {group.year}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {group.items.map((ach, aIdx) => {
+                          const detailParts = [
+                            ach.rank?.trim() || '',
+                            ach.issuer?.trim() || '',
+                            ach.description?.trim() || '',
+                          ].filter(Boolean);
+                          const cleanAwardUrl = ach.url?.trim()
+                            ? ach.url.trim().startsWith('http')
+                              ? ach.url.trim()
+                              : `https://${ach.url.trim()}`
+                            : null;
+                          return (
+                            <React.Fragment key={ach.id}>
+                              {aIdx > 0 ? '; ' : ''}
+                              <span className="font-semibold">{ach.title}</span>
+                              {detailParts.length > 0 ? (
+                                <span style={{ color: subCol }}> ({detailParts.join(' · ')})</span>
+                              ) : null}
+                              {cleanAwardUrl && (
+                                <>
+                                  {' '}
+                                  <a
+                                    href={cleanAwardUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:underline"
+                                    style={{ color: custom.accentColor, fontSize: `${scale.metaPt}pt` }}
+                                  >
+                                    [Link]
+                                  </a>
+                                </>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+            break;
+          }
+
           (effectiveResume.achievements || []).forEach((ach, idx) => {
             list.push({
               id: `ach-${ach.id}`,
@@ -4238,6 +5736,31 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                         {(ach.description?.trim() || ach.achievementDetails?.trim()) && (
                           <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            {[ach.description?.trim(), ach.achievementDetails?.trim()].filter(Boolean).join(' — ')}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : isModernCorporate ? (
+                    renderModerncvRow(
+                      ach.date?.trim() || '',
+                      <div style={{ color: textCol }}>
+                        <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, lineHeight: 1.3 }}>
+                          <span className="font-bold">{ach.title}</span>
+                          {ach.issuer?.trim() && (
+                            <>
+                              <span>, </span>
+                              <span className="italic">{ach.issuer.trim()}</span>
+                            </>
+                          )}
+                          {ach.category?.trim() && (
+                            <span style={{ color: '#4b5563', fontSize: `${scale.metaPt - 0.25}pt` }}>
+                              {' '}({ach.category.trim()})
+                            </span>
+                          )}
+                        </div>
+                        {(ach.description?.trim() || ach.achievementDetails?.trim()) && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
                             {[ach.description?.trim(), ach.achievementDetails?.trim()].filter(Boolean).join(' — ')}
                           </div>
                         )}
@@ -4269,6 +5792,81 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             {ach.description && <span>{ach.description}</span>}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  ) : isInternshipResume ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div
+                        className="font-bold"
+                        style={{
+                          fontSize: `${scale.entryTitlePt}pt`,
+                          color: '#111827',
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {ach.title}
+                      </div>
+                      <div className="flex items-start" style={{ gap: '5.5pt', marginTop: '1.5pt' }}>
+                        {renderInternshipTrophyIcon('#111827')}
+                        <div
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontSize: `${scale.bodyPt - 0.15}pt`,
+                            color: '#1f2937',
+                            lineHeight: 1.34,
+                          }}
+                        >
+                          {(() => {
+                            const metaLine = [
+                              ach.rank?.trim(),
+                              ach.role?.trim(),
+                              ach.participationType?.trim(),
+                              ach.teamType?.trim(),
+                              ach.issuer?.trim(),
+                              ach.date?.trim(),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ');
+                            const cleanUrl = ach.url?.trim()
+                              ? ach.url.trim().startsWith('http')
+                                ? ach.url.trim()
+                                : `https://${ach.url.trim()}`
+                              : null;
+                            return (
+                              <>
+                                {ach.description?.trim() && <div>{ach.description.trim()}</div>}
+                                {metaLine && !ach.description?.trim()?.includes(metaLine) && (
+                                  <div style={{ color: '#374151', marginTop: ach.description?.trim() ? '1pt' : 0 }}>
+                                    {metaLine}
+                                  </div>
+                                )}
+                                {ach.responsibilities?.trim() && (
+                                  <div style={{ marginTop: '1pt' }}>{ach.responsibilities.trim()}</div>
+                                )}
+                                {ach.outcome?.trim() && (
+                                  <div style={{ marginTop: '1pt' }}>{ach.outcome.trim()}</div>
+                                )}
+                                {ach.achievementDetails?.trim() && (
+                                  <div style={{ marginTop: '1pt' }}>{ach.achievementDetails.trim()}</div>
+                                )}
+                                {cleanUrl && (
+                                  <div style={{ marginTop: '1pt' }}>
+                                    <a
+                                      href={cleanUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="hover:underline break-all"
+                                      style={{ color: '#111827' }}
+                                    >
+                                      {ach.url?.trim()}
+                                    </a>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -4348,6 +5946,35 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                               <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
                                 {bulletChar}
                               </span>
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {firstBullet}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ) : isModernCorporate ? (
+                      renderModerncvRow(
+                        leadDateRange,
+                        <div style={{ color: textCol }}>
+                          <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, lineHeight: 1.3 }}>
+                            <span className="font-bold">{lead.role}</span>
+                            {lead.organization?.trim() && (
+                              <>
+                                <span>, </span>
+                                <span className="italic">{lead.organization.trim()}</span>
+                              </>
+                            )}
+                            {lead.location?.trim() && (
+                              <>
+                                <span>, </span>
+                                <span className="italic">{lead.location.trim()}</span>
+                              </>
+                            )}
+                          </div>
+                          {firstBullet && (
+                            <div className="flex items-start" style={{ marginTop: '1.5pt', gap: '5pt' }}>
+                              {renderModerncvHollowCircle(textCol)}
                               <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
                                 {firstBullet}
                               </span>
@@ -4485,6 +6112,16 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           </span>
                         </div>
                       </div>
+                    ) : isModernCorporate ? (
+                      renderModerncvRow(
+                        null,
+                        <div className="flex items-start" style={{ gap: '5pt', color: textCol }}>
+                          {renderModerncvHollowCircle(textCol)}
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            {hl}
+                          </span>
+                        </div>
+                      )
                     ) : (
                       <div
                         className="cv-entry flex items-start"
@@ -4602,6 +6239,15 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         {mem.membershipId ? ` (ID: ${mem.membershipId})` : ''}
                       </div>
                     )
+                  ) : isModernCorporate ? (
+                    renderModerncvRow(
+                      memDateRange,
+                      <div style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: textCol }}>
+                        <span className="font-bold">{mem.organization}</span>
+                        {mem.membershipType ? `, ${mem.membershipType}` : ''}
+                        {mem.membershipId ? ` (ID: ${mem.membershipId})` : ''}
+                      </div>
+                    )
                   ) : options.isSidebar ? (
                     <div className="cv-entry" style={{ fontSize: `${scale.metaPt}pt`, color: textCol }}>
                       <div className="font-bold">{mem.organization}</div>
@@ -4667,6 +6313,24 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         ) : null}
                       </div>
                     )
+                  ) : isModernCorporate ? (
+                    renderModerncvRow(
+                      certDateRange,
+                      <div style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: textCol }}>
+                        <span className="font-bold">{c.name}</span>
+                        {c.issuer ? (
+                          <>
+                            <span>, </span>
+                            <span className="italic">{c.issuer}</span>
+                          </>
+                        ) : null}
+                        {c.credentialId ? (
+                          <span style={{ color: '#4b5563', fontSize: `${scale.metaPt - 0.25}pt` }}>
+                            {' '}(ID: {c.credentialId})
+                          </span>
+                        ) : null}
+                      </div>
+                    )
                   ) : options.isSidebar ? (
                     <div className="cv-entry" style={{ fontSize: `${scale.metaPt}pt`, color: textCol }}>
                       <div className="font-bold">{c.name}</div>
@@ -4674,6 +6338,61 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         {c.issuer}
                         {c.issueDate ? ` · ${c.issueDate}` : ''}
                       </div>
+                    </div>
+                  ) : isFresherResume ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div
+                        className="flex justify-between items-baseline"
+                        style={{ fontSize: `${scale.bodyPt}pt` }}
+                      >
+                        <span style={{ marginRight: '8pt', flex: 1 }}>
+                          <strong>{c.name}</strong>
+                          {c.issuer ? ` — ${c.issuer}` : ''}
+                          {c.credentialId ? ` (ID: ${c.credentialId})` : ''}
+                          {c.link?.trim() && (
+                            <>
+                              {' '}
+                              <a
+                                href={c.link.trim().startsWith('http') ? c.link.trim() : `https://${c.link.trim()}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline"
+                                style={{ color: custom.accentColor, fontSize: `${scale.metaPt}pt` }}
+                              >
+                                [Verify]
+                              </a>
+                            </>
+                          )}
+                        </span>
+                        {certDateRange && (
+                          <span className="font-bold shrink-0" style={{ fontSize: `${scale.bodyPt}pt` }}>
+                            {certDateRange}
+                          </span>
+                        )}
+                      </div>
+                      {Array.isArray(c.skillsCovered) && c.skillsCovered.filter((s) => s.trim()).length > 0 && (
+                        <div style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: subCol, marginTop: '0.5pt' }}>
+                          <span className="font-semibold">Skills: </span>
+                          <span>{c.skillsCovered.filter((s) => s.trim()).join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : isInternshipResume ? (
+                    <div className="cv-entry" style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: 1.32 }}>
+                      <div className="flex justify-between items-baseline" style={{ gap: '6pt' }}>
+                        <span className="font-bold">{c.name}</span>
+                        {certDateRange && (
+                          <span className="shrink-0" style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: metaCol }}>
+                            {certDateRange}
+                          </span>
+                        )}
+                      </div>
+                      {(c.issuer || c.credentialId) && (
+                        <div style={{ fontSize: `${scale.metaPt}pt`, color: subCol }}>
+                          {c.issuer}
+                          {c.credentialId ? ` (ID: ${c.credentialId})` : ''}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div
@@ -5409,6 +7128,79 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             break;
           }
 
+          if (isFresherResume) {
+            const eff = getEffectiveInterests(effectiveResume);
+            if (eff.items.length > 0) {
+              eff.items.forEach((item, iIdx) => {
+                list.push({
+                  id: `fresher-add-int-${item.id}`,
+                  spacing: iIdx === 0 ? 'section' : 'compact',
+                  sectionHeading: iIdx === 0 ? sectionTitle : undefined,
+                  isSidebar: options.isSidebar,
+                  render: (showHeading) =>
+                    wrapLayoutUnit(
+                      sectionTitle,
+                      showHeading,
+                      <div
+                        className="cv-entry flex items-baseline"
+                        style={{
+                          fontSize: `${scale.bodyPt}pt`,
+                          color: textCol,
+                          lineHeight: scale.lineHeight,
+                        }}
+                      >
+                        <span
+                          className="font-bold shrink-0"
+                          style={{ width: '98pt', paddingRight: '8pt' }}
+                        >
+                          {iIdx === 0 ? 'Interests' : ''}
+                        </span>
+                        <span style={{ flex: 1 }}>
+                          <span className="font-semibold">{item.name}</span>
+                          {item.description?.trim() ? (
+                            <span style={{ color: subCol }}> — {item.description.trim()}</span>
+                          ) : null}
+                        </span>
+                      </div>,
+                      options.inverted,
+                      options.isSidebar
+                    ),
+                });
+              });
+            } else if (eff.text) {
+              list.push({
+                id: 'fresher-add-interests',
+                spacing: 'section',
+                sectionHeading: sectionTitle,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry flex items-baseline"
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        color: textCol,
+                        lineHeight: scale.lineHeight,
+                      }}
+                    >
+                      <span
+                        className="font-bold shrink-0"
+                        style={{ width: '98pt', paddingRight: '8pt' }}
+                      >
+                        Interests
+                      </span>
+                      <span style={{ flex: 1 }}>{eff.text}</span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            }
+            break;
+          }
+
           const langs = effectiveResume.languages || [];
           const hasLang = langs.length > 0;
           const interestsText = (effectiveResume.interests || '').trim();
@@ -5508,6 +7300,29 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         </span>
                       )}
                     </div>
+                  ) : isModernCorporate ? (
+                    renderModerncvRow(
+                      lang.language,
+                      <div
+                        className="flex items-baseline justify-between"
+                        style={{
+                          gap: '8pt',
+                          fontSize: `${scale.bodyPt}pt`,
+                          color: textCol,
+                          lineHeight: scale.lineHeight,
+                        }}
+                      >
+                        <span>{profText}</span>
+                        {lang.comment?.trim() && (
+                          <span
+                            className="italic shrink-0"
+                            style={{ fontSize: `${scale.metaPt}pt`, color: '#4b5563' }}
+                          >
+                            {lang.comment.trim()}
+                          </span>
+                        )}
+                      </div>
+                    )
                   ) : isTwoColumnPro ? (
                     <div
                       className="cv-entry"
@@ -5537,6 +7352,38 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           {lang.comment}
                         </div>
                       )}
+                    </div>
+                  ) : isFresherResume ? (
+                    <div
+                      className="cv-entry flex items-baseline"
+                      style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}
+                    >
+                      <span className="font-bold shrink-0" style={{ width: '98pt', paddingRight: '8pt' }}>
+                        {lang.language}
+                      </span>
+                      <span style={{ flex: 1, color: subCol }}>
+                        {profText}
+                        {lang.comment?.trim()
+                          ? profText
+                            ? ` (${lang.comment.trim()})`
+                            : lang.comment.trim()
+                          : ''}
+                      </span>
+                    </div>
+                  ) : isInternshipResume ? (
+                    <div
+                      className="cv-entry flex items-baseline justify-between"
+                      style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: 1.32, gap: '6pt' }}
+                    >
+                      <span className="font-bold">{lang.language}</span>
+                      <span style={{ color: subCol, fontSize: `${scale.metaPt}pt` }}>
+                        {profText}
+                        {lang.comment?.trim()
+                          ? profText
+                            ? ` (${lang.comment.trim()})`
+                            : lang.comment.trim()
+                          : ''}
+                      </span>
                     </div>
                   ) : (
                     <div
@@ -5663,8 +7510,127 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           break;
         }
 
+        case 'learning': {
+          const items = getInternshipLearningItems(effectiveResume);
+          items.forEach((item, idx) => {
+            const titleText = item.title?.trim() || item.subject?.trim() || 'Course / Training';
+            const cleanUrl = item.credentialUrl?.trim()
+              ? item.credentialUrl.trim().startsWith('http')
+                ? item.credentialUrl.trim()
+                : `https://${item.credentialUrl.trim()}`
+              : null;
+            const skillsList = (item.skillsAcquired || []).map((s) => s.trim()).filter(Boolean);
+            list.push({
+              id: `intern-learning-${item.id}`,
+              spacing: idx === 0 ? 'section' : 'compact',
+              sectionHeading: idx === 0 ? sectionTitle : undefined,
+              isSidebar: options.isSidebar,
+              render: (showHeading) =>
+                wrapLayoutUnit(
+                  sectionTitle,
+                  showHeading,
+                  <div
+                    className="cv-entry flex items-start"
+                    style={{
+                      fontSize: `${scale.bodyPt - 0.15}pt`,
+                      lineHeight: 1.34,
+                      color: '#1f2937',
+                    }}
+                  >
+                    <span style={{ width: '9pt', flexShrink: 0 }}>–</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div>
+                        <span>{titleText}</span>
+                        {item.subject?.trim() && item.title?.trim() && item.subject.trim() !== item.title.trim() ? (
+                          <span> — {item.subject.trim()}</span>
+                        ) : null}
+                        {item.provider?.trim() ? <span>{` by ${item.provider.trim()}`}</span> : null}
+                        {item.instructor?.trim() ? <span>{` (${item.instructor.trim()})`}</span> : null}
+                        {item.description?.trim() ? <span>{` — ${item.description.trim()}`}</span> : null}
+                        {item.certificateId?.trim() ? (
+                          <span className="break-all">{` Certificate ID: ${item.certificateId.trim()}`}</span>
+                        ) : null}
+                        {item.completionDate?.trim() ? <span>{` (${item.completionDate.trim()})`}</span> : null}
+                      </div>
+                      {skillsList.length > 0 && (
+                        <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#4b5563', marginTop: '0.5pt' }}>
+                          <span className="font-semibold">Skills: </span>
+                          <span>{skillsList.join(', ')}</span>
+                        </div>
+                      )}
+                      {cleanUrl && (
+                        <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, marginTop: '0.5pt' }}>
+                          <a
+                            href={cleanUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline break-all"
+                            style={{ color: custom.accentColor }}
+                          >
+                            {item.credentialUrl?.trim()}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>,
+                  options.inverted,
+                  options.isSidebar
+                ),
+            });
+          });
+          break;
+        }
+
         case 'interests': {
           const eff = getEffectiveInterests(effectiveResume);
+          if (isInternshipResume) {
+            const tags: string[] =
+              eff.items.length > 0
+                ? eff.items.map((item) =>
+                    item.description?.trim()
+                      ? `${item.name} (${item.description.trim()})`
+                      : item.name
+                  )
+                : eff.text
+                ? eff.text
+                    .split(/[,;\n]+/)
+                    .map((t) => t.trim())
+                    .filter(Boolean)
+                : [];
+            if (tags.length > 0) {
+              list.push({
+                id: 'intern-interests-tags',
+                spacing: 'section',
+                sectionHeading: sectionTitle,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry flex flex-wrap" style={{ gap: '4pt' }}>
+                      {tags.map((tag, tIdx) => (
+                        <span
+                          key={tIdx}
+                          style={{
+                            border: '0.75pt solid #9ca3af',
+                            borderRadius: '3pt',
+                            padding: '1.5pt 5pt',
+                            fontSize: `${scale.bodyPt - 0.25}pt`,
+                            color: '#1f2937',
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            }
+            break;
+          }
           if (eff.items.length > 0) {
             if (isElegantSerif) {
               list.push({
@@ -5693,6 +7659,28 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                     options.inverted,
                     options.isSidebar
                   ),
+              });
+            } else if (isModernCorporate) {
+              eff.items.forEach((item, idx) => {
+                list.push({
+                  id: `interest-mc-${item.id}`,
+                  spacing: idx === 0 ? 'section' : 'compact',
+                  sectionHeading: idx === 0 ? sectionTitle : undefined,
+                  isSidebar: options.isSidebar,
+                  render: (showHeading) =>
+                    wrapLayoutUnit(
+                      sectionTitle,
+                      showHeading,
+                      renderModerncvRow(
+                        item.name,
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                          {item.description || ''}
+                        </div>
+                      ),
+                      options.inverted,
+                      options.isSidebar
+                    ),
+                });
               });
             } else {
               eff.items.forEach((item, idx) => {
@@ -5732,8 +7720,81 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
-                    {eff.text}
+                  isModernCorporate ? (
+                    renderModerncvRow(
+                      null,
+                      <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                        {eff.text}
+                      </div>
+                    )
+                  ) : (
+                    <div style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                      {eff.text}
+                    </div>
+                  ),
+                  options.inverted,
+                  options.isSidebar
+                ),
+            });
+          }
+          break;
+        }
+
+        case 'career-interests': {
+          const tags = getInternshipCareerInterests(effectiveResume);
+          const prefs = effectiveResume.internshipPreferences;
+          const prefParts = [
+            prefs?.targetRole?.trim() ? `Target Role: ${prefs.targetRole.trim()}` : '',
+            prefs?.preferredIndustry?.trim() ? `Industry: ${prefs.preferredIndustry.trim()}` : '',
+            prefs?.duration?.trim() ? `Duration: ${prefs.duration.trim()}` : '',
+            prefs?.availabilityDate?.trim() ? `Available: ${prefs.availabilityDate.trim()}` : '',
+            prefs?.workArrangement?.trim() ? `Mode: ${prefs.workArrangement.trim()}` : '',
+            prefs?.preferredTechnologies?.length
+              ? `Tech Focus: ${prefs.preferredTechnologies.filter((t) => t.trim()).join(', ')}`
+              : '',
+          ].filter(Boolean);
+          if (tags.length > 0 || prefParts.length > 0) {
+            list.push({
+              id: 'intern-career-interests',
+              spacing: 'section',
+              sectionHeading: sectionTitle,
+              isSidebar: options.isSidebar,
+              render: (showHeading) =>
+                wrapLayoutUnit(
+                  sectionTitle,
+                  showHeading,
+                  <div className="cv-entry">
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap" style={{ gap: '4pt' }}>
+                        {tags.map((tag, tIdx) => (
+                          <span
+                            key={tIdx}
+                            style={{
+                              border: '0.75pt solid #9ca3af',
+                              borderRadius: '3pt',
+                              padding: '1.5pt 5pt',
+                              fontSize: `${scale.bodyPt - 0.25}pt`,
+                              color: '#1f2937',
+                              lineHeight: 1.25,
+                            }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {prefParts.length > 0 && (
+                      <div
+                        style={{
+                          marginTop: tags.length > 0 ? '3pt' : 0,
+                          fontSize: `${scale.metaPt - 0.15}pt`,
+                          color: '#374151',
+                          lineHeight: 1.32,
+                        }}
+                      >
+                        {prefParts.join(' · ')}
+                      </div>
+                    )}
                   </div>,
                   options.inverted,
                   options.isSidebar
@@ -5759,17 +7820,29 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   wrapLayoutUnit(
                     cs.title.trim(),
                     showHeading,
-                    <div
-                      className="cv-entry flex items-start"
-                      style={{ paddingLeft: isElegantSerif ? '2pt' : '8pt', color: textCol }}
-                    >
-                      <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
-                        {bulletChar}
-                      </span>
-                      <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                        {bullet}
-                      </span>
-                    </div>,
+                    isModernCorporate ? (
+                      renderModerncvRow(
+                        null,
+                        <div className="flex items-start" style={{ gap: '5pt', color: textCol }}>
+                          {renderModerncvHollowCircle(textCol)}
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            {bullet}
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <div
+                        className="cv-entry flex items-start"
+                        style={{ paddingLeft: isElegantSerif ? '2pt' : '8pt', color: textCol }}
+                      >
+                        <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                          {bullet}
+                        </span>
+                      </div>
+                    ),
                     options.inverted,
                     options.isSidebar
                   ),
@@ -5790,9 +7863,18 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  <div className="italic" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol }}>
-                    {isTwoColumnPro ? 'Referees available upon request.' : 'References available upon request.'}
-                  </div>,
+                  isModernCorporate ? (
+                    renderModerncvRow(
+                      null,
+                      <div className="italic" style={{ fontSize: `${scale.bodyPt}pt`, color: subCol }}>
+                        References available upon request.
+                      </div>
+                    )
+                  ) : (
+                    <div className="italic" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol }}>
+                      {isTwoColumnPro ? 'Referees available upon request.' : 'References available upon request.'}
+                    </div>
+                  ),
                   options.inverted,
                   options.isSidebar
                 ),
@@ -5884,42 +7966,47 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  <div className="cv-entry flex justify-between items-start" style={{ color: textCol }}>
-                    {row.map((ref) => (
-                      <div key={ref.id} style={{ width: '48%' }}>
-                        <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt` }}>
-                          {ref.fullName}
-                        </div>
-                        <div style={{ fontSize: `${scale.metaPt}pt`, color: subCol }}>{ref.jobTitle}</div>
-                        {ref.department && (
-                          <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
-                            {ref.department}
+                  (() => {
+                    const rowNode = (
+                      <div className="cv-entry flex justify-between items-start" style={{ color: textCol }}>
+                        {row.map((ref) => (
+                          <div key={ref.id} style={{ width: '48%' }}>
+                            <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt` }}>
+                              {ref.fullName}
+                            </div>
+                            <div style={{ fontSize: `${scale.metaPt}pt`, color: subCol }}>{ref.jobTitle}</div>
+                            {ref.department && (
+                              <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
+                                {ref.department}
+                              </div>
+                            )}
+                            <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
+                              {ref.organization}
+                            </div>
+                            {ref.email && (
+                              <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
+                                Email: {ref.email}
+                              </div>
+                            )}
+                            {ref.phone && (
+                              <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
+                                Phone: {ref.phone}
+                              </div>
+                            )}
+                            {ref.relationship && (
+                              <div
+                                className="italic"
+                                style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol, marginTop: '1pt' }}
+                              >
+                                Relationship: {ref.relationship}
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
-                          {ref.organization}
-                        </div>
-                        {ref.email && (
-                          <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
-                            Email: {ref.email}
-                          </div>
-                        )}
-                        {ref.phone && (
-                          <div style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol }}>
-                            Phone: {ref.phone}
-                          </div>
-                        )}
-                        {ref.relationship && (
-                          <div
-                            className="italic"
-                            style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: metaCol, marginTop: '1pt' }}
-                          >
-                            Relationship: {ref.relationship}
-                          </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>,
+                    );
+                    return isModernCorporate ? renderModerncvRow(null, rowNode) : rowNode;
+                  })(),
                   options.inverted,
                   options.isSidebar
                 ),
@@ -5958,9 +8045,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     const sidebarKeys = visibleKeys.filter((k) => sidebarSet.has(k));
     const mainKeys = visibleKeys.filter((k) => !sidebarSet.has(k));
 
-    if (isEditorialTwoColumn) {
+    if (isEditorialTwoColumn || isInternshipResume) {
       const topEditorialHeader: PreviewUnit = {
-        id: 'top-editorial-serif-header',
+        id: isInternshipResume ? 'top-internship-kunal-header' : 'top-editorial-serif-header',
         spacing: 'none',
         render: () => renderHeader(),
       };
@@ -6157,7 +8244,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }),
       fullWidthTopHeader: topBannerHeader,
     };
-  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif]);
+  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
 
   // Helper to paginate a flat array of units using measured DOM heights
   const paginateUnits = (
@@ -6217,7 +8304,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }
 
       // Split long Objective paragraphs cleanly across pages
-      if (unit.objectiveText && !isAsymmetric && !isTwoColumnSidebar && scratchObjectiveRef.current) {
+      if (unit.objectiveText && !isAsymmetric && !isTwoColumnSidebar && !isModernCorporate && scratchObjectiveRef.current) {
         const words = unit.objectiveText.split(/\s+/);
         const remainingPx = limitPx - currentHeightPx - topPadPx;
         if (words.length > 15 && remainingPx >= 56) {
@@ -6407,13 +8494,16 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     hasTwoColumns,
     isMainLeftSidebarRight,
     isEditorialTwoColumn,
+    isInternshipResume,
     isTwoColumnSidebar,
     custom,
     scale,
   ]);
 
   const marginVerticalReservePt =
-    scale.marginTopPt + scale.marginBottomPt + (isEditorialTwoColumn ? 24 : 6);
+    scale.marginTopPt +
+    scale.marginBottomPt +
+    (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : 6);
   const displayPages =
     pages.length > 0
       ? pages
@@ -6526,7 +8616,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           </>
         )}
 
-        {isEditorialTwoColumn && (
+        {(isEditorialTwoColumn || isInternshipResume) && (
           <>
             {fullWidthTopHeader && (
               <div data-measure-unit={fullWidthTopHeader.id}>
@@ -6742,8 +8832,8 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               </div>
             )}
 
-            {/* Editorial Balanced Two-Column Layout (Template 7 Elegant Serif) */}
-            {isEditorialTwoColumn && (
+            {/* Editorial / Internship Balanced Two-Column Layout (Template 7 & Template 10) */}
+            {(isEditorialTwoColumn || isInternshipResume) && (
               <div className="relative" style={{ zIndex: 1 }}>
                 {page.hasFullWidthHeaderOnTop && <div>{page.hasFullWidthHeaderOnTop.node}</div>}
 
@@ -6914,13 +9004,13 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               </div>
             )}
 
-            {/* Page Number Footer when multi-page */}
-            {displayPages.length > 1 && (
+            {/* Page Number Footer when multi-page or Modern Corporate (1 / N) */}
+            {(isModernCorporate || displayPages.length > 1) && (
               <div
                 className="text-center select-none"
                 style={{
                   position: 'absolute',
-                  bottom: isEditorialTwoColumn ? '7pt' : '20pt',
+                  bottom: isEditorialTwoColumn ? '7pt' : isModernCorporate ? '18pt' : '20pt',
                   left: isTwoColumnSidebar ? '32%' : 0,
                   right: 0,
                   fontSize: isEditorialTwoColumn ? '7.5pt' : '8.5pt',
@@ -6928,7 +9018,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   zIndex: 2,
                 }}
               >
-                Page {page.pageNumber} of {displayPages.length}
+                {isModernCorporate
+                  ? `${page.pageNumber} / ${displayPages.length}`
+                  : `Page ${page.pageNumber} of ${displayPages.length}`}
               </div>
             )}
           </article>

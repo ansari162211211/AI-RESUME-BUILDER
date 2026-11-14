@@ -12,8 +12,11 @@ import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
+  SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
+  SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -299,4 +302,168 @@ test('analyzeResumeSections evaluates Elegant Serif (Template 7) across 15 secti
   assert.equal(researcherNoWork.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
   assert.equal(researcherNoWork.sections.find((s) => s.sectionId === 'languages')?.status, 'complete');
 });
+
+test('analyzeResumeSections evaluates Modern Corporate (Template 8) across 14 sections and adapts to Corporate/Experienced/Student/Fresher personas', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_MODERN_CORPORATE_CV);
+  assert.equal(fullReport.sections.length, 14);
+  assert.equal(fullReport.overallScore, 100);
+  assert.equal(fullReport.overallStatus, 'excellent');
+
+  // Experienced profile missing work experience flags Experience as required
+  const expMissing = analyzeResumeSections({
+    ...SAMPLE_MODERN_CORPORATE_CV,
+    targetBackground: 'experienced' as const,
+    experience: [],
+  });
+  const expSec = expMissing.sections.find((s) => s.sectionId === 'experience');
+  assert.equal(expSec?.isOptional, false);
+  assert.equal(expSec?.status, 'needs_details');
+
+  // Student and fresher profiles treat empty Work Experience as optional_empty and preserve unconfirmed language handling
+  const studentReport = analyzeResumeSections({
+    ...SAMPLE_MODERN_CORPORATE_CV,
+    targetBackground: 'student' as const,
+    experience: [],
+    languages: [{ id: 'ml-1', language: 'French', proficiency: '' }],
+  });
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'experience')?.isOptional, true);
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'languages')?.status, 'complete');
+
+  const fresherReport = analyzeResumeSections({
+    ...SAMPLE_MODERN_CORPORATE_CV,
+    targetBackground: 'fresher' as const,
+    experience: [],
+  });
+  assert.equal(fresherReport.sections.find((s) => s.sectionId === 'experience')?.isOptional, true);
+  assert.equal(fresherReport.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
+});
+
+test('analyzeResumeSections evaluates Fresher Resume (Template 9) across 14 sections for Engineering, CS, and Non-Technical personas', () => {
+  // 1. Computer Science Fresher (default sample)
+  const csReport = analyzeResumeSections(SAMPLE_FRESHER_RESUME_CV);
+  assert.equal(csReport.sections.length, 14);
+  assert.equal(csReport.overallScore, 100);
+  assert.equal(csReport.overallStatus, 'excellent');
+
+  // 2. Engineering Student (no internships/experience, projects + education + coursework + skills)
+  const engReport = analyzeResumeSections({
+    ...SAMPLE_FRESHER_RESUME_CV,
+    fresherTrack: 'engineering' as const,
+    experience: [],
+    publications: [],
+    volunteer: [],
+  });
+  assert.equal(engReport.sections.find((s) => s.sectionId === 'experience')?.isOptional, true);
+  assert.equal(engReport.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
+  assert.equal(engReport.sections.find((s) => s.sectionId === 'projects')?.isOptional, false);
+  assert.ok(engReport.overallScore >= 85);
+
+  // 3. Non-Technical Graduate (no coding projects or formal experience; leadership + education + skills)
+  const nonTechReport = analyzeResumeSections({
+    ...SAMPLE_FRESHER_RESUME_CV,
+    fresherTrack: 'non-technical' as const,
+    experience: [],
+    projects: [],
+    publications: [],
+    leadership: [
+      {
+        id: 'nl-lead-1',
+        organization: 'Campus Economics & Operations Society',
+        role: 'Operations Coordinator',
+        startDate: 'Sep 2023',
+        endDate: 'May 2024',
+        highlights: ['Coordinated 6 campus career panels with 350+ student attendees.'],
+      },
+    ],
+    languages: [{ id: 'nl-1', language: 'French', proficiency: '' }],
+  });
+  assert.equal(nonTechReport.sections.find((s) => s.sectionId === 'projects')?.isOptional, true);
+  assert.equal(nonTechReport.sections.find((s) => s.sectionId === 'projects')?.status, 'optional_empty');
+  assert.equal(nonTechReport.sections.find((s) => s.sectionId === 'experience')?.isOptional, true);
+  assert.equal(nonTechReport.sections.find((s) => s.sectionId === 'languages')?.status, 'complete');
+  assert.ok(nonTechReport.overallScore >= 80);
+});
+
+test('analyzeResumeSections evaluates Internship Resume (Template 10) across 10 steps for CS, Cybersecurity, and Research personas without penalizing skipped optional sections', () => {
+  // 1. Sample CS Student
+  const sampleReport = analyzeResumeSections(SAMPLE_INTERNSHIP_RESUME_CV);
+  assert.equal(sampleReport.sections.length, 10);
+  assert.ok(sampleReport.overallScore >= 90);
+  assert.equal(sampleReport.overallStatus, 'excellent');
+
+  // Verify sample with unconfirmed skill proficiency dots (proficiency: null) suffers zero penalty
+  const csUnconfirmedDots = analyzeResumeSections({
+    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    internshipTrack: 'cs' as const,
+    experience: [],
+    learningActivities: [],
+    careerInterests: [],
+    internshipPreferences: undefined,
+    skills: [
+      { id: 'cs-sk1', category: 'Languages', skills: ['Python', 'TypeScript', 'PostgreSQL'], proficiency: null },
+    ],
+  });
+  const expSec = csUnconfirmedDots.sections.find((s) => s.sectionId === 'experience');
+  const learningSec = csUnconfirmedDots.sections.find((s) => s.sectionId === 'learning');
+  const skillSec = csUnconfirmedDots.sections.find((s) => s.sectionId === 'skills');
+  assert.equal(expSec?.isOptional, true);
+  assert.equal(expSec?.status, 'optional_empty');
+  assert.equal(expSec?.statusLabel, 'Optional / Skipped');
+  assert.equal(learningSec?.statusLabel, 'Optional / Skipped');
+  assert.equal(skillSec?.status, 'complete');
+  assert.equal(skillSec?.statusLabel, 'Completed');
+  assert.ok(csUnconfirmedDots.overallScore >= 90);
+
+  // 2. Cybersecurity Student (partial header -> In Progress, missing research/projects -> Not Started)
+  const cyberInProgress = analyzeResumeSections({
+    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    internshipTrack: 'cybersecurity' as const,
+    personalInfo: {
+      fullName: 'Riya Patel',
+      email: '',
+      phone: '',
+    },
+    researchExperience: [],
+    projects: [],
+    experience: [],
+  });
+  const headerSec = cyberInProgress.sections.find((s) => s.sectionId === 'header');
+  const researchSec = cyberInProgress.sections.find((s) => s.sectionId === 'research');
+  assert.equal(headerSec?.status, 'needs_review');
+  assert.equal(headerSec?.statusLabel, 'In Progress');
+  assert.equal(researchSec?.status, 'needs_details');
+  assert.equal(researchSec?.statusLabel, 'Not Started');
+  assert.ok(cyberInProgress.overallScore < 100);
+
+  // 3. Research Internship Applicant (researchExperience + careerInterests + learningActivities, no prior industry internship)
+  const researchApplicant = analyzeResumeSections({
+    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    internshipTrack: 'research' as const,
+    experience: [],
+    projects: [],
+    researchExperience: [
+      {
+        id: 're-1',
+        title: 'Federated Privacy-Preserving Training',
+        institution: 'University ML Lab',
+        supervisor: 'Prof. A. Menon',
+        role: 'Undergraduate Researcher',
+        domain: 'Machine Learning',
+        startDate: 'Jan 2025',
+        endDate: 'Present',
+        current: true,
+        objectives: 'Evaluated differential privacy budgets under federated aggregation.',
+        technologies: ['PyTorch', 'Python'],
+      },
+    ],
+    careerInterests: ['ML Systems Research', 'Privacy-Preserving AI'],
+  });
+  assert.equal(researchApplicant.sections.find((s) => s.sectionId === 'research')?.statusLabel, 'Completed');
+  assert.equal(researchApplicant.sections.find((s) => s.sectionId === 'career-interests')?.statusLabel, 'Completed');
+  assert.equal(researchApplicant.sections.find((s) => s.sectionId === 'experience')?.statusLabel, 'Optional / Skipped');
+  assert.ok(researchApplicant.overallScore >= 95);
+});
+
+
 

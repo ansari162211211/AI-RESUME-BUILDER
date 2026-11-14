@@ -6,6 +6,7 @@ import type {
   ExperienceItem,
   InterestItem,
   LeadershipItem,
+  LearningActivityItem,
   PersonalInfo,
   ProjectItem,
   PublicationItem,
@@ -419,6 +420,121 @@ export function buildContactLinks(personalInfo: PersonalInfo): ContactLinkItem[]
   }
 
   return links;
+}
+
+export interface FresherContactLink {
+  kind: 'phone' | 'email' | 'location' | 'linkedin' | 'website' | 'github' | 'custom';
+  label: string;
+  url: string | null;
+}
+
+export function buildFresherHeaderColumns(personalInfo: PersonalInfo): {
+  left: FresherContactLink[];
+  right: FresherContactLink[];
+} {
+  const left: FresherContactLink[] = [];
+  const right: FresherContactLink[] = [];
+
+  if (personalInfo.phone?.trim()) {
+    left.push({
+      kind: 'phone',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+  if (personalInfo.email?.trim()) {
+    left.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+  const cityParts = [
+    personalInfo.city?.trim(),
+    personalInfo.state?.trim(),
+    personalInfo.country?.trim(),
+  ].filter(Boolean);
+  const locFallback = (personalInfo.location || '').trim();
+  const compactLoc = cityParts.length > 0 ? cityParts.join(', ') : locFallback;
+  if (compactLoc) {
+    left.push({
+      kind: 'location',
+      label: compactLoc,
+      url: null,
+    });
+  }
+
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com') ? raw : `https://linkedin.com/in/${label}`;
+    right.push({
+      kind: 'linkedin',
+      label: label.startsWith('linkedin.com') ? label : `linkedin.com/in/${label}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    right.push({
+      kind: 'website',
+      label: label || 'Portfolio',
+      url: sanitizePdfUrl(raw),
+    });
+  }
+
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com') ? raw : `https://github.com/${label}`;
+    right.push({
+      kind: 'github',
+      label: label.startsWith('github.com') ? label : `github.com/${label}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const lnk of personalInfo.customLinks) {
+      if (lnk.label?.trim() || lnk.url?.trim()) {
+        right.push({
+          kind: 'custom',
+          label: lnk.label?.trim() || lnk.url.trim().replace(/^https?:\/\//i, ''),
+          url: lnk.url?.trim() ? sanitizePdfUrl(lnk.url.trim()) : null,
+        });
+      }
+    }
+  }
+
+  return { left, right };
+}
+
+export interface FresherAwardYearGroup {
+  year: string;
+  items: AwardItem[];
+}
+
+export function groupAwardsByYearForFresher(achievements?: AwardItem[]): FresherAwardYearGroup[] {
+  const valid = (achievements || []).filter(
+    (a) => a.title?.trim() || a.description?.trim() || a.achievementDetails?.trim()
+  );
+  if (valid.length === 0) return [];
+  const groups: FresherAwardYearGroup[] = [];
+  const byYear = new Map<string, FresherAwardYearGroup>();
+  for (const item of valid) {
+    const yr = (item.date || '').trim() || '—';
+    const existing = byYear.get(yr);
+    if (existing) {
+      existing.items.push(item);
+    } else {
+      const grp: FresherAwardYearGroup = { year: yr, items: [item] };
+      byYear.set(yr, grp);
+      groups.push(grp);
+    }
+  }
+  return groups;
 }
 
 export function buildLocationString(personalInfo: PersonalInfo): string {
@@ -926,6 +1042,163 @@ export function buildElegantSerifMetadataRows(
   return rows;
 }
 
+export type ModernCorporateContactKind =
+  | 'street'
+  | 'location'
+  | 'country'
+  | 'dob'
+  | 'mobile'
+  | 'phone'
+  | 'altPhone'
+  | 'email'
+  | 'website'
+  | 'linkedin'
+  | 'github'
+  | 'custom'
+  | 'additionalInfo';
+
+export interface ModernCorporateContactItem {
+  kind: ModernCorporateContactKind;
+  label: string;
+  url: string | null;
+}
+
+export function buildModernCorporateContactItems(
+  personalInfo: PersonalInfo
+): ModernCorporateContactItem[] {
+  const items: ModernCorporateContactItem[] = [];
+
+  if (personalInfo.streetAddress?.trim()) {
+    items.push({
+      kind: 'street',
+      label: personalInfo.streetAddress.trim(),
+      url: null,
+    });
+  }
+
+  const cityRegionParts = [
+    personalInfo.postalCode?.trim(),
+    personalInfo.city?.trim(),
+    personalInfo.state?.trim(),
+  ].filter(Boolean);
+  if (cityRegionParts.length > 0) {
+    items.push({
+      kind: 'location',
+      label: cityRegionParts.join(', '),
+      url: null,
+    });
+  } else if (!personalInfo.streetAddress?.trim() && personalInfo.location?.trim()) {
+    items.push({
+      kind: 'location',
+      label: personalInfo.location.trim(),
+      url: null,
+    });
+  }
+
+  if (personalInfo.country?.trim()) {
+    items.push({
+      kind: 'country',
+      label: personalInfo.country.trim(),
+      url: null,
+    });
+  }
+
+  if (personalInfo.dateOfBirth?.trim()) {
+    items.push({
+      kind: 'dob',
+      label: personalInfo.dateOfBirth.trim(),
+      url: null,
+    });
+  }
+
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      kind: 'mobile',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+
+  if (personalInfo.secondaryPhone?.trim()) {
+    items.push({
+      kind: 'phone',
+      label: personalInfo.secondaryPhone.trim(),
+      url: `tel:${personalInfo.secondaryPhone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+
+  if (personalInfo.additionalPhone?.trim()) {
+    items.push({
+      kind: 'altPhone',
+      label: personalInfo.additionalPhone.trim(),
+      url: `tel:${personalInfo.additionalPhone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+
+  if (personalInfo.email?.trim()) {
+    items.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    items.push({
+      kind: 'website',
+      label: raw.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+      url: sanitizePdfUrl(raw),
+    });
+  }
+
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com') ? raw : `https://linkedin.com/in/${label}`;
+    items.push({
+      kind: 'linkedin',
+      label,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?github\.com\//i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com') ? raw : `https://github.com/${label}`;
+    items.push({
+      kind: 'github',
+      label,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (link.label?.trim() || link.url?.trim()) {
+        items.push({
+          kind: 'custom',
+          label:
+            link.label?.trim() ||
+            link.url.trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+          url: link.url?.trim() ? sanitizePdfUrl(link.url.trim()) : null,
+        });
+      }
+    }
+  }
+
+  if (personalInfo.additionalInfo?.trim()) {
+    items.push({
+      kind: 'additionalInfo',
+      label: personalInfo.additionalInfo.trim(),
+      url: null,
+    });
+  }
+
+  return items;
+}
+
 export interface HarvardSkillsRow {
   key: string;
   label: string;
@@ -1097,6 +1370,328 @@ export function getVisibleSkills(skills?: SkillCategory[]): SkillCategory[] {
   );
 }
 
+export type InternshipContactKind =
+  | 'email'
+  | 'phone'
+  | 'location'
+  | 'linkedin'
+  | 'github'
+  | 'website'
+  | 'custom';
+
+export interface InternshipContactItem {
+  kind: InternshipContactKind;
+  label: string;
+  url: string | null;
+}
+
+export function buildInternshipContactItems(
+  personalInfo: PersonalInfo
+): InternshipContactItem[] {
+  const items: InternshipContactItem[] = [];
+
+  if (personalInfo.email?.trim()) {
+    items.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      kind: 'phone',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+
+  const locParts = [
+    personalInfo.city?.trim(),
+    personalInfo.state?.trim(),
+    personalInfo.country?.trim(),
+  ].filter(Boolean);
+  const locText =
+    locParts.length > 0
+      ? locParts.join(', ')
+      : (personalInfo.location || '').trim() || (personalInfo.streetAddress || '').trim();
+  if (locText) {
+    items.push({
+      kind: 'location',
+      label: locText,
+      url: null,
+    });
+  }
+
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const clean = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com')
+      ? raw
+      : `https://linkedin.com/in/${clean.replace(/^linkedin\.com\/in\//i, '')}`;
+    items.push({
+      kind: 'linkedin',
+      label: clean.includes('linkedin.com') ? clean : `linkedin.com/in/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const clean = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com')
+      ? raw
+      : `https://github.com/${clean.replace(/^github\.com\//i, '')}`;
+    items.push({
+      kind: 'github',
+      label: clean.includes('github.com') ? clean : `github.com/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    items.push({
+      kind: 'website',
+      label: raw.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+      url: sanitizePdfUrl(raw),
+    });
+  }
+
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (link.label?.trim() || link.url?.trim()) {
+        items.push({
+          kind: 'custom',
+          label:
+            link.label?.trim() ||
+            link.url.trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+          url: link.url?.trim() ? sanitizePdfUrl(link.url.trim()) : null,
+        });
+      }
+    }
+  }
+
+  return items;
+}
+
+export function getInternshipLearningItems(resume: Resume): LearningActivityItem[] {
+  return (resume.learningActivities || []).filter(
+    (item) =>
+      Boolean(item.title?.trim()) ||
+      Boolean(item.subject?.trim()) ||
+      Boolean(item.provider?.trim()) ||
+      Boolean(item.description?.trim())
+  );
+}
+
+export function getInternshipCareerInterests(resume: Resume): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const tag of resume.careerInterests || []) {
+    const trimmed = typeof tag === 'string' ? tag.trim() : '';
+    if (trimmed && !seen.has(trimmed.toLowerCase())) {
+      seen.add(trimmed.toLowerCase());
+      out.push(trimmed);
+    }
+  }
+  return out;
+}
+
+export interface InternshipEducationEntry {
+  id: string;
+  heading: string;
+  institution: string;
+  dateRange: string;
+  location: string;
+  subDetails: string[];
+}
+
+export function getInternshipEducationEntries(
+  resume: Resume
+): InternshipEducationEntry[] {
+  const hidden = new Set(resume.hiddenSections || []);
+  const entries: InternshipEducationEntry[] = [];
+
+  for (const edu of resume.education || []) {
+    const headingParts = [edu.degree?.trim(), edu.specialization?.trim()].filter(Boolean);
+    const heading = headingParts.join(' — ') || edu.department?.trim() || 'Degree';
+    const dateStr = edu.current
+      ? `${edu.startDate || ''} – Present`.replace(/^\s*–\s*/, '')
+      : [edu.startDate?.trim(), edu.endDate?.trim()].filter(Boolean).join(' – ');
+    const subDetails: string[] = [];
+    if (edu.board?.trim()) subDetails.push(edu.board.trim());
+    if (edu.department?.trim() && headingParts.length > 0) subDetails.push(edu.department.trim());
+    if (edu.grade?.trim()) {
+      subDetails.push(
+        `GPA / Score: ${edu.grade.trim()}${edu.gradingScale?.trim() ? ` / ${edu.gradingScale.trim()}` : ''}`
+      );
+    }
+    const courseworkText = Array.isArray(edu.coursework)
+      ? edu.coursework.map((c) => c.trim()).filter(Boolean).join(', ')
+      : (edu.coursework || '').trim();
+    if (courseworkText) subDetails.push(`Coursework: ${courseworkText}`);
+    if (edu.thesisTitle?.trim()) subDetails.push(`Thesis: ${edu.thesisTitle.trim()}`);
+    if (edu.honors?.trim()) subDetails.push(edu.honors.trim());
+    else if (edu.achievements?.trim()) subDetails.push(edu.achievements.trim());
+    if (edu.description?.trim()) subDetails.push(edu.description.trim());
+
+    entries.push({
+      id: edu.id,
+      heading,
+      institution: edu.institution?.trim() || '',
+      dateRange: dateStr,
+      location: edu.location?.trim() || '',
+      subDetails,
+    });
+  }
+
+  if (!hidden.has('high-school')) {
+    for (const hs of resume.highSchool || []) {
+      if (!hs.schoolName?.trim() && !hs.qualification?.trim()) continue;
+      const subDetails: string[] = [];
+      if (hs.board?.trim()) subDetails.push(hs.board.trim());
+      if (hs.gpa?.trim()) subDetails.push(`Score / GPA: ${hs.gpa.trim()}`);
+      if (hs.testScores?.trim()) subDetails.push(hs.testScores.trim());
+      if (hs.honors?.trim()) subDetails.push(hs.honors.trim());
+
+      entries.push({
+        id: hs.id,
+        heading: hs.qualification?.trim() || 'Secondary / High School Education',
+        institution: hs.schoolName?.trim() || '',
+        dateRange: hs.graduationDate?.trim() || '',
+        location: hs.location?.trim() || '',
+        subDetails,
+      });
+    }
+  }
+
+  return entries;
+}
+
+export interface InternshipResearchEntry {
+  id: string;
+  title: string;
+  dateRange: string;
+  bullets: string[];
+  linkUrl: string | null;
+  linkLabel: string | null;
+}
+
+export function getInternshipResearchAndProjectEntries(
+  resume: Resume
+): InternshipResearchEntry[] {
+  const entries: InternshipResearchEntry[] = [];
+
+  for (const res of resume.researchExperience || []) {
+    if (!res.title?.trim() && !res.objectives?.trim() && !res.methodology?.trim()) {
+      continue;
+    }
+    const dateRange = res.current
+      ? [res.startDate?.trim(), 'Present'].filter(Boolean).join(' - ')
+      : [res.startDate?.trim(), res.endDate?.trim()].filter(Boolean).join(' - ');
+    const bullets: string[] = [];
+    const contextParts = [res.role?.trim(), res.institution?.trim(), res.domain?.trim()].filter(Boolean);
+    if (contextParts.length > 0) bullets.push(contextParts.join(' · '));
+    if (res.objectives?.trim()) bullets.push(res.objectives.trim());
+    if (res.methodology?.trim()) bullets.push(res.methodology.trim());
+    if (res.findings?.trim()) bullets.push(res.findings.trim());
+    if (res.outcomes?.trim()) bullets.push(res.outcomes.trim());
+    if (res.technologies?.length) {
+      bullets.push(`Tools & Technologies: ${res.technologies.map((t) => t.trim()).filter(Boolean).join(', ')}`);
+    }
+    if (res.publications?.trim()) bullets.push(`Recognition / Output: ${res.publications.trim()}`);
+
+    entries.push({
+      id: res.id,
+      title: res.title?.trim() || 'Research Project',
+      dateRange,
+      bullets,
+      linkUrl: null,
+      linkLabel: null,
+    });
+  }
+
+  for (const proj of resume.projects || []) {
+    if (!proj.title?.trim() && !proj.description?.trim() && !cleanHighlights(proj.highlights).length) {
+      continue;
+    }
+    const dateRange = proj.current
+      ? [proj.startDate?.trim(), 'Present'].filter(Boolean).join(' - ')
+      : [proj.startDate?.trim(), proj.endDate?.trim()].filter(Boolean).join(' - ');
+    const bullets: string[] = [];
+    if (proj.description?.trim()) bullets.push(proj.description.trim());
+    if (proj.problemSolved?.trim()) bullets.push(proj.problemSolved.trim());
+    if (proj.contribution?.trim()) bullets.push(proj.contribution.trim());
+    cleanHighlights(proj.highlights).forEach((h) => bullets.push(h));
+    (proj.achievements || []).map((a) => a.trim()).filter(Boolean).forEach((a) => bullets.push(a));
+    const techList = [...(proj.technologies || []), ...(proj.frameworks || []), ...(proj.tools || [])]
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (techList.length > 0) bullets.push(`Tools: ${Array.from(new Set(techList)).join(', ')}`);
+
+    const rawUrl = proj.link?.trim() || proj.githubUrl?.trim() || '';
+    const linkUrl = rawUrl ? sanitizePdfUrl(rawUrl) : null;
+
+    entries.push({
+      id: proj.id,
+      title: proj.title?.trim() || 'Project',
+      dateRange,
+      bullets,
+      linkUrl,
+      linkLabel: rawUrl ? rawUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '') : null,
+    });
+  }
+
+  return entries;
+}
+
+export interface InternshipSkillRow {
+  id: string;
+  label: string;
+  proficiency: SkillMatrixLevel | null;
+}
+
+export function getInternshipSkillRows(resume: Resume): InternshipSkillRow[] {
+  const rows: InternshipSkillRow[] = [];
+
+  for (const cat of getVisibleSkills(resume.skills)) {
+    const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+    const label =
+      items.length > 0
+        ? items.join(', ')
+        : cat.category?.trim() || '';
+    if (!label) continue;
+    const validProficiency: SkillMatrixLevel | null =
+      cat.proficiency && [1, 2, 3, 4, 5].includes(cat.proficiency)
+        ? cat.proficiency
+        : null;
+    rows.push({
+      id: cat.id,
+      label,
+      proficiency: validProficiency,
+    });
+  }
+
+  for (const m of resume.skillMatrix || []) {
+    const name = m.skill?.trim();
+    if (!name) continue;
+    const alreadyCovered = rows.some((r) =>
+      r.label.toLowerCase().includes(name.toLowerCase())
+    );
+    if (alreadyCovered) continue;
+    const validLevel: SkillMatrixLevel | null =
+      m.level && [1, 2, 3, 4, 5].includes(m.level) ? m.level : null;
+    rows.push({
+      id: m.id,
+      label: name,
+      proficiency: validLevel,
+    });
+  }
+
+  return rows;
+}
+
 export function isSectionVisibleAndPopulated(
   resume: Resume,
   sectionKey: ResumeSectionKey,
@@ -1144,6 +1739,9 @@ export function isSectionVisibleAndPopulated(
           Boolean(resume.highSchool && resume.highSchool.some((h) => h.schoolName?.trim()));
         return hasUniv || hasAbroad || hasHs;
       }
+      if (effectiveTplId === 'internship-resume') {
+        return getInternshipEducationEntries(resume).length > 0;
+      }
       return Boolean(resume.education && resume.education.length > 0);
     }
     case 'thesis':
@@ -1158,6 +1756,9 @@ export function isSectionVisibleAndPopulated(
     case 'experience':
       return Boolean(resume.experience && resume.experience.length > 0);
     case 'research':
+      if (effectiveTplId === 'internship-resume') {
+        return getInternshipResearchAndProjectEntries(resume).length > 0;
+      }
       return Boolean(
         resume.researchExperience &&
           resume.researchExperience.some(
@@ -1181,16 +1782,27 @@ export function isSectionVisibleAndPopulated(
       if (effectiveTplId === 'harvard-style') {
         return getHarvardSkillsAndInterests(resume).rows.length > 0;
       }
+      if (effectiveTplId === 'internship-resume') {
+        return getInternshipSkillRows(resume).length > 0;
+      }
       return getVisibleSkills(resume.skills).length > 0;
     case 'skill-matrix':
       return Boolean(
         resume.skillMatrix &&
           resume.skillMatrix.some((m) => m.skill?.trim().length > 0)
       );
+    case 'learning':
+      return getInternshipLearningItems(resume).length > 0;
     case 'interests': {
       const eff = getEffectiveInterests(resume);
       return eff.items.length > 0 || eff.text.length > 0;
     }
+    case 'career-interests':
+      return (
+        getInternshipCareerInterests(resume).length > 0 ||
+        Boolean(resume.internshipPreferences?.targetRole?.trim()) ||
+        Boolean(resume.internshipPreferences?.preferredIndustry?.trim())
+      );
     case 'custom-sections':
       return Boolean(
         resume.customSections &&
@@ -1217,6 +1829,10 @@ export function isSectionVisibleAndPopulated(
       if (effectiveTplId === 'software-developer') {
         return getSoftwareDevAdditionalSubsections(resume).length > 0;
       }
+      if (effectiveTplId === 'fresher-resume') {
+        const eff = getEffectiveInterests(resume);
+        return eff.items.length > 0 || eff.text.length > 0;
+      }
       const hasLang = Boolean(resume.languages && resume.languages.length > 0);
       const eff = getEffectiveInterests(resume);
       return hasLang || eff.items.length > 0 || eff.text.length > 0;
@@ -1236,7 +1852,10 @@ export function getOrderedVisibleSections(
 ): ResumeSectionKey[] {
   let order = [...template.sectionOrder];
   if (
-    template.id === 'elegant-serif' &&
+    (template.id === 'elegant-serif' ||
+      template.id === 'modern-corporate' ||
+      template.id === 'fresher-resume' ||
+      template.id === 'internship-resume') &&
     Array.isArray(resume.sectionOrderOverride) &&
     resume.sectionOrderOverride.length > 0
   ) {
@@ -1365,6 +1984,103 @@ export function getSectionDisplayTitle(
     }
   }
 
+  if (templateId === 'modern-corporate') {
+    switch (key) {
+      case 'objective':
+        return 'Professional Summary';
+      case 'experience':
+        return 'Work Experience';
+      case 'strengths':
+        return 'Core Competencies';
+      case 'education':
+        return 'Education';
+      case 'skills':
+        return 'Technical Skills';
+      case 'projects':
+        return 'Projects';
+      case 'certifications':
+        return 'Certifications';
+      case 'achievements':
+        return 'Awards & Achievements';
+      case 'languages':
+        return 'Languages';
+      case 'leadership':
+        return 'Leadership & Activities';
+      case 'memberships':
+        return 'Professional Memberships';
+      case 'interests':
+        return 'Interests';
+      case 'references':
+        return 'References';
+      case 'custom-sections':
+        return 'Additional Information';
+      default:
+        break;
+    }
+  }
+
+  if (templateId === 'fresher-resume') {
+    switch (key) {
+      case 'education':
+        return 'EDUCATION';
+      case 'projects':
+        return 'PROJECTS';
+      case 'experience':
+        return 'EXPERIENCE';
+      case 'coursework':
+        return 'RELEVANT COURSEWORK';
+      case 'skills':
+        return 'SKILLS';
+      case 'publications':
+        return 'PUBLICATIONS';
+      case 'achievements':
+        return 'AWARDS & HONORS';
+      case 'certifications':
+        return 'CERTIFICATIONS';
+      case 'leadership':
+        return 'LEADERSHIP & ACTIVITIES';
+      case 'volunteer':
+        return 'VOLUNTEER EXPERIENCE';
+      case 'languages':
+        return 'LANGUAGES';
+      case 'additional':
+        return 'ADDITIONAL INFORMATION';
+      case 'custom-sections':
+        return 'CUSTOM SECTIONS';
+      default:
+        break;
+    }
+  }
+
+  if (templateId === 'internship-resume') {
+    switch (key) {
+      case 'education':
+        return 'EDUCATION';
+      case 'achievements':
+        return 'CO-CURRICULAR/ EVENTS';
+      case 'skills':
+        return 'SKILLS';
+      case 'learning':
+        return 'LEARNING';
+      case 'interests':
+        return 'INTERESTS';
+      case 'research':
+        return 'RESEARCH WORK';
+      case 'career-interests':
+        return 'CAREER INTERESTS';
+      case 'experience':
+        return 'INTERNSHIP EXPERIENCE';
+      case 'certifications':
+        return 'CERTIFICATIONS';
+      case 'languages':
+        return 'LANGUAGES';
+      case 'custom-sections':
+        return 'ADDITIONAL INFORMATION';
+      default:
+        break;
+    }
+  }
+
   switch (key) {
     case 'objective':
       if (templateId === 'executive-resume') return 'EXECUTIVE SUMMARY';
@@ -1412,8 +2128,12 @@ export function getSectionDisplayTitle(
       return 'SKILLS';
     case 'skill-matrix':
       return 'SKILL MATRIX';
+    case 'learning':
+      return 'LEARNING';
     case 'interests':
       return 'INTERESTS';
+    case 'career-interests':
+      return 'CAREER INTERESTS';
     case 'custom-sections':
       return 'ADDITIONAL INFORMATION';
     case 'achievements':

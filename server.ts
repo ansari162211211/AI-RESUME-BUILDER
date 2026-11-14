@@ -154,6 +154,9 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
     const isSoftwareDevTemplate = template === 'software-developer';
     const isHarvardTemplate = template === 'harvard-style';
     const isElegantSerifTemplate = template === 'elegant-serif';
+    const isModernCorporateTemplate = template === 'modern-corporate';
+    const isFresherResumeTemplate = template === 'fresher-resume';
+    const isInternshipResumeTemplate = template === 'internship-resume';
     const roleLabel = isJakesTemplate
       ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
       : isSoftwareDevTemplate
@@ -162,6 +165,12 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'Harvard Office of Career Services resume editor (traditional action-verb, achievement-oriented bullet specialist)'
       : isElegantSerifTemplate
       ? 'distinguished editorial academic and professional CV editor (Overleaf Modern Simple CV specialist)'
+      : isModernCorporateTemplate
+      ? 'senior executive & corporate resume editor (Overleaf ModernCV Classic / Banking & Consulting ATS specialist)'
+      : isFresherResumeTemplate
+      ? 'university career advisor & Overleaf fresher resume editor (students, fresh graduates, and entry-level ATS specialist)'
+      : isInternshipResumeTemplate
+      ? 'university internship & research career advisor (concise student & entry-level internship resume editor)'
       : isClassicTemplate
       ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
       : isTwoColumnTemplate
@@ -175,6 +184,12 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'Harvard Style Traditional Single-Column Resume'
       : isElegantSerifTemplate
       ? 'Elegant Serif Academic & Professional Curriculum Vitae'
+      : isModernCorporateTemplate
+      ? 'Modern Corporate Resume (Overleaf ModernCV Classic)'
+      : isFresherResumeTemplate
+      ? 'Fresher Resume (Overleaf Students & Fresh Graduates ATS Resume)'
+      : isInternshipResumeTemplate
+      ? 'Internship Resume (Two-Column Student & Internship Application CV)'
       : isClassicTemplate
       ? 'Classic Professional Multi-Page CV'
       : isTwoColumnTemplate
@@ -198,6 +213,12 @@ REQUIREMENTS:
         ? 'Follow Harvard resume bullet conventions: begin every bullet with a strong action verb, omit first-person pronouns ("I", "my"), describe concrete scope and results clearly, and maintain a formal, traditional single-column resume tone.'
         : isElegantSerifTemplate
         ? 'Use refined editorial, scholarly, and precise professional phrasing appropriate for a classic serif academic/executive CV; keep bullets concise and factual without marketing fluff.'
+        : isModernCorporateTemplate
+        ? 'Use authoritative corporate, consulting, and ATS-friendly phrasing: concise 1–2 line executive bullets leading with strong action verbs and crisp operational scope without fluff or invented metrics.'
+        : isFresherResumeTemplate
+        ? 'Use clear, honest, ATS-friendly entry-level and academic phrasing tailored for students and fresh graduates: lead with concrete action verbs, keep lines crisp (1–2 lines), and highlight real tools, coursework, or deliverables without exaggerating or fabricating numbers.'
+        : isInternshipResumeTemplate
+        ? 'Use crisp, honest, student-appropriate phrasing tailored for internship applications: concise action-verb bullets suitable for compact two-column cards without exaggerating scope or fabricating metrics, ranks, coursework, or outcomes.'
         : isClassicTemplate
         ? 'Keep phrasing crisp, clear, factual, and professional—ideal for a classic structured CV.'
         : isTwoColumnTemplate
@@ -270,6 +291,9 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
     const isSoftwareDevTemplate = currentResume?.template === 'software-developer';
     const isHarvardTemplate = currentResume?.template === 'harvard-style';
     const isElegantSerifTemplate = currentResume?.template === 'elegant-serif';
+    const isModernCorporateTemplate = currentResume?.template === 'modern-corporate';
+    const isFresherResumeTemplate = currentResume?.template === 'fresher-resume';
+    const isInternshipResumeTemplate = currentResume?.template === 'internship-resume';
     const advisorName = isJakesTemplate
       ? 'Technical Resume Advisor'
       : isSoftwareDevTemplate
@@ -278,6 +302,12 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Harvard Style Resume Advisor'
       : isElegantSerifTemplate
       ? 'Elegant Serif CV Advisor'
+      : isModernCorporateTemplate
+      ? 'Modern Corporate CV Advisor'
+      : isFresherResumeTemplate
+      ? 'Fresher Resume Advisor'
+      : isInternshipResumeTemplate
+      ? 'Internship Resume Advisor'
       : isClassicTemplate
       ? 'Classic Professional CV Advisor'
       : isTwoColumnTemplate
@@ -291,6 +321,12 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Harvard Style Resume'
       : isElegantSerifTemplate
       ? 'Elegant Serif CV (Modern Simple CV)'
+      : isModernCorporateTemplate
+      ? 'Modern Corporate CV (Overleaf ModernCV Classic)'
+      : isFresherResumeTemplate
+      ? 'Fresher Resume (Overleaf Students & Graduates)'
+      : isInternshipResumeTemplate
+      ? 'Internship Resume (Two-Column Student Application CV)'
       : isClassicTemplate
       ? 'Classic Professional CV'
       : isTwoColumnTemplate
@@ -304,6 +340,12 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'harvard-style'
       : isElegantSerifTemplate
       ? 'elegant-serif'
+      : isModernCorporateTemplate
+      ? 'modern-corporate'
+      : isFresherResumeTemplate
+      ? 'fresher-resume'
+      : isInternshipResumeTemplate
+      ? 'internship-resume'
       : isClassicTemplate
       ? 'classic-professional'
       : isTwoColumnTemplate
@@ -318,6 +360,8 @@ CURRENT SECTION BEING INTERVIEWED: "${activeSection}"
 USER'S CURRENT RESUME STATE SUMMARY:
 ${JSON.stringify({
   targetBackground: currentResume.targetBackground,
+  fresherTrack: currentResume.fresherTrack,
+  internshipTrack: currentResume.internshipTrack,
   harvardLeadershipFirst: currentResume.harvardLeadershipFirst,
   personalInfo: currentResume.personalInfo,
   personalQuote: currentResume.personalQuote ? 'Present' : 'Empty',
@@ -330,6 +374,15 @@ ${JSON.stringify({
   experienceCount: currentResume.experience?.length || 0,
   researchExperienceCount: currentResume.researchExperience?.length || 0,
   projectsCount: currentResume.projects?.length || 0,
+  learningActivitiesCount: currentResume.learningActivities?.length || 0,
+  careerInterestsCount: currentResume.careerInterests?.length || 0,
+  internshipPreferencesPresent: Boolean(
+    currentResume.internshipPreferences?.targetRole ||
+      currentResume.internshipPreferences?.preferredIndustry ||
+      currentResume.internshipPreferences?.duration ||
+      currentResume.internshipPreferences?.workArrangement ||
+      currentResume.internshipPreferences?.availabilityDate
+  ),
   dailyActivitiesCount: currentResume.dailyActivities?.length || 0,
   publicationsCount: currentResume.publications?.length || 0,
   skillsCategories: (currentResume.skills || []).map((s: any) => s.category),
@@ -351,6 +404,17 @@ ${JSON.stringify({
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
 2. Probe for DEPTH and specificity matching the active template:
+   - For Internship Resume ("internship-resume"): Ask ONE focused question at a time. Determine \`internshipTrack\` ('cs' | 'cybersecurity' | 'ece' | 'research' | 'non-technical') early based on the student's field. Collect:
+     * Header (\`personalInfo\`: \`fullName\`, \`jobTitle\` target internship role, \`phone\`, \`email\`, \`linkedin\`, \`github\`, \`website\`, \`city\`, \`country\`) + optional short \`objective\` / \`internshipPreferences\` (\`targetRole\`, \`preferredIndustry\`, \`duration\`, \`workArrangement\`, \`availabilityDate\`, \`preferredTechnologies\`).
+     * Education (\`education\` + optional \`highSchool\` items \`{ id, schoolName, board, location, graduationDate, percentage, gpa, coursework, honors }\`).
+     * Learning Activities (\`learningActivities: [{ id, title, activityType, subject, provider, instructor, completionDate, certificateId, credentialUrl, skillsAcquired, description }]\`, optional). STRICT ISOLATION: NEVER store \`learningActivities\` inside \`certifications\`.
+     * Interests (\`interestItems\` / \`interests\`, optional) vs Career Interests (\`careerInterests: string[]\`, optional). STRICT ISOLATION: NEVER copy \`careerInterests\` into \`skills\`.
+     * Research Work & Academic/Capstone Projects (\`researchExperience\` and/or \`projects\`, optional).
+     * Co-Curriculars & Awards (\`achievements: [{ id, title, issuer, date, participationType, teamType, role, responsibilities, outcome, rank, url, description }]\`, optional).
+     * Skills (\`skills: [{ id, category, skills: string[], proficiency: number | null }]\`). STRICT ANTI-FABRICATION: set \`proficiency\` ONLY to \`1..5\` if the user explicitly states a dot rating; otherwise leave \`proficiency: null\` (which hides dots cleanly). Never auto-assign dots, metrics, coursework, ranks, or interests.
+     * Prior Internships / Work Experience (\`experience\`, ALWAYS optional for first-time interns—accept skipping without penalty), plus optional \`certifications\`, \`languages\`, and \`customSections\`.
+   - For Fresher Resume ("fresher-resume"): Determine \`fresherTrack\` ('engineering' | 'cs' | 'cybersecurity' | 'non-technical' | 'graduate') early. Prioritize 3-column header contact details (\`personalInfo\`: \`fullName\`, \`jobTitle\` target role, \`phone\`, \`email\`, \`linkedin\`, \`github\`, \`website\`), optional 3–4 short keyword highlights (\`strengths\`) + 1–2 line Impact summary (\`objective\`), Education (optional \`board\`, \`gradingScale\`, \`grade\`, \`coursework\`), Projects (or internships/coursework if non-technical), OPTIONAL Internships / Work Experience (\`skillsLearned\`, \`technologies\` — never penalize if the student has none), Categorized Skills tailored to their \`fresherTrack\`, optional Publications, year-rail Awards (\`rank\`, \`url\`), Certifications (\`skillsCovered\`), Leadership, Volunteer, Languages (never invent unconfirmed proficiency), and Interests. Never fabricate metrics, skills, ranks, or coursework.
+   - For Modern Corporate ("modern-corporate"): Determine \`targetBackground\` ('corporate' | 'experienced' | 'student' | 'fresher' | 'technical') early. Collect clean executive summary (\`objective\`), optional opening \`personalQuote\`, categorized work experience (\`company\`, \`position\`, \`department\`, \`category\`, \`location\`, \`startDate\`, \`endDate\`, \`description\`, \`results\`, \`highlights\`, \`technologies\`), user-defined \`strengths\` (Core Competencies — never auto-assigned), 2-column \`skills\`, \`languages\` (never invent unconfirmed proficiency), \`certifications\`, \`achievements\`, \`leadership\`, \`memberships\`, \`interests\`, and \`referencesDisplayMode\`.
    - For Elegant Serif ("elegant-serif"): Determine \`targetBackground\` ('student' | 'fresher' | 'experienced' | 'researcher') early. Support optional \`academicInterests\` and \`careerGoals\` alongside \`objective\`, plus \`researchExperience: [{ id, title, institution, supervisor, role, domain, startDate, endDate, current, objectives, methodology, technologies, findings, outcomes, publications }]\`, \`department\` / \`dissertationDetails\` in Education, and optional \`nationality\` / \`dateOfBirth\` / \`orcid\` in Personal Info. Never invent star ratings, skill bars, or unconfirmed language levels.
    - For Harvard Style ("harvard-style"): Determine \`targetBackground\` ('student' | 'fresher' | 'experienced') early. Do NOT require High School for university upperclassmen or experienced professionals. Support optional \`studyAbroad: [{ id, institution, cityCountry, coursework, startDate, endDate }]\`, optional \`highSchool: [{ id, schoolName, location, graduationDate, gpa, testScores, honors }]\`, optional \`labSkills: string[]\`, and per-degree \`thesisTitle\`, \`coursework: string[]\`, \`honors\`. Encourage strong action verbs in \`experience\` and \`leadership\` bullets without inventing metrics. If user prefers Leadership above Experience, set \`harvardLeadershipFirst: true\`.
    - For Personal Info: name, professional headline/tagline (\`jobTitle\`), street/city/state/ZIP/country address, email, phone, LinkedIn, GitHub, website (plus optional twitter, orcid, gitlab, mastodon for Two Column Professional, or secondaryPhone / dateOfBirth for Classic Professional).
@@ -448,7 +512,115 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
     const isSoftwareDevTemplate = resume?.template === 'software-developer';
     const isHarvardTemplate = resume?.template === 'harvard-style';
     const isElegantSerifTemplate = resume?.template === 'elegant-serif';
-    const auditPrompt = isElegantSerifTemplate
+    const isModernCorporateTemplate = resume?.template === 'modern-corporate';
+    const isFresherResumeTemplate = resume?.template === 'fresher-resume';
+    const isInternshipResumeTemplate = resume?.template === 'internship-resume';
+    const auditPrompt = isInternshipResumeTemplate
+      ? `You are a university internship & career advisor reviewing a Two-Column Internship Resume.
+Analyze this Internship Resume across its 10 guided steps:
+(header, education, learning [optional Learning Activities], interests [optional Personal/Subject Interests], research [Research Work & Academic Projects], career-interests [optional Career Interests & Target Roles], achievements [optional Co-Curricular & Awards], skills, experience [optional Prior Internships], custom-sections [optional Certifications, Languages & Custom Info]).
+
+INTERNSHIP TRACK: ${resume.internshipTrack || 'cs'}
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'education', 'learning', 'interests', 'research', 'career-interests', 'achievements', 'skills', 'experience', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty optional sections ('learning', 'interests', 'career-interests', 'achievements', 'experience' for first-time interns, or 'custom-sections') or skills with proficiency === null (hidden dots are intentional and valid).
+4. Never suggest fabricated metrics, auto-assigned skill dots, invented ranks, invented coursework, or copying careerInterests into skills.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isFresherResumeTemplate
+      ? `You are a university career advisor reviewing an Overleaf-style Fresher Resume (Students & Fresh Graduates).
+Analyze this Fresher Resume across its 14 sections:
+(header, objective [Highlights & Impact Summary, optional], education, projects [optional for non-technical/graduate], experience [Internships/Work, always optional for freshers], coursework [optional], skills, publications [optional], achievements [Awards & Honors, optional], certifications [optional], leadership [optional], volunteer [optional], languages [optional], additional [Interests, optional]).
+
+FRESHER TRACK: ${resume.fresherTrack || 'cs'}
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'objective', 'education', 'projects', 'experience', 'coursework', 'skills', 'publications', 'achievements', 'certifications', 'leadership', 'volunteer', 'languages', 'additional'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty 'experience' (internships are optional for freshers) or empty optional sections ('objective', 'coursework', 'publications', 'achievements', 'certifications', 'leadership', 'volunteer', 'languages', 'additional', or 'projects' when fresherTrack is 'non-technical' or 'graduate').
+4. Never suggest fabricated metrics, skill bars, proficiency ratings, unconfirmed language levels, or invented ranks/coursework.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isModernCorporateTemplate
+      ? `You are a senior corporate & executive recruiter reviewing a Modern Corporate CV (Overleaf ModernCV Classic style).
+Analyze this Modern Corporate CV across its 14 sections:
+(header, objective [optional], experience [optional for students/freshers], strengths [Core Competencies, optional], education, skills [optional], projects [optional], certifications [optional], achievements [optional], languages [optional], leadership [optional], memberships [optional], interests [optional], references [optional]).
+
+TARGET BACKGROUND: ${resume.targetBackground || 'corporate'}
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'objective', 'experience', 'strengths', 'education', 'skills', 'projects', 'certifications', 'achievements', 'languages', 'leadership', 'memberships', 'interests', 'references'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. Do NOT penalize empty optional sections ('objective', 'strengths', 'skills', 'projects', 'certifications', 'achievements', 'languages', 'leadership', 'memberships', 'interests', 'references', or 'experience' when targetBackground is 'student' or 'fresher').
+4. Never suggest fabricated metrics, skill bars, proficiency dots, or unconfirmed language levels.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isElegantSerifTemplate
       ? `You are a distinguished academic and editorial CV reviewer evaluating an Elegant Serif CV (Modern Simple CV style).
 Analyze this Elegant Serif CV across its 15 sections:
 (header, objective [optional], education, experience [optional for students/freshers], research [optional], projects [optional], publications [optional], achievements [optional], skills, languages [optional], certifications [optional], leadership [optional], memberships [optional], interests [optional], references [optional]).

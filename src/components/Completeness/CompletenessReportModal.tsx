@@ -41,6 +41,14 @@ export const CompletenessReportModal: React.FC<CompletenessReportModalProps> = (
           </span>
         );
       case 'needs_details':
+        if (label === 'Not Started') {
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+              <AlertTriangle className="w-3 h-3 mr-1 text-rose-500" />
+              {label}
+            </span>
+          );
+        }
         return (
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
             <AlertTriangle className="w-3 h-3 mr-1 text-amber-600" />

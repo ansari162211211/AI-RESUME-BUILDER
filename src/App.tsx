@@ -187,6 +187,12 @@ export default function App() {
             ? 'harvard'
             : template.id === 'elegant-serif'
             ? 'elegant-serif'
+            : template.id === 'modern-corporate'
+            ? 'modern-corporate'
+            : template.id === 'fresher-resume'
+            ? 'fresher-resume'
+            : template.id === 'internship-resume'
+            ? 'internship-resume'
             : template.categories.includes('Student & Fresher')
             ? 'fresher'
             : template.categories.includes('Technical & Developer')
@@ -206,6 +212,12 @@ export default function App() {
             ? 'Harvard Style Resume'
             : template.id === 'elegant-serif'
             ? 'Elegant Serif CV'
+            : template.id === 'modern-corporate'
+            ? 'Modern Corporate CV'
+            : template.id === 'fresher-resume'
+            ? 'Fresher Resume'
+            : template.id === 'internship-resume'
+            ? 'Internship Resume'
             : `${template.name} CV`,
           seedType,
           user.displayName || undefined,

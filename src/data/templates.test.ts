@@ -4,6 +4,11 @@ import {
   ELEGANT_SERIF_LEFT_ORDER,
   ELEGANT_SERIF_ORDER,
   ELEGANT_SERIF_RIGHT_ORDER,
+  FRESHER_RESUME_ORDER,
+  INTERNSHIP_LEFT_ORDER,
+  INTERNSHIP_RESUME_ORDER,
+  INTERNSHIP_RIGHT_ORDER,
+  MODERN_CORPORATE_ORDER,
   TEMPLATE_CATEGORIES,
   TEMPLATE_DEFINITIONS,
   getTemplateById,
@@ -15,8 +20,11 @@ import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
+  SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
+  SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
 } from './sampleResumes';
@@ -25,8 +33,11 @@ import {
   buildClassicPhoneList,
   buildElegantSerifContactItems,
   buildElegantSerifMetadataRows,
+  buildFresherHeaderColumns,
   buildHarvardContactItems,
+  buildInternshipContactItems,
   buildJakesAddressString,
+  buildModernCorporateContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkRows,
@@ -34,11 +45,17 @@ import {
   getEffectiveInterests,
   getHarvardAdditionalSubsections,
   getHarvardSkillsAndInterests,
+  getInternshipCareerInterests,
+  getInternshipEducationEntries,
+  getInternshipLearningItems,
+  getInternshipResearchAndProjectEntries,
+  getInternshipSkillRows,
   getOrderedVisibleSections,
   getSectionDisplayTitle,
   getSkillMatrixLevelLabel,
   getSoftwareDevAdditionalSubsections,
   getSoftwareDevSkillBucketItems,
+  groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
   isSectionVisibleAndPopulated,
@@ -46,8 +63,8 @@ import {
 } from '../utils/resumePresentation';
 import type { Resume } from '../types/resume';
 
-test("keeps Templates 1 through 7 active in TEMPLATE_DEFINITIONS", () => {
-  assert.equal(TEMPLATE_DEFINITIONS.length, 7);
+test("keeps Templates 1 through 10 active in TEMPLATE_DEFINITIONS", () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 10);
   assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
   assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
   assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
@@ -62,12 +79,15 @@ test("keeps Templates 1 through 7 active in TEMPLATE_DEFINITIONS", () => {
   assert.equal(TEMPLATE_DEFINITIONS[5].name, 'Harvard Style');
   assert.equal(TEMPLATE_DEFINITIONS[6].id, 'elegant-serif');
   assert.equal(TEMPLATE_DEFINITIONS[6].name, 'Elegant Serif');
+  assert.equal(TEMPLATE_DEFINITIONS[7].id, 'modern-corporate');
+  assert.equal(TEMPLATE_DEFINITIONS[7].name, 'Modern Corporate');
+  assert.equal(TEMPLATE_DEFINITIONS[8].id, 'fresher-resume');
+  assert.equal(TEMPLATE_DEFINITIONS[8].name, 'Fresher Resume');
+  assert.equal(TEMPLATE_DEFINITIONS[9].id, 'internship-resume');
+  assert.equal(TEMPLATE_DEFINITIONS[9].name, 'Internship Resume');
 
   const removedIds = [
     'modern-minimalist',
-    'modern-corporate',
-    'fresher-resume',
-    'internship-resume',
     'engineering-resume',
     'creative-professional',
     'executive-resume',
@@ -112,11 +132,20 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(resolveTemplateId('software-developer'), 'software-developer');
   assert.equal(resolveTemplateId('harvard-style'), 'harvard-style');
   assert.equal(resolveTemplateId('elegant-serif'), 'elegant-serif');
+  assert.equal(resolveTemplateId('modern-corporate'), 'modern-corporate');
+  assert.equal(resolveTemplateId('fresher-resume'), 'fresher-resume');
+  assert.equal(resolveTemplateId('internship-resume'), 'internship-resume');
   assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
   assert.equal(getTemplateById('harvard-style').id, 'harvard-style');
   assert.equal(getTemplateById('harvard-style').name, 'Harvard Style');
   assert.equal(getTemplateById('elegant-serif').id, 'elegant-serif');
   assert.equal(getTemplateById('elegant-serif').name, 'Elegant Serif');
+  assert.equal(getTemplateById('modern-corporate').id, 'modern-corporate');
+  assert.equal(getTemplateById('modern-corporate').name, 'Modern Corporate');
+  assert.equal(getTemplateById('fresher-resume').id, 'fresher-resume');
+  assert.equal(getTemplateById('fresher-resume').name, 'Fresher Resume');
+  assert.equal(getTemplateById('internship-resume').id, 'internship-resume');
+  assert.equal(getTemplateById('internship-resume').name, 'Internship Resume');
   assert.equal(getTemplateById('academic-cv').name, 'Academic CV');
   assert.equal(getTemplateById('classic-professional').name, 'Classic Professional');
   assert.equal(getTemplateById('jakes-resume').name, "Jake's Resume");
@@ -818,3 +847,278 @@ test('Elegant Serif (Template 7) configures editorial two-column monochrome seri
   assert.equal(studentVisible.includes('research'), false);
   assert.equal(studentVisible.includes('publications'), false);
 });
+
+test('Modern Corporate (Template 8) configures ModernCV classic banking layout, contacts, ordering, hiding, and personas cleanly', () => {
+  const modernCorp = getTemplateById('modern-corporate');
+  assert.equal(modernCorp.layout, 'moderncv-classic');
+  assert.equal(modernCorp.headerVariant, 'modern-corporate-split');
+  assert.equal(modernCorp.skillsLayout, 'grid-2col');
+  assert.equal(modernCorp.defaultCustomization.fontFamily, 'sans');
+  assert.equal(modernCorp.defaultCustomization.headingStyle, 'moderncv-bar');
+  assert.equal(modernCorp.defaultCustomization.accentColor, '#3873b3');
+  assert.deepEqual(modernCorp.sectionOrder, MODERN_CORPORATE_ORDER);
+
+  assert.equal(getSectionDisplayTitle('objective', 'modern-corporate'), 'Professional Summary');
+  assert.equal(getSectionDisplayTitle('experience', 'modern-corporate'), 'Work Experience');
+  assert.equal(getSectionDisplayTitle('strengths', 'modern-corporate'), 'Core Competencies');
+  assert.equal(getSectionDisplayTitle('skills', 'modern-corporate'), 'Technical Skills');
+  assert.equal(getSectionDisplayTitle('achievements', 'modern-corporate'), 'Awards & Achievements');
+
+  const fullCorp: Resume = {
+    ...SAMPLE_MODERN_CORPORATE_CV,
+    id: 'mc_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // Optional photo omitted by default
+  assert.equal(Boolean(fullCorp.personalInfo.photoUrl?.trim()), false);
+
+  // Right-aligned contact items preserve phones, DOB, address, social links, and custom links
+  const contacts = buildModernCorporateContactItems(fullCorp.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'mobile' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'linkedin' && c.url?.includes('linkedin.com')));
+  assert.ok(contacts.some((c) => c.kind === 'location'));
+
+  const extraContacts = buildModernCorporateContactItems({
+    ...fullCorp.personalInfo,
+    dateOfBirth: '14 March 1994',
+    secondaryPhone: '+44 20 7946 0999',
+    customLinks: [{ id: 'cl1', label: 'SSRN Profile', url: 'https://ssrn.com/author=12345' }],
+  });
+  assert.ok(extraContacts.some((c) => c.kind === 'dob' && c.label === '14 March 1994'));
+  assert.ok(extraContacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(extraContacts.some((c) => c.kind === 'custom' && c.label === 'SSRN Profile'));
+
+  // Reordering via sectionOrderOverride & hiding via hiddenSections preserves underlying data
+  const reordered = getOrderedVisibleSections(
+    {
+      ...fullCorp,
+      sectionOrderOverride: ['education', 'projects', 'experience'],
+      hiddenSections: ['memberships', 'interests'],
+    },
+    modernCorp
+  );
+  assert.equal(reordered[0], 'education');
+  assert.equal(reordered[1], 'projects');
+  assert.equal(reordered[2], 'experience');
+  assert.equal(reordered.includes('memberships'), false);
+  assert.equal(reordered.includes('interests'), false);
+
+  // Student / Fresher persona hides empty optional sections automatically
+  const studentCorp: Resume = {
+    ...fullCorp,
+    targetBackground: 'student',
+    experience: [],
+    certifications: [],
+    memberships: [],
+    achievements: [],
+    referencesDisplayMode: 'hidden',
+    references: [],
+  };
+  const studentVisible = getOrderedVisibleSections(studentCorp, modernCorp);
+  assert.ok(studentVisible.includes('education'));
+  assert.ok(studentVisible.includes('projects'));
+  assert.ok(studentVisible.includes('skills'));
+  assert.equal(studentVisible.includes('experience'), false);
+  assert.equal(studentVisible.includes('certifications'), false);
+  assert.equal(studentVisible.includes('memberships'), false);
+  assert.equal(studentVisible.includes('references'), false);
+
+  // References on-request remains visible cleanly when references array is empty
+  const onRequestCorp: Resume = {
+    ...studentCorp,
+    referencesDisplayMode: 'on-request',
+    references: [],
+  };
+  assert.equal(isSectionVisibleAndPopulated(onRequestCorp, 'references', 'modern-corporate'), true);
+});
+
+test('Fresher Resume (Template 9) configures Overleaf 3-col header, steel-blue rules, year-rail awards, reordering, and Student/Fresher personas', () => {
+  const fresherTpl = getTemplateById('fresher-resume');
+  assert.equal(fresherTpl.layout, 'single-column');
+  assert.equal(fresherTpl.headerVariant, 'fresher-overleaf');
+  assert.equal(fresherTpl.defaultCustomization.fontFamily, 'sans');
+  assert.equal(fresherTpl.defaultCustomization.accentColor, '#3b6998');
+  assert.equal(fresherTpl.defaultCustomization.headingStyle, 'title-rule');
+  assert.deepEqual(fresherTpl.sectionOrder, FRESHER_RESUME_ORDER);
+  assert.ok(fresherTpl.categories.includes('Student & Fresher'));
+  assert.ok(fresherTpl.categories.includes('ATS-Friendly'));
+
+  assert.equal(getSectionDisplayTitle('education', 'fresher-resume'), 'EDUCATION');
+  assert.equal(getSectionDisplayTitle('projects', 'fresher-resume'), 'PROJECTS');
+  assert.equal(getSectionDisplayTitle('skills', 'fresher-resume'), 'SKILLS');
+  assert.equal(getSectionDisplayTitle('achievements', 'fresher-resume'), 'AWARDS & HONORS');
+  assert.equal(getSectionDisplayTitle('additional', 'fresher-resume'), 'ADDITIONAL INFORMATION');
+
+  const fullFresher: Resume = {
+    ...SAMPLE_FRESHER_RESUME_CV,
+    id: 'fr_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // No photo in Overleaf fresher header
+  assert.equal(Boolean(fullFresher.personalInfo.photoUrl?.trim()), false);
+
+  // 3-column header splits Phone/Email left and LinkedIn/GitHub/Portfolio right
+  const cols = buildFresherHeaderColumns(fullFresher.personalInfo);
+  assert.ok(cols.left.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(cols.left.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(cols.right.some((c) => c.kind === 'linkedin' && c.url?.includes('linkedin.com')));
+  assert.ok(cols.right.some((c) => c.kind === 'github' && c.url?.includes('github.com')));
+
+  // Awards year-rail groups awards cleanly by year descending
+  const awardGroups = groupAwardsByYearForFresher(fullFresher.achievements);
+  assert.ok(awardGroups.length >= 2);
+  assert.ok(Number(awardGroups[0].year) >= Number(awardGroups[1].year));
+
+  // Reordering via sectionOrderOverride & hiding via hiddenSections preserves data
+  const reordered = getOrderedVisibleSections(
+    {
+      ...fullFresher,
+      sectionOrderOverride: ['projects', 'skills', 'education'],
+      hiddenSections: ['experience', 'volunteer'],
+    },
+    fresherTpl
+  );
+  assert.equal(reordered[0], 'projects');
+  assert.equal(reordered[1], 'skills');
+  assert.equal(reordered[2], 'education');
+  assert.equal(reordered.includes('experience'), false);
+  assert.equal(reordered.includes('volunteer'), false);
+
+  // Empty Interests hides 'additional' even when languages exist (languages has its own section in Template 9)
+  const noInterests: Resume = {
+    ...fullFresher,
+    languages: [{ id: 'fr-l1', language: 'English', proficiency: 'Native' }],
+    interests: '',
+    interestItems: [],
+  };
+  assert.equal(isSectionVisibleAndPopulated(noInterests, 'additional', 'fresher-resume'), false);
+  assert.equal(isSectionVisibleAndPopulated(noInterests, 'languages', 'fresher-resume'), true);
+});
+
+test('Internship Resume (Template 10) enforces two-column layout, unconfirmed skill dot hiding, strict isolation, and optional hiding', () => {
+  const internshipTpl = getTemplateById('internship-resume');
+  assert.equal(internshipTpl.layout, 'two-column-internship');
+  assert.equal(internshipTpl.headerVariant, 'internship-kunal');
+  assert.equal(internshipTpl.defaultCustomization.headingStyle, 'internship-rule');
+  assert.deepEqual(internshipTpl.sectionOrder, INTERNSHIP_RESUME_ORDER);
+  assert.deepEqual(internshipTpl.sidebarSections, INTERNSHIP_RIGHT_ORDER);
+  assert.ok(INTERNSHIP_LEFT_ORDER.includes('education'));
+  assert.ok(INTERNSHIP_RIGHT_ORDER.includes('learning'));
+  assert.ok(INTERNSHIP_RIGHT_ORDER.includes('career-interests'));
+  assert.ok(internshipTpl.categories.includes('Student & Fresher'));
+  assert.ok(internshipTpl.categories.includes('ATS-Friendly'));
+  assert.ok(internshipTpl.categories.includes('Technical & Developer'));
+
+  assert.equal(getSectionDisplayTitle('education', 'internship-resume'), 'EDUCATION');
+  assert.equal(getSectionDisplayTitle('achievements', 'internship-resume'), 'CO-CURRICULAR/ EVENTS');
+  assert.equal(getSectionDisplayTitle('skills', 'internship-resume'), 'SKILLS');
+  assert.equal(getSectionDisplayTitle('learning', 'internship-resume'), 'LEARNING');
+  assert.equal(getSectionDisplayTitle('interests', 'internship-resume'), 'INTERESTS');
+  assert.equal(getSectionDisplayTitle('research', 'internship-resume'), 'RESEARCH WORK');
+  assert.equal(getSectionDisplayTitle('career-interests', 'internship-resume'), 'CAREER INTERESTS');
+  assert.equal(getSectionDisplayTitle('experience', 'internship-resume'), 'INTERNSHIP EXPERIENCE');
+
+  const fullIntern: Resume = {
+    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    id: 'intern_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // Clickable header contact links
+  const contacts = buildInternshipContactItems(fullIntern.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'linkedin' && c.url?.includes('linkedin.com')));
+  assert.ok(contacts.some((c) => c.kind === 'github' && c.url?.includes('github.com')));
+
+  // Education & High School entries parse cleanly
+  const eduEntries = getInternshipEducationEntries(fullIntern);
+  assert.ok(eduEntries.length >= 2);
+
+  // Research + projects merge cleanly
+  const researchEntries = getInternshipResearchAndProjectEntries(fullIntern);
+  assert.ok(researchEntries.length >= 1);
+
+  // Skill proficiency dots: proficiency: null remains null (no auto-assigned dots); manual 1..5 preserved
+  const unconfirmedSkillCv: Resume = {
+    ...fullIntern,
+    skills: [
+      { id: 'sk-u', category: 'Backend', skills: ['Go', 'PostgreSQL'], proficiency: null },
+      { id: 'sk-c', category: 'Frontend', skills: ['React', 'TypeScript'], proficiency: 4 },
+    ],
+    skillMatrix: [],
+    careerInterests: ['Distributed Systems', 'Cloud Infrastructure'],
+    learningActivities: [
+      {
+        id: 'la-1',
+        title: 'Operating Systems Workshop',
+        activityType: 'Workshop',
+        provider: 'University Systems Lab',
+      },
+    ],
+    certifications: [
+      {
+        id: 'cert-1',
+        name: 'AWS Cloud Practitioner',
+        issuer: 'AWS',
+        issueDate: '2025',
+      },
+    ],
+  };
+
+  const skillRows = getInternshipSkillRows(unconfirmedSkillCv);
+  assert.equal(skillRows[0].proficiency, null);
+  assert.equal(skillRows[1].proficiency, 4);
+
+  // Strict isolation: careerInterests NEVER appear inside skills; learningActivities stay separate from certifications
+  const joinedSkillsText = skillRows.map((r) => r.label).join(' ');
+  assert.equal(joinedSkillsText.includes('Distributed Systems'), false);
+  assert.equal(joinedSkillsText.includes('Cloud Infrastructure'), false);
+
+  const careerRes = getInternshipCareerInterests(unconfirmedSkillCv);
+  assert.deepEqual(careerRes, ['Distributed Systems', 'Cloud Infrastructure']);
+
+  const learningItems = getInternshipLearningItems(unconfirmedSkillCv);
+  assert.equal(learningItems.length, 1);
+  assert.equal(learningItems[0].title, 'Operating Systems Workshop');
+  assert.equal(learningItems.some((l) => l.title === 'AWS Cloud Practitioner'), false);
+
+  // Empty optional sections hide automatically cleanly
+  const minimalIntern: Resume = {
+    ...unconfirmedSkillCv,
+    learningActivities: [],
+    careerInterests: [],
+    internshipPreferences: undefined,
+    interests: '',
+    interestItems: [],
+    achievements: [],
+    experience: [],
+    certifications: [],
+    languages: [],
+    customSections: [],
+  };
+  const visibleMin = getOrderedVisibleSections(minimalIntern, internshipTpl);
+  assert.ok(visibleMin.includes('education'));
+  assert.ok(visibleMin.includes('research'));
+  assert.ok(visibleMin.includes('skills'));
+  assert.equal(visibleMin.includes('learning'), false);
+  assert.equal(visibleMin.includes('interests'), false);
+  assert.equal(visibleMin.includes('career-interests'), false);
+  assert.equal(visibleMin.includes('achievements'), false);
+  assert.equal(visibleMin.includes('experience'), false);
+  assert.equal(visibleMin.includes('certifications'), false);
+  assert.equal(visibleMin.includes('languages'), false);
+  assert.equal(visibleMin.includes('custom-sections'), false);
+});
+
+
+

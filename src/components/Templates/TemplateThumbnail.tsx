@@ -1,8 +1,15 @@
 import React from 'react';
 import type { Resume } from '../../types/resume';
 import {
+  buildFresherHeaderColumns,
   buildHarvardContactItems,
+  getEffectiveInterests,
   getHarvardSkillsAndInterests,
+  getInternshipCareerInterests,
+  getInternshipEducationEntries,
+  getInternshipLearningItems,
+  getInternshipResearchAndProjectEntries,
+  getInternshipSkillRows,
   getSectionDisplayTitle,
   getOrderedVisibleSections,
   getVisibleSkills,
@@ -165,6 +172,19 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
           }}
         >
           {label}
+        </div>
+      );
+    }
+
+    if (custom.headingStyle === 'moderncv-bar') {
+      return (
+        <div className="flex items-center gap-1 mb-1">
+          <div className="w-[19%] flex justify-end shrink-0">
+            <div className="w-full h-[2.5px]" style={{ backgroundColor: accent }} />
+          </div>
+          <div className="text-[6.2px] font-normal truncate" style={{ color: accent }}>
+            {label}
+          </div>
         </div>
       );
     }
@@ -884,6 +904,305 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
     }
   };
 
+  if (template.id === 'fresher-resume' || template.headerVariant === 'fresher-overleaf') {
+    const headerCols = resume?.personalInfo
+      ? buildFresherHeaderColumns(resume.personalInfo)
+      : {
+          left: [{ label: phone }, { label: email }],
+          right: [
+            { label: 'LinkedIn' },
+            { label: 'Website' },
+            { label: 'GitHub' },
+          ],
+        };
+    const keywords = (resume?.strengths || []).filter(Boolean).slice(0, 4);
+    const impactText = resume?.objective?.trim() || '';
+    const hiddenSet = new Set(resume?.hiddenSections || []);
+    const projItems = (resume?.projects || []).slice(0, 2);
+
+    return (
+      <div
+        aria-hidden="true"
+        className={`w-full aspect-[210/297] bg-white overflow-hidden select-none p-2.5 flex flex-col justify-between ${fontClass}`}
+      >
+        <div>
+          {/* 3-Column Overleaf Header */}
+          <div
+            className="grid grid-cols-[minmax(0,0.88fr)_minmax(0,1.38fr)_minmax(0,0.88fr)] items-end gap-1.5 pb-1 mb-1"
+            style={{ borderBottom: '0.6px solid #334155' }}
+          >
+            <div className="text-[3.4px] leading-[1.3] text-[#111827] min-w-0 overflow-hidden">
+              {headerCols.left.slice(0, 3).map((item, idx) => (
+                <div key={idx} className="truncate">
+                  {item.label}
+                </div>
+              ))}
+            </div>
+            <div className="text-center min-w-0 overflow-hidden px-0.5">
+              <div className="text-[7.8px] font-medium leading-tight text-[#111827] truncate">
+                {personName}
+              </div>
+              <div className="text-[4.4px] leading-tight truncate mt-[1px]" style={{ color: accent }}>
+                {jobTitle}
+              </div>
+            </div>
+            <div className="text-right text-[3.4px] leading-[1.3] text-[#111827] min-w-0 overflow-hidden">
+              {headerCols.right.slice(0, 3).map((item, idx) => (
+                <div key={idx} className="truncate">
+                  {item.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Keywords & Impact Strip */}
+          {!hiddenSet.has('strengths') && keywords.length > 0 && (
+            <div className="flex items-center justify-around text-[3.8px] text-[#111827] mb-0.5 truncate">
+              {keywords.map((kw, idx) => (
+                <span key={idx} className="truncate">
+                  • {kw}
+                </span>
+              ))}
+            </div>
+          )}
+          {!hiddenSet.has('objective') && impactText && (
+            <div className="text-[3.8px] leading-[1.25] text-[#111827] line-clamp-2 mb-1">
+              <span className="font-bold">Impact: </span>
+              <span>{impactText}</span>
+            </div>
+          )}
+
+          {/* Education */}
+          <div className="mb-1">
+            {renderHeading('education')}
+            {(eduItems.length > 0
+              ? eduItems
+              : [
+                  {
+                    id: 'fe1',
+                    degree: 'M.S. in Computer Science',
+                    institution: 'UC Berkeley',
+                    startDate: '2024',
+                    endDate: '2026',
+                  },
+                ]
+            ).map((edu) => (
+              <div key={edu.id} className="flex justify-between items-baseline gap-1 text-[4px] text-[#111827]">
+                <div className="truncate min-w-0">
+                  <span className="font-bold">{edu.degree}</span>
+                  <span>, {edu.institution}</span>
+                </div>
+                <span className="font-bold shrink-0 text-[3.8px]">
+                  {edu.startDate} — {edu.endDate}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Projects */}
+          <div className="mb-1">
+            {renderHeading('projects')}
+            <div className="space-y-0.5">
+              {(projItems.length > 0
+                ? projItems
+                : [
+                    {
+                      id: 'fp1',
+                      title: 'Distributed Task Queue & Worker Scheduler',
+                      startDate: '2025',
+                      endDate: '2026',
+                      highlights: ['Built reliable job execution with dead-letter retry queues.'],
+                    },
+                  ]
+              ).map((proj) => (
+                <div key={proj.id}>
+                  <div className="flex justify-between items-baseline gap-1 text-[4.1px] text-[#111827]">
+                    <span className="font-bold truncate">{proj.title}</span>
+                    <span className="font-bold shrink-0 text-[3.8px]">
+                      {proj.startDate}
+                      {proj.endDate ? ` — ${proj.endDate}` : ''}
+                    </span>
+                  </div>
+                  {proj.highlights?.[0] && (
+                    <div className="text-[3.8px] text-[#111827] truncate pl-1">
+                      • {proj.highlights[0]}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Skills (2-column label + values) */}
+          <div>
+            {renderHeading('skills')}
+            <div className="space-y-0.5">
+              {(skillCats.length > 0
+                ? skillCats
+                : [
+                    { id: 'fs1', category: 'Languages', skills: ['Python', 'TypeScript', 'C++', 'SQL'] },
+                    { id: 'fs2', category: 'Frameworks', skills: ['React', 'Node.js', 'FastAPI'] },
+                  ]
+              )
+                .slice(0, 3)
+                .map((cat) => (
+                  <div key={cat.id} className="flex items-baseline gap-1 text-[3.9px] text-[#111827]">
+                    <span className="w-[32%] font-bold shrink-0 truncate">{cat.category}</span>
+                    <span className="flex-1 truncate">{cat.skills.slice(0, 4).join(', ')}</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+        <div className="text-center text-[3.6px] text-slate-400">Overleaf Fresher Resume</div>
+      </div>
+    );
+  }
+
+  if (template.layout === 'moderncv-classic') {
+    const thumbPhoto = resume?.personalInfo?.photoUrl;
+    const nameParts = personName.trim().split(/\s+/);
+    const firstNames = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
+    const lastName = nameParts[nameParts.length - 1] || personName;
+
+    return (
+      <div
+        aria-hidden="true"
+        className={`w-full aspect-[210/297] bg-white overflow-hidden select-none p-2.5 flex flex-col justify-between ${fontClass}`}
+      >
+        <div>
+          {/* Overleaf ModernCV Classic Split Header */}
+          <div className="flex items-start justify-between gap-1.5 mb-2">
+            <div className="min-w-0 flex-1 pt-1">
+              <div className="text-[10.5px] font-light leading-tight truncate">
+                {firstNames && <span className="text-slate-500">{firstNames} </span>}
+                <span className="text-[#111827]">{lastName}</span>
+              </div>
+              <div className="text-[4.8px] italic text-slate-600 truncate mt-0.5">
+                {jobTitle}
+              </div>
+            </div>
+            <div className="flex items-start gap-1 shrink-0 max-w-[54%]">
+              <div className="text-right text-[3.8px] italic leading-[1.3] text-slate-600">
+                <div className="truncate">{location}</div>
+                <div className="truncate">{phone}</div>
+                <div className="truncate">{email}</div>
+              </div>
+              {thumbPhoto && (
+                <div
+                  className="p-[1px] shrink-0"
+                  style={{ border: `0.5px solid ${accent}` }}
+                >
+                  <img src={thumbPhoto} alt="" className="w-6 h-7 object-cover" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            {/* Education */}
+            <div>
+              {renderHeading('education')}
+              {(eduItems.length > 0
+                ? eduItems
+                : [
+                    {
+                      id: 'me1',
+                      institution: 'LSE',
+                      degree: 'M.Sc. Finance & Economics',
+                      startDate: '2015',
+                      endDate: '2016',
+                    },
+                  ]
+              )
+                .slice(0, 2)
+                .map((edu) => (
+                  <div key={edu.id} className="flex items-start gap-1 mb-0.5">
+                    <div className="w-[19%] text-right text-[4px] text-slate-700 shrink-0 truncate">
+                      {edu.startDate}–{edu.endDate}
+                    </div>
+                    <div className="flex-1 min-w-0 text-[4.3px] leading-[1.25] text-[#111827]">
+                      <div className="truncate">
+                        <span className="font-bold">{edu.degree}</span>
+                        <span>, </span>
+                        <span className="italic">{edu.institution}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* Work Experience */}
+            <div>
+              {renderHeading('experience')}
+              {(expItems.length > 0
+                ? expItems
+                : [
+                    {
+                      id: 'mx1',
+                      company: 'Meridian Capital',
+                      position: 'VP, Corporate Strategy',
+                      startDate: '2021',
+                      endDate: 'Present',
+                      current: true,
+                      highlights: ['Directed $2.6B in closed acquisitions across Europe.'],
+                    },
+                  ]
+              )
+                .slice(0, 2)
+                .map((exp) => (
+                  <div key={exp.id} className="flex items-start gap-1 mb-0.5">
+                    <div className="w-[19%] text-right text-[4px] text-slate-700 shrink-0 truncate">
+                      {exp.startDate}–{exp.current ? 'Present' : exp.endDate}
+                    </div>
+                    <div className="flex-1 min-w-0 text-[4.3px] leading-[1.25] text-[#111827]">
+                      <div className="truncate">
+                        <span className="font-bold">{exp.position}</span>
+                        <span>, </span>
+                        <span className="italic">{exp.company}</span>
+                      </div>
+                      {exp.highlights?.[0] && (
+                        <div className="text-[3.9px] text-slate-700 truncate pl-1">
+                          ○ {exp.highlights[0]}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {/* Technical Skills (2-col rail pairs) */}
+            <div>
+              {renderHeading('skills')}
+              <div className="grid grid-cols-2 gap-1">
+                {(skillCats.length > 0
+                  ? skillCats
+                  : [
+                      { id: 'ms1', category: 'Finance', skills: ['DCF', 'LBO', 'M&A'] },
+                      { id: 'ms2', category: 'Analytics', skills: ['SQL', 'Python', 'Excel'] },
+                    ]
+                )
+                  .slice(0, 2)
+                  .map((cat) => (
+                    <div key={cat.id} className="flex items-start gap-1 text-[4px] truncate">
+                      <span className="w-[38%] text-right text-slate-700 shrink-0 truncate">
+                        {cat.category}
+                      </span>
+                      <span className="flex-1 text-[#111827] truncate">
+                        {cat.skills.slice(0, 3).join(', ')}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center text-[3.8px] text-slate-500">1 / 1</div>
+      </div>
+    );
+  }
+
   if (template.layout === 'two-column-editorial') {
     const thumbPhoto = resume?.personalInfo?.photoUrl;
     const renderEditorialHeading = (label: string) => (
@@ -1074,6 +1393,232 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
         {/* Bottom Muted Footer */}
         <div className="text-center text-[3.8px] text-[#555555] pt-1 border-t border-neutral-200 truncate">
           {personName} · {location} · {email}
+        </div>
+      </div>
+    );
+  }
+
+  if (template.layout === 'two-column-internship') {
+    const intEdus = resume ? getInternshipEducationEntries(resume).slice(0, 2) : [];
+    const intAchs = (resume?.achievements || []).slice(0, 2);
+    const intSkills = resume ? getInternshipSkillRows(resume).slice(0, 3) : [];
+    const intLearn = resume ? getInternshipLearningItems(resume).slice(0, 2) : [];
+    const intInterests = resume
+      ? getEffectiveInterests(resume).items.map((i) => i.name).slice(0, 4)
+      : ['Arduino', 'Electronics', 'Computers'];
+    const intResearch = resume
+      ? getInternshipResearchAndProjectEntries(resume).slice(0, 2)
+      : [];
+    const intCareer = resume
+      ? getInternshipCareerInterests(resume).slice(0, 4)
+      : ['IoT', 'Systems', 'Cloud Computing'];
+
+    const renderIntHeading = (label: string) => (
+      <div
+        className="text-[5.2px] font-bold uppercase tracking-tight text-[#111827] pb-[1px] mb-1"
+        style={{ borderBottom: '1.2px solid #111827' }}
+      >
+        {label}
+      </div>
+    );
+
+    return (
+      <div
+        aria-hidden="true"
+        className="w-full aspect-[210/297] bg-white overflow-hidden select-none p-2.5 flex flex-col font-cv-sans text-[#111827]"
+      >
+        {/* Top Full-Width Left-Aligned Header */}
+        <div className="mb-1.5">
+          <div className="text-[9.5px] font-bold uppercase tracking-tight leading-tight truncate text-[#111827]">
+            {personName}
+          </div>
+          <div className="text-[5.2px] font-semibold text-[#374151] truncate mt-[0.5px]">
+            {jobTitle}
+          </div>
+          <div className="text-[3.9px] text-[#374151] truncate mt-[1.5px]">
+            @ {email} &nbsp; {phone} &nbsp; {location}
+          </div>
+        </div>
+
+        {/* Balanced 50 / 50 Two-Column Body */}
+        <div className="flex flex-1 min-h-0 gap-2">
+          {/* Left Column */}
+          <div className="w-[50%] space-y-1.5">
+            <div>
+              {renderIntHeading('EDUCATION')}
+              <div className="space-y-1">
+                {(intEdus.length > 0
+                  ? intEdus
+                  : [
+                      {
+                        id: 'ie1',
+                        heading: 'Computer Science Engineering',
+                        institution: 'Institute of Engineering',
+                        dateRange: '2022 – Present',
+                        location,
+                        subDetails: ['B.Tech Computer Science'],
+                      },
+                    ]
+                ).map((ed, idx, arr) => (
+                  <div
+                    key={ed.id}
+                    className="pb-0.5"
+                    style={{
+                      borderBottom:
+                        idx < arr.length - 1 ? '0.6px dotted #9ca3af' : 'none',
+                    }}
+                  >
+                    <div className="text-[4.6px] font-bold truncate">{ed.heading}</div>
+                    <div className="text-[4.2px] font-semibold text-[#374151] truncate">
+                      {ed.institution}
+                    </div>
+                    <div className="text-[3.8px] text-[#4b5563] truncate">
+                      {ed.dateRange} {ed.location ? `· ${ed.location}` : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderIntHeading('CO-CURRICULAR/ EVENTS')}
+              <div className="space-y-1">
+                {(intAchs.length > 0
+                  ? intAchs
+                  : [
+                      {
+                        id: 'ia1',
+                        title: 'National Hackathon',
+                        description: 'Selected for finalist showcase round.',
+                      },
+                    ]
+                ).map((a) => (
+                  <div key={a.id}>
+                    <div className="text-[4.5px] font-bold truncate">{a.title}</div>
+                    <div className="text-[3.8px] text-[#374151] line-clamp-2 leading-[1.25]">
+                      {a.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderIntHeading('SKILLS')}
+              <div className="space-y-0.5">
+                {(intSkills.length > 0
+                  ? intSkills
+                  : [
+                      { id: 'is1', label: 'C, C++, Windows', proficiency: 5 as const },
+                      { id: 'is2', label: 'Java, Linux, LaTeX', proficiency: 4 as const },
+                    ]
+                ).map((sk, idx, arr) => (
+                  <div
+                    key={sk.id}
+                    className="flex items-center justify-between py-[1px]"
+                    style={{
+                      borderBottom:
+                        idx < arr.length - 1 ? '0.6px dotted #9ca3af' : 'none',
+                    }}
+                  >
+                    <span className="text-[4.2px] font-bold truncate pr-1">
+                      {sk.label}
+                    </span>
+                    {sk.proficiency ? (
+                      <span className="flex items-center gap-[1px] shrink-0">
+                        {[1, 2, 3, 4, 5].map((dot) => (
+                          <span
+                            key={dot}
+                            className="inline-block w-[3px] h-[3px] rounded-full"
+                            style={{
+                              backgroundColor:
+                                dot <= (sk.proficiency || 0) ? '#111827' : '#d1d5db',
+                            }}
+                          />
+                        ))}
+                      </span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="w-[50%] space-y-1.5">
+            <div>
+              {renderIntHeading('LEARNING')}
+              <div className="space-y-0.5">
+                {(intLearn.length > 0
+                  ? intLearn
+                  : [
+                      { id: 'il1', title: 'Advanced C++ Course', provider: 'Microsoft' },
+                      { id: 'il2', title: 'Cyber Security Workshop', provider: 'IBM' },
+                    ]
+                ).map((l) => (
+                  <div key={l.id} className="text-[4px] leading-[1.25] truncate text-[#374151]">
+                    – <span className="font-semibold text-[#111827]">{l.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderIntHeading('INTERESTS')}
+              <div className="flex flex-wrap gap-[2px]">
+                {intInterests.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="text-[3.8px] px-[2.5px] py-[0.5px] rounded-[1.5px] border border-slate-400 text-[#374151]"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderIntHeading('RESEARCH WORK')}
+              <div className="space-y-1">
+                {(intResearch.length > 0
+                  ? intResearch
+                  : [
+                      {
+                        id: 'ir1',
+                        title: 'Indoor Navigation For All',
+                        dateRange: '10/2023 - 02/2024',
+                        bullets: ['Beacon-assisted indoor localization prototype.'],
+                      },
+                    ]
+                ).map((r) => (
+                  <div key={r.id}>
+                    <div className="text-[4.3px] font-bold truncate">
+                      {r.title} {r.dateRange ? `(${r.dateRange})` : ''}
+                    </div>
+                    {r.bullets[0] && (
+                      <div className="text-[3.8px] text-[#374151] line-clamp-2 leading-[1.25]">
+                        • {r.bullets[0]}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              {renderIntHeading('CAREER INTERESTS')}
+              <div className="flex flex-wrap gap-[2px]">
+                {intCareer.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="text-[3.8px] px-[2.5px] py-[0.5px] rounded-[1.5px] border border-slate-400 text-[#374151]"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

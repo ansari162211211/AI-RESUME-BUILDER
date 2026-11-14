@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { paginateResume } from './cvPaginator.ts';
+import {
+  estimateInternshipHeaderHeightPt,
+  paginateEditorialPdfColumns,
+} from './editorialPdfPaginator.ts';
+import {
+  INTERNSHIP_LEFT_ORDER,
+  INTERNSHIP_RIGHT_ORDER,
+  getTemplateById,
+  getTypographyScale,
+} from '../data/templates.ts';
+import { SAMPLE_INTERNSHIP_RESUME_CV } from '../data/sampleResumes.ts';
 import type { Resume } from '../types/resume';
 
 const minimalResume: Resume = {
@@ -222,3 +233,65 @@ test('paginateResume never leaves a section header alone at the bottom without i
     );
   });
 });
+
+test('paginateEditorialPdfColumns packs Template 10 Internship Resume cleanly across 1 and multiple A4 pages', () => {
+  const internshipTpl = getTemplateById('internship-resume');
+  const scale = getTypographyScale(internshipTpl.defaultCustomization, 'internship-resume');
+  const headerHeightPt = estimateInternshipHeaderHeightPt(5, scale);
+
+  const singlePagePlan = paginateEditorialPdfColumns({
+    leftSections: INTERNSHIP_LEFT_ORDER,
+    rightSections: INTERNSHIP_RIGHT_ORDER,
+    resume: SAMPLE_INTERNSHIP_RESUME_CV,
+    scale,
+    headerHeightPt,
+    mode: 'internship',
+  });
+  assert.equal(singlePagePlan.length, 1);
+  assert.ok(singlePagePlan[0].left.some((s) => s.sectionKey === 'education'));
+  assert.ok(singlePagePlan[0].left.some((s) => s.sectionKey === 'skills'));
+  assert.ok(singlePagePlan[0].right.some((s) => s.sectionKey === 'learning'));
+  assert.ok(singlePagePlan[0].right.some((s) => s.sectionKey === 'research'));
+
+  // Overflow scenario: add extensive research/project items and co-curricular items to verify 2+ page A4 flow
+  const longInternshipResume: Resume = {
+    ...SAMPLE_INTERNSHIP_RESUME_CV,
+    researchExperience: Array.from({ length: 8 }, (_, idx) => ({
+      id: `re-over-${idx}`,
+      title: `Distributed Systems & Applied ML Study #${idx + 1}`,
+      institution: 'Institute of Technology',
+      role: 'Undergraduate Researcher',
+      startDate: 'Jan 2024',
+      endDate: 'Dec 2024',
+      objectives:
+        'Designed and benchmarked multi-node consensus protocols and fault-tolerant telemetry pipelines under simulated packet loss and heterogeneous workloads.',
+      findings:
+        'Documented latency tradeoffs across asynchronous batching windows and reproducible evaluation harnesses.',
+      technologies: ['Python', 'Go', 'Docker', 'PostgreSQL'],
+    })),
+    achievements: Array.from({ length: 8 }, (_, idx) => ({
+      id: `aw-over-${idx}`,
+      title: `Annual Engineering Hackathon & Symposium #${idx + 1}`,
+      issuer: 'University Computing Society',
+      date: '2024',
+      role: 'Team Lead',
+      description:
+        'Led four-member student team building real-time accessibility tooling and presented architecture demos to faculty judges.',
+    })),
+  };
+
+  const multiPagePlan = paginateEditorialPdfColumns({
+    leftSections: INTERNSHIP_LEFT_ORDER,
+    rightSections: INTERNSHIP_RIGHT_ORDER,
+    resume: longInternshipResume,
+    scale,
+    headerHeightPt,
+    mode: 'internship',
+  });
+  assert.ok(multiPagePlan.length >= 2, `Expected >= 2 pages, got ${multiPagePlan.length}`);
+  multiPagePlan.forEach((p, idx) => {
+    assert.equal(p.pageNumber, idx + 1);
+    assert.ok(p.left.length > 0 || p.right.length > 0);
+  });
+});
+

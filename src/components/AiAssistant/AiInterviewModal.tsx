@@ -127,16 +127,70 @@ const ELEGANT_SERIF_SECTION_FLOW = [
   'references',
 ];
 
+const MODERN_CORPORATE_SECTION_FLOW = [
+  'personalInfo',
+  'objective',
+  'experience',
+  'strengths',
+  'education',
+  'skills',
+  'projects',
+  'certifications',
+  'achievements',
+  'languages',
+  'leadership',
+  'memberships',
+  'interests',
+  'references',
+  'custom-sections',
+];
+
+const FRESHER_RESUME_SECTION_FLOW = [
+  'personalInfo',
+  'strengths',
+  'objective',
+  'education',
+  'projects',
+  'experience',
+  'coursework',
+  'skills',
+  'publications',
+  'achievements',
+  'certifications',
+  'leadership',
+  'volunteer',
+  'languages',
+  'interests',
+  'custom-sections',
+];
+
+const INTERNSHIP_RESUME_SECTION_FLOW = [
+  'personalInfo',
+  'education',
+  'learning',
+  'interests',
+  'research',
+  'career-interests',
+  'achievements',
+  'skills',
+  'experience',
+  'certifications',
+  'languages',
+  'custom-sections',
+];
+
 const SECTION_LABELS: Record<string, string> = {
   personalInfo: 'Personal Info',
   objective: 'Profile / Summary',
   education: 'Education',
+  learning: 'Learning & Training',
   'study-abroad': 'Study Abroad',
   'high-school': 'High School',
   thesis: "Master's Thesis",
   coursework: 'Coursework',
   experience: 'Experience',
-  research: 'Research Experience',
+  research: 'Research & Projects',
+  'career-interests': 'Career Interests',
   'daily-life': 'A Day of My Life',
   philosophy: 'Life Philosophy',
   languages: 'Languages',
@@ -145,10 +199,10 @@ const SECTION_LABELS: Record<string, string> = {
   skills: 'Skills',
   'lab-skills': 'Lab Skills',
   'skill-matrix': 'Skill Matrix',
-  strengths: 'Strengths',
+  strengths: 'Core Competencies / Strengths',
   interests: 'Interests',
   'custom-sections': 'Additional Info',
-  achievements: 'Achievements / Awards',
+  achievements: 'Co-Curricular & Awards',
   leadership: 'Leadership & Activities',
   volunteer: 'Volunteer',
   memberships: 'Memberships',
@@ -177,6 +231,9 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const isSoftwareDev = templateId === 'software-developer';
   const isHarvard = templateId === 'harvard-style';
   const isElegantSerif = templateId === 'elegant-serif';
+  const isModernCorporate = templateId === 'modern-corporate';
+  const isFresherResume = templateId === 'fresher-resume';
+  const isInternshipResume = templateId === 'internship-resume';
   const sectionFlow = isJakes
     ? JAKES_SECTION_FLOW
     : isClassic
@@ -189,6 +246,12 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     ? HARVARD_SECTION_FLOW
     : isElegantSerif
     ? ELEGANT_SERIF_SECTION_FLOW
+    : isModernCorporate
+    ? MODERN_CORPORATE_SECTION_FLOW
+    : isFresherResume
+    ? FRESHER_RESUME_SECTION_FLOW
+    : isInternshipResume
+    ? INTERNSHIP_RESUME_SECTION_FLOW
     : ACADEMIC_SECTION_FLOW;
   const activeSection = sectionFlow[currentSectionIndex] || 'personalInfo';
 
@@ -233,6 +296,18 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         ? initialName
           ? `Hello ${initialName}! I'm your Elegant Serif CV Advisor. Together we'll shape your Professional Profile, Education, Experience, Research Experience, Publications, Awards, Skills, Languages, and optional academic sections—omitting anything not needed. Are you preparing this CV as a Student, Fresher, Experienced Professional, or Researcher / Academic?`
           : `Welcome! I'm your Elegant Serif CV Advisor (Modern Simple CV style). We'll craft a refined, scholarly CV one section at a time and skip any optional section you don't need. To start, are you a Student, Fresher, Experienced Professional, or Researcher / Academic, and what is your full name & email?`
+        : isModernCorporate
+        ? initialName
+          ? `Hello ${initialName}! I'm your Modern Corporate CV Advisor (ModernCV Classic). We'll polish your executive header, Professional Summary, Work Experience, Core Competencies, Education, Technical Skills, and optional corporate sections—skipping anything you don't need. Are you preparing this resume as a Corporate & Management Professional, Experienced Professional, Student, Fresher, or Technical Specialist?`
+          : `Welcome! I'm your Modern Corporate CV Advisor (Overleaf ModernCV Classic). We'll structure your ATS-friendly corporate resume step by step and skip any optional section cleanly. First, are you applying as a Corporate & Management Professional, Experienced Professional, Student, Fresher, or Technical Specialist, and what is your full name, target title, and email?`
+        : isFresherResume
+        ? initialName
+          ? `Hello ${initialName}! I'm your Fresher Resume Advisor. We'll craft a crisp Overleaf-style student & graduate resume—leading with your Education, Projects, optional Internships, Skills, and Honors while skipping any empty sections cleanly. First, which track fits you best: Engineering, Computer Science, Cybersecurity, Non-Technical, or Recent Graduate?`
+          : `Welcome! I'm your Fresher Resume Advisor. Let's build your ATS-friendly student & graduate resume step by step (omitting internships or optional sections cleanly if you don't have them). To begin, which track are you targeting—Engineering, Computer Science, Cybersecurity, Non-Technical, or Recent Graduate—and what is your full name, target role, and email?`
+        : isInternshipResume
+        ? initialName
+          ? `Hello ${initialName}! I'm your Internship Resume Advisor. We'll assemble your two-column student & internship resume step by step—Education, optional Learning Activities, Interests, Research & Capstone Projects, Career Interests, Co-Curriculars, Skills (dots stay hidden unless you assign 1–5 yourself), and optional Prior Internships. Which internship track fits you best: Computer Science, Cybersecurity, ECE, Research, or Non-Technical?`
+          : `Welcome! I'm your Internship Resume Advisor. I'll guide you through building an authentic two-column internship resume—omitting any optional sections you don't have and never inventing metrics or skill dots. First, which internship track fits you best (CS, Cybersecurity, ECE, Research, or Non-Technical), and what is your full name, target internship role, and email?`
         : isTwoColumn
         ? initialName
           ? `Hello ${initialName}! I'm your Two Column Professional CV Advisor. Let's craft or refine your header & tagline, experience, projects, optional "A Day of My Life" breakdown, publications, philosophy, proudest achievements, strengths, languages, education, and referees. You can skip any optional section at any time—where would you like to focus?`
@@ -273,6 +348,27 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               'Experienced Professional',
               'Student / Graduate Applicant',
               'Add Education & Research',
+            ]
+          : isModernCorporate
+          ? [
+              'Corporate & Management',
+              'Experienced Professional',
+              'Student / Fresh Graduate',
+              'Add Work Experience & Results',
+            ]
+          : isFresherResume
+          ? [
+              'Computer Science Track',
+              'Engineering Track',
+              'Cybersecurity Track',
+              'Non-Technical Graduate',
+            ]
+          : isInternshipResume
+          ? [
+              'Computer Science Internship',
+              'Cybersecurity Internship',
+              'Research Internship',
+              'ECE / Hardware Internship',
             ]
           : isClassic
           ? [
@@ -369,9 +465,95 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
             u.targetBackground === 'student' ||
             u.targetBackground === 'fresher' ||
             u.targetBackground === 'experienced' ||
-            u.targetBackground === 'researcher'
+            u.targetBackground === 'researcher' ||
+            u.targetBackground === 'corporate' ||
+            u.targetBackground === 'technical'
           ) {
             updated.targetBackground = u.targetBackground;
+          }
+          if (
+            u.fresherTrack === 'engineering' ||
+            u.fresherTrack === 'cs' ||
+            u.fresherTrack === 'cybersecurity' ||
+            u.fresherTrack === 'non-technical' ||
+            u.fresherTrack === 'graduate'
+          ) {
+            updated.fresherTrack = u.fresherTrack;
+          }
+          if (
+            u.internshipTrack === 'cs' ||
+            u.internshipTrack === 'cybersecurity' ||
+            u.internshipTrack === 'ece' ||
+            u.internshipTrack === 'research' ||
+            u.internshipTrack === 'non-technical'
+          ) {
+            updated.internshipTrack = u.internshipTrack;
+          }
+          if (Array.isArray(u.learningActivities) && u.learningActivities.length > 0) {
+            const sanitizedLearning = u.learningActivities
+              .filter((item: any) => item && typeof item.title === 'string' && item.title.trim())
+              .map((item: any, idx: number) => ({
+                id: item.id || `learn_${Date.now()}_${idx}`,
+                title: item.title.trim(),
+                activityType: item.activityType || 'Course',
+                subject: typeof item.subject === 'string' ? item.subject.trim() : '',
+                provider: typeof item.provider === 'string' ? item.provider.trim() : '',
+                instructor: typeof item.instructor === 'string' ? item.instructor.trim() : '',
+                completionDate: typeof item.completionDate === 'string' ? item.completionDate.trim() : '',
+                certificateId: typeof item.certificateId === 'string' ? item.certificateId.trim() : '',
+                credentialUrl: typeof item.credentialUrl === 'string' ? item.credentialUrl.trim() : '',
+                skillsAcquired: Array.isArray(item.skillsAcquired)
+                  ? item.skillsAcquired.filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0).map((s: string) => s.trim())
+                  : [],
+                description: typeof item.description === 'string' ? item.description.trim() : '',
+              }));
+            if (sanitizedLearning.length > 0) {
+              updated.learningActivities = [...(prev.learningActivities || []), ...sanitizedLearning];
+            }
+          }
+          if (Array.isArray(u.careerInterests) && u.careerInterests.length > 0) {
+            const existing = (prev.careerInterests || []).map((c) => c.trim()).filter(Boolean);
+            const seen = new Set(existing.map((c) => c.toLowerCase()));
+            const nextCareer = [...existing];
+            for (const c of u.careerInterests) {
+              if (typeof c === 'string' && c.trim() && !seen.has(c.trim().toLowerCase())) {
+                nextCareer.push(c.trim());
+                seen.add(c.trim().toLowerCase());
+              }
+            }
+            updated.careerInterests = nextCareer;
+          }
+          if (u.internshipPreferences && typeof u.internshipPreferences === 'object') {
+            const p = u.internshipPreferences;
+            updated.internshipPreferences = {
+              ...(prev.internshipPreferences || {}),
+              ...(typeof p.targetRole === 'string' && p.targetRole.trim() ? { targetRole: p.targetRole.trim() } : {}),
+              ...(typeof p.preferredIndustry === 'string' && p.preferredIndustry.trim()
+                ? { preferredIndustry: p.preferredIndustry.trim() }
+                : {}),
+              ...(typeof p.duration === 'string' && p.duration.trim() ? { duration: p.duration.trim() } : {}),
+              ...(p.workArrangement === 'Remote' ||
+              p.workArrangement === 'Hybrid' ||
+              p.workArrangement === 'Onsite' ||
+              p.workArrangement === 'Flexible'
+                ? { workArrangement: p.workArrangement }
+                : {}),
+              ...(typeof p.availabilityDate === 'string' && p.availabilityDate.trim()
+                ? { availabilityDate: p.availabilityDate.trim() }
+                : {}),
+              ...(Array.isArray(p.preferredTechnologies) && p.preferredTechnologies.length > 0
+                ? {
+                    preferredTechnologies: Array.from(
+                      new Set([
+                        ...(prev.internshipPreferences?.preferredTechnologies || []),
+                        ...p.preferredTechnologies
+                          .filter((t: unknown): t is string => typeof t === 'string' && t.trim().length > 0)
+                          .map((t: string) => t.trim()),
+                      ])
+                    ),
+                  }
+                : {}),
+            };
           }
           if (typeof u.harvardLeadershipFirst === 'boolean') {
             updated.harvardLeadershipFirst = u.harvardLeadershipFirst;
@@ -443,7 +625,22 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
             updated.languages = [...(prev.languages || []), ...(u.languages as any)];
           }
           if (Array.isArray(u.skills) && u.skills.length > 0) {
-            updated.skills = [...(prev.skills || []), ...(u.skills as any)];
+            const sanitizedSkills = u.skills.map((cat: any, i: number) => ({
+              id: cat.id || `sk_${Date.now()}_${i}`,
+              category: typeof cat.category === 'string' ? cat.category : 'Skills',
+              skills: Array.isArray(cat.skills)
+                ? cat.skills.filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0).map((s: string) => s.trim())
+                : [],
+              ...(isInternshipResume
+                ? {
+                    proficiency:
+                      typeof cat.proficiency === 'number' && cat.proficiency >= 1 && cat.proficiency <= 5
+                        ? (Math.round(cat.proficiency) as 1 | 2 | 3 | 4 | 5)
+                        : null,
+                  }
+                : {}),
+            }));
+            updated.skills = [...(prev.skills || []), ...sanitizedSkills];
           }
           if (Array.isArray(u.skillMatrix) && u.skillMatrix.length > 0) {
             const sanitizedMatrix = u.skillMatrix.map((m: any, i: number) => ({
@@ -553,6 +750,12 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     ? 'Build Harvard Style Resume with AI'
                     : isElegantSerif
                     ? 'Build Elegant Serif CV with AI'
+                    : isModernCorporate
+                    ? 'Build Modern Corporate CV with AI'
+                    : isFresherResume
+                    ? 'Build Fresher Resume with AI'
+                    : isInternshipResume
+                    ? 'Build Internship Resume with AI'
                     : isClassic
                     ? 'Build Classic Professional CV with AI'
                     : isTwoColumn
@@ -886,6 +1089,85 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                         <span>
                           Skills &amp; Languages: {(stagedResume.skills?.length || 0) + (stagedResume.languages?.length || 0)}
                         </span>
+                      </div>
+                    </div>
+                  </>
+                ) : isModernCorporate ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-[#3873b3]" />
+                        <span>Core Competencies: {stagedResume.strengths?.length || 0} listed</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Skills &amp; Certs: {(stagedResume.skills?.length || 0) + (stagedResume.certifications?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>Languages: {stagedResume.languages?.length || 0} listed</span>
+                      </div>
+                    </div>
+                  </>
+                ) : isFresherResume ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-[#3b6998]" />
+                        <span>Keywords &amp; Coursework: {(stagedResume.strengths?.length || 0) + (stagedResume.coursework?.length || 0)}</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Skills &amp; Certs: {(stagedResume.skills?.length || 0) + (stagedResume.certifications?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>
+                          Awards &amp; Leadership: {(stagedResume.achievements?.length || 0) + (stagedResume.leadership?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : isInternshipResume ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-slate-700" />
+                        <span>Learning Activities: {stagedResume.learningActivities?.length || 0}</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-indigo-600" />
+                        <span>
+                          Research &amp; Projects: {(stagedResume.researchExperience?.length || 0) + (stagedResume.projects?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Career Interests &amp; Skills: {(stagedResume.careerInterests?.length || 0)} / {(stagedResume.skills?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>Co-Curricular &amp; Awards: {stagedResume.achievements?.length || 0}</span>
                       </div>
                     </div>
                   </>

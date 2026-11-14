@@ -17,8 +17,11 @@ import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
+  SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
+  SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
 } from '../../data/sampleResumes';
@@ -64,6 +67,12 @@ export const TemplatesGalleryPage: React.FC<TemplatesGalleryPageProps> = ({
         ? SAMPLE_HARVARD_CV
         : templateId === 'elegant-serif'
         ? SAMPLE_ELEGANT_SERIF_CV
+        : templateId === 'modern-corporate'
+        ? SAMPLE_MODERN_CORPORATE_CV
+        : templateId === 'fresher-resume'
+        ? SAMPLE_FRESHER_RESUME_CV
+        : templateId === 'internship-resume'
+        ? SAMPLE_INTERNSHIP_RESUME_CV
         : SAMPLE_ACADEMIC_CV;
     return {
       ...sampleBase,

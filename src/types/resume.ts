@@ -39,10 +39,13 @@ export interface ExperienceItem {
   id: string;
   company: string;
   position: string;
+  department?: string;
+  teamSize?: string;
   location?: string;
   employmentType?: string; // Full-time, Internship, Postdoctoral Fellow, Graduate Assistant, etc.
   category?: ExperienceCategory;
   description?: string;
+  results?: string;
   startDate: string;
   endDate: string;
   current: boolean;
@@ -50,6 +53,7 @@ export interface ExperienceItem {
   subHighlights?: ExperienceSubHighlights[];
   technologies?: string[];
   skillsDemonstrated?: string[];
+  skillsLearned?: string[];
 }
 
 export interface ResearchExperienceItem {
@@ -82,6 +86,8 @@ export interface EducationItem {
   endDate: string;
   current: boolean;
   grade?: string; // GPA / CGPA / Grade
+  gradingScale?: string; // e.g. 4.00, 10.00, Percentage
+  board?: string; // Optional high school / board / university system
   thesisTitle?: string; // Optional Thesis title (Harvard & Academic)
   dissertationDetails?: string;
   coursework?: string[] | string; // Optional per-entry relevant coursework
@@ -102,7 +108,9 @@ export interface StudyAbroadItem {
 
 export interface HighSchoolItem {
   id: string;
+  qualification?: string; // e.g. Senior Secondary Education, High School Diploma, Secondary Education
   schoolName: string;
+  board?: string; // e.g. Central Board of Secondary Education, ICSE, State Board
   location?: string; // City and state / country
   graduationDate: string;
   gpa?: string;
@@ -118,13 +126,14 @@ export interface MasterThesisInfo {
   description?: string;
 }
 
+export type SkillMatrixLevel = 1 | 2 | 3 | 4 | 5;
+
 export interface SkillCategory {
   id: string;
   category: string;
   skills: string[];
+  proficiency?: SkillMatrixLevel | null; // Optional explicit user-confirmed rating (1..5); null/undefined renders NO dots
 }
-
-export type SkillMatrixLevel = 1 | 2 | 3 | 4 | 5;
 
 export interface SkillMatrixItem {
   id: string;
@@ -216,9 +225,55 @@ export interface AwardItem {
   issuer: string;
   date: string;
   category?: string;
+  participationType?: string; // Competition, Hackathon, Club, Volunteer Event, Scholarship, Organization
+  teamType?: 'Individual' | 'Team';
+  role?: string;
+  responsibilities?: string;
+  outcome?: string;
+  rank?: string;
+  url?: string;
   achievementDetails?: string;
   description?: string;
   icon?: 'trophy' | 'heart' | 'award' | 'star';
+}
+
+export type LearningActivityType =
+  | 'Course'
+  | 'Workshop'
+  | 'Bootcamp'
+  | 'Lab Training'
+  | 'Online Course'
+  | 'Certification Prep'
+  | 'Other';
+
+export interface LearningActivityItem {
+  id: string;
+  title: string;
+  activityType?: LearningActivityType;
+  subject?: string;
+  provider?: string;
+  instructor?: string;
+  completionDate?: string;
+  certificateId?: string;
+  credentialUrl?: string;
+  skillsAcquired?: string[];
+  description?: string;
+}
+
+export type InternshipTrack =
+  | 'cs'
+  | 'cybersecurity'
+  | 'ece'
+  | 'research'
+  | 'non-technical';
+
+export interface InternshipPreferences {
+  targetRole?: string;
+  preferredIndustry?: string;
+  duration?: string;
+  workArrangement?: 'Remote' | 'Hybrid' | 'Onsite' | 'Flexible' | '';
+  availabilityDate?: string;
+  preferredTechnologies?: string[];
 }
 
 export type AchievementItem = AwardItem;
@@ -263,6 +318,7 @@ export interface CertificationItem {
   expirationDate?: string;
   credentialId?: string;
   link?: string;
+  skillsCovered?: string[];
 }
 
 export interface LanguageItem {
@@ -321,11 +377,13 @@ export type TemplateHeadingStyle =
   | 'uppercase-rule'
   | 'title-rule'
   | 'classic-blue-rule'
+  | 'moderncv-bar'
   | 'burgundy-gold-rule'
   | 'left-accent'
   | 'filled-band'
   | 'clean-caps'
-  | 'italic-serif';
+  | 'italic-serif'
+  | 'internship-rule';
 
 export interface TemplateCustomization {
   fontFamily: CvFontFamily;
@@ -365,7 +423,23 @@ export interface Resume {
   achievements: AwardItem[];
   leadership?: LeadershipItem[];
   harvardLeadershipFirst?: boolean;
-  targetBackground?: 'student' | 'fresher' | 'experienced' | 'researcher';
+  targetBackground?:
+    | 'student'
+    | 'fresher'
+    | 'experienced'
+    | 'researcher'
+    | 'corporate'
+    | 'technical';
+  fresherTrack?:
+    | 'engineering'
+    | 'cs'
+    | 'cybersecurity'
+    | 'non-technical'
+    | 'graduate';
+  internshipTrack?: InternshipTrack;
+  learningActivities?: LearningActivityItem[];
+  careerInterests?: string[];
+  internshipPreferences?: InternshipPreferences;
   volunteer?: VolunteerItem[];
   memberships?: MembershipItem[];
   certifications: CertificationItem[];

@@ -45,6 +45,10 @@ import {
   Code2,
   FlaskConical,
   RotateCcw,
+  Compass,
+  CheckCircle2,
+  Clock,
+  MinusCircle,
 } from 'lucide-react';
 import type {
   Resume,
@@ -68,6 +72,10 @@ import type {
   PublicationItem,
   PublicationType,
   AwardItem,
+  LearningActivityItem,
+  LearningActivityType,
+  InternshipTrack,
+  InternshipPreferences,
   LeadershipItem,
   VolunteerItem,
   MembershipItem,
@@ -79,6 +87,9 @@ import { saveResume } from '../../services/resumeService';
 import {
   TEMPLATE_DEFINITIONS,
   ELEGANT_SERIF_ORDER,
+  MODERN_CORPORATE_ORDER,
+  FRESHER_RESUME_ORDER,
+  INTERNSHIP_RESUME_ORDER,
   getTemplateById,
   resolveTemplateId,
   type ResumeSectionKey,
@@ -90,6 +101,9 @@ import {
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_HARVARD_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_MODERN_CORPORATE_CV,
+  SAMPLE_FRESHER_RESUME_CV,
+  SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
   SAMPLE_STUDENT_CV,
@@ -202,7 +216,9 @@ type EditorSectionId =
   | 'technologies-frameworks'
   | 'skill-matrix'
   | 'strengths'
+  | 'learning'
   | 'interests'
+  | 'career-interests'
   | 'custom-sections'
   | 'awards'
   | 'leadership'
@@ -342,6 +358,139 @@ const getElegantSerifSections = (orderOverride?: string[]): SectionConfig[] => {
   ];
 };
 
+const MODERN_CORPORATE_SECTION_CATALOG: Partial<
+  Record<
+    ResumeSectionKey,
+    { editorId: EditorSectionId; baseLabel: string; icon: React.ComponentType<{ className?: string }>; optional?: boolean }
+  >
+> = {
+  objective: { editorId: 'objective', baseLabel: 'Professional Summary', icon: FileText, optional: true },
+  experience: { editorId: 'experience', baseLabel: 'Work Experience', icon: Briefcase },
+  strengths: { editorId: 'strengths', baseLabel: 'Core Competencies', icon: Sparkles, optional: true },
+  education: { editorId: 'education', baseLabel: 'Education', icon: GraduationCap },
+  skills: { editorId: 'skills', baseLabel: 'Technical Skills', icon: Wrench, optional: true },
+  projects: { editorId: 'projects', baseLabel: 'Projects', icon: FolderGit2, optional: true },
+  certifications: { editorId: 'certifications', baseLabel: 'Certifications', icon: Award, optional: true },
+  achievements: { editorId: 'awards', baseLabel: 'Awards & Achievements', icon: Trophy, optional: true },
+  languages: { editorId: 'languages', baseLabel: 'Languages', icon: Globe, optional: true },
+  leadership: { editorId: 'leadership', baseLabel: 'Leadership & Activities', icon: Users, optional: true },
+  memberships: { editorId: 'memberships', baseLabel: 'Professional Memberships', icon: BadgeCheck, optional: true },
+  interests: { editorId: 'interests', baseLabel: 'Interests', icon: Heart, optional: true },
+  references: { editorId: 'references', baseLabel: 'References', icon: Contact, optional: true },
+  'custom-sections': { editorId: 'custom-sections', baseLabel: 'Custom Sections', icon: Layers, optional: true },
+};
+
+const getNormalizedModernCorporateOrder = (orderOverride?: string[]): ResumeSectionKey[] => {
+  const validSet = new Set<ResumeSectionKey>(MODERN_CORPORATE_ORDER);
+  const custom = (orderOverride || []).filter(
+    (k): k is ResumeSectionKey => validSet.has(k as ResumeSectionKey)
+  );
+  const seen = new Set<ResumeSectionKey>(custom);
+  return [...custom, ...MODERN_CORPORATE_ORDER.filter((k) => !seen.has(k))];
+};
+
+const getModernCorporateSections = (orderOverride?: string[]): SectionConfig[] => {
+  const orderedKeys = getNormalizedModernCorporateOrder(orderOverride);
+  return [
+    { id: 'header', label: '1. Header, Contacts & Photo', icon: User },
+    ...orderedKeys.map((key, idx) => {
+      const meta = MODERN_CORPORATE_SECTION_CATALOG[key]!;
+      return {
+        id: meta.editorId,
+        label: `${idx + 2}. ${meta.baseLabel}`,
+        icon: meta.icon,
+      };
+    }),
+  ];
+};
+
+const FRESHER_RESUME_SECTION_CATALOG: Partial<
+  Record<
+    ResumeSectionKey,
+    { editorId: EditorSectionId; baseLabel: string; icon: React.ComponentType<{ className?: string }>; optional?: boolean }
+  >
+> = {
+  education: { editorId: 'education', baseLabel: 'Education', icon: GraduationCap },
+  projects: { editorId: 'projects', baseLabel: 'Projects', icon: FolderGit2 },
+  experience: { editorId: 'experience', baseLabel: 'Experience / Internships', icon: Briefcase, optional: true },
+  coursework: { editorId: 'coursework', baseLabel: 'Relevant Coursework', icon: BookOpen, optional: true },
+  skills: { editorId: 'skills', baseLabel: 'Skills', icon: Wrench },
+  publications: { editorId: 'publications', baseLabel: 'Publications', icon: BookMarked, optional: true },
+  achievements: { editorId: 'awards', baseLabel: 'Awards & Honors', icon: Trophy, optional: true },
+  certifications: { editorId: 'certifications', baseLabel: 'Certifications', icon: Award, optional: true },
+  leadership: { editorId: 'leadership', baseLabel: 'Leadership & Activities', icon: Users, optional: true },
+  volunteer: { editorId: 'volunteer', baseLabel: 'Volunteer Experience', icon: HeartHandshake, optional: true },
+  languages: { editorId: 'languages', baseLabel: 'Languages', icon: Globe, optional: true },
+  additional: { editorId: 'additional', baseLabel: 'Interests & Additional Info', icon: Heart, optional: true },
+  'custom-sections': { editorId: 'custom-sections', baseLabel: 'Custom Sections', icon: Layers, optional: true },
+};
+
+const getNormalizedFresherResumeOrder = (orderOverride?: string[]): ResumeSectionKey[] => {
+  const validSet = new Set<ResumeSectionKey>(FRESHER_RESUME_ORDER);
+  const custom = (orderOverride || []).filter(
+    (k): k is ResumeSectionKey => validSet.has(k as ResumeSectionKey)
+  );
+  const seen = new Set<ResumeSectionKey>(custom);
+  return [...custom, ...FRESHER_RESUME_ORDER.filter((k) => !seen.has(k))];
+};
+
+const getFresherResumeSections = (orderOverride?: string[]): SectionConfig[] => {
+  const orderedKeys = getNormalizedFresherResumeOrder(orderOverride);
+  return [
+    { id: 'header', label: '1. Header & Contact Links', icon: User },
+    { id: 'objective', label: '2. Highlights & Impact Summary', icon: FileText },
+    ...orderedKeys.map((key, idx) => {
+      const meta = FRESHER_RESUME_SECTION_CATALOG[key]!;
+      return {
+        id: meta.editorId,
+        label: `${idx + 3}. ${meta.baseLabel}`,
+        icon: meta.icon,
+      };
+    }),
+  ];
+};
+
+const INTERNSHIP_RESUME_SECTIONS: SectionConfig[] = [
+  { id: 'header', label: '1. Personal Info', icon: User },
+  { id: 'education', label: '2. Education', icon: GraduationCap },
+  { id: 'learning', label: '3. Learning & Training', icon: BookOpen },
+  { id: 'interests', label: '4. Interests', icon: Heart },
+  { id: 'research', label: '5. Research Work & Projects', icon: FlaskConical },
+  { id: 'career-interests', label: '6. Career Interests', icon: Compass },
+  { id: 'awards', label: '7. Co-Curricular & Events', icon: Trophy },
+  { id: 'skills', label: '8. Technical Skills', icon: Wrench },
+  { id: 'experience', label: '9. Internship Experience (Opt.)', icon: Briefcase },
+  { id: 'custom-sections', label: '10. Additional Info & Review', icon: Layers },
+];
+
+const INTERNSHIP_RESUME_SECTION_CATALOG: Partial<
+  Record<
+    ResumeSectionKey,
+    { editorId: EditorSectionId; baseLabel: string; icon: React.ComponentType<{ className?: string }>; optional?: boolean }
+  >
+> = {
+  education: { editorId: 'education', baseLabel: 'Education', icon: GraduationCap },
+  learning: { editorId: 'learning', baseLabel: 'Learning', icon: BookOpen, optional: true },
+  interests: { editorId: 'interests', baseLabel: 'Interests', icon: Heart, optional: true },
+  achievements: { editorId: 'awards', baseLabel: 'Co-Curricular / Events', icon: Trophy, optional: true },
+  research: { editorId: 'research', baseLabel: 'Research Work & Projects', icon: FlaskConical },
+  skills: { editorId: 'skills', baseLabel: 'Skills', icon: Wrench },
+  'career-interests': { editorId: 'career-interests', baseLabel: 'Career Interests', icon: Compass, optional: true },
+  experience: { editorId: 'experience', baseLabel: 'Internship Experience', icon: Briefcase, optional: true },
+  certifications: { editorId: 'custom-sections', baseLabel: 'Certifications', icon: Award, optional: true },
+  languages: { editorId: 'custom-sections', baseLabel: 'Languages', icon: Globe, optional: true },
+  'custom-sections': { editorId: 'custom-sections', baseLabel: 'Additional Info & Custom', icon: Layers, optional: true },
+};
+
+const getNormalizedInternshipResumeOrder = (orderOverride?: string[]): ResumeSectionKey[] => {
+  const validSet = new Set<ResumeSectionKey>(INTERNSHIP_RESUME_ORDER);
+  const custom = (orderOverride || []).filter(
+    (k): k is ResumeSectionKey => validSet.has(k as ResumeSectionKey)
+  );
+  const seen = new Set<ResumeSectionKey>(custom);
+  return [...custom, ...INTERNSHIP_RESUME_ORDER.filter((k) => !seen.has(k))];
+};
+
 const JAKES_EDITOR_SECTIONS = new Set<EditorSectionId>([
   'header',
   'education',
@@ -370,6 +519,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const [courseworkDraft, setCourseworkDraft] = useState('');
   const [strengthDraft, setStrengthDraft] = useState('');
   const [labSkillDraft, setLabSkillDraft] = useState('');
+  const [careerInterestDraft, setCareerInterestDraft] = useState('');
   const [skillBucketDraft, setSkillBucketDraft] = useState<Record<SoftwareDevSkillBucketKey, string>>({
     'programming-languages': '',
     'developer-tools': '',
@@ -401,7 +551,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const isSoftwareDevTemplate = activeTemplateId === 'software-developer';
   const isHarvardTemplate = activeTemplateId === 'harvard-style';
   const isElegantSerifTemplate = activeTemplateId === 'elegant-serif';
+  const isModernCorporateTemplate = activeTemplateId === 'modern-corporate';
+  const isFresherResumeTemplate = activeTemplateId === 'fresher-resume';
+  const isInternshipResumeTemplate = activeTemplateId === 'internship-resume';
   const ELEGANT_SERIF_SECTIONS = getElegantSerifSections(resume.sectionOrderOverride);
+  const MODERN_CORPORATE_SECTIONS = getModernCorporateSections(resume.sectionOrderOverride);
+  const FRESHER_RESUME_SECTIONS = getFresherResumeSections(resume.sectionOrderOverride);
   const sidebarSections = isTwoColumnTemplate
     ? TWO_COLUMN_SECTIONS
     : isClassicTemplate
@@ -412,6 +567,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? HARVARD_SECTIONS
     : isElegantSerifTemplate
     ? ELEGANT_SERIF_SECTIONS
+    : isModernCorporateTemplate
+    ? MODERN_CORPORATE_SECTIONS
+    : isFresherResumeTemplate
+    ? FRESHER_RESUME_SECTIONS
+    : isInternshipResumeTemplate
+    ? INTERNSHIP_RESUME_SECTIONS
     : SECTIONS;
   const navSections = isTwoColumnTemplate
     ? TWO_COLUMN_SECTIONS
@@ -423,6 +584,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? HARVARD_SECTIONS
     : isElegantSerifTemplate
     ? ELEGANT_SERIF_SECTIONS
+    : isModernCorporateTemplate
+    ? MODERN_CORPORATE_SECTIONS
+    : isFresherResumeTemplate
+    ? FRESHER_RESUME_SECTIONS
+    : isInternshipResumeTemplate
+    ? INTERNSHIP_RESUME_SECTIONS
     : isJakesTemplate
     ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
     : SECTIONS;
@@ -430,9 +597,18 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const dailyValidation = validateDailyActivities(resume.dailyActivities || []);
 
   const sectionReportToEditorId = (sectionId: string): EditorSectionId => {
-    if (isTwoColumnTemplate || isSoftwareDevTemplate || isHarvardTemplate || isElegantSerifTemplate) {
+    if (
+      isTwoColumnTemplate ||
+      isSoftwareDevTemplate ||
+      isHarvardTemplate ||
+      isElegantSerifTemplate ||
+      isModernCorporateTemplate ||
+      isFresherResumeTemplate ||
+      isInternshipResumeTemplate
+    ) {
       if (sectionId === 'personalInfo' || sectionId === 'header') return 'header';
       if (sectionId === 'achievements') return 'awards';
+      if (isFresherResumeTemplate && sectionId === 'strengths') return 'objective';
       return sectionId as EditorSectionId;
     }
     if (isClassicTemplate) {
@@ -467,7 +643,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         suggestions: [],
       };
     }
-    if (isTwoColumnTemplate || isSoftwareDevTemplate || isHarvardTemplate || isElegantSerifTemplate) {
+    if (
+      isTwoColumnTemplate ||
+      isSoftwareDevTemplate ||
+      isHarvardTemplate ||
+      isElegantSerifTemplate ||
+      isModernCorporateTemplate ||
+      isFresherResumeTemplate ||
+      isInternshipResumeTemplate
+    ) {
       const mapped = editorId === 'awards' ? 'achievements' : editorId;
       return completenessReport.sections.find(
         (s) => s.sectionId === editorId || s.sectionId === mapped
@@ -552,6 +736,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         ? HARVARD_SECTIONS
         : nextTemplate.id === 'elegant-serif'
         ? getElegantSerifSections(updated.sectionOrderOverride)
+        : nextTemplate.id === 'modern-corporate'
+        ? getModernCorporateSections(updated.sectionOrderOverride)
+        : nextTemplate.id === 'fresher-resume'
+        ? getFresherResumeSections(updated.sectionOrderOverride)
+        : nextTemplate.id === 'internship-resume'
+        ? INTERNSHIP_RESUME_SECTIONS
         : nextTemplate.id === 'jakes-resume'
         ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
         : SECTIONS;
@@ -575,6 +765,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'software-developer'
       | 'harvard'
       | 'elegant-serif'
+      | 'modern-corporate'
+      | 'fresher-resume'
+      | 'internship-resume'
       | 'experienced'
       | 'fresher'
       | 'student'
@@ -605,6 +798,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       case 'elegant-serif':
         sampleBase = SAMPLE_ELEGANT_SERIF_CV;
         break;
+      case 'modern-corporate':
+        sampleBase = SAMPLE_MODERN_CORPORATE_CV;
+        break;
+      case 'fresher-resume':
+        sampleBase = SAMPLE_FRESHER_RESUME_CV;
+        break;
+      case 'internship-resume':
+        sampleBase = SAMPLE_INTERNSHIP_RESUME_CV;
+        break;
       case 'experienced':
         sampleBase = SAMPLE_EXPERIENCED_CV;
         break;
@@ -633,22 +835,28 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     onSave(updated);
   };
 
+  const isManagedAwardsAliasTemplate =
+    isElegantSerifTemplate ||
+    isModernCorporateTemplate ||
+    isFresherResumeTemplate ||
+    isInternshipResumeTemplate;
+
   const toCanonicalSectionKey = (sectionId: string): string =>
-    isElegantSerifTemplate && sectionId === 'awards' ? 'achievements' : sectionId;
+    isManagedAwardsAliasTemplate && sectionId === 'awards' ? 'achievements' : sectionId;
 
   const toggleSectionVisibility = (sectionId: string) => {
     const hidden = resume.hiddenSections || [];
     const canonical = toCanonicalSectionKey(sectionId);
     const isCurrentlyHidden =
       hidden.includes(sectionId) ||
-      (isElegantSerifTemplate &&
+      (isManagedAwardsAliasTemplate &&
         (hidden.includes(canonical) ||
           (canonical === 'achievements' && hidden.includes('awards'))));
     const cleaned = hidden.filter(
       (id) =>
         id !== sectionId &&
         id !== canonical &&
-        !(isElegantSerifTemplate && canonical === 'achievements' && id === 'awards')
+        !(isManagedAwardsAliasTemplate && canonical === 'achievements' && id === 'awards')
     );
     const newHidden = isCurrentlyHidden ? cleaned : [...cleaned, canonical];
     updateField('hiddenSections', newHidden);
@@ -657,17 +865,23 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const isSectionHidden = (sectionId: string) => {
     const hidden = resume.hiddenSections || [];
     if (hidden.includes(sectionId)) return true;
-    if (isElegantSerifTemplate && sectionId === 'awards') {
+    if (isManagedAwardsAliasTemplate && sectionId === 'awards') {
       return hidden.includes('achievements');
     }
-    if (isElegantSerifTemplate && sectionId === 'achievements') {
+    if (isManagedAwardsAliasTemplate && sectionId === 'achievements') {
       return hidden.includes('awards');
     }
     return false;
   };
 
   const moveElegantSerifSection = (key: ResumeSectionKey, delta: -1 | 1) => {
-    const currentOrder = getNormalizedElegantSerifOrder(resume.sectionOrderOverride);
+    const currentOrder = isModernCorporateTemplate
+      ? getNormalizedModernCorporateOrder(resume.sectionOrderOverride)
+      : isFresherResumeTemplate
+      ? getNormalizedFresherResumeOrder(resume.sectionOrderOverride)
+      : isInternshipResumeTemplate
+      ? getNormalizedInternshipResumeOrder(resume.sectionOrderOverride)
+      : getNormalizedElegantSerifOrder(resume.sectionOrderOverride);
     const idx = currentOrder.indexOf(key);
     const target = idx + delta;
     if (idx < 0 || target < 0 || target >= currentOrder.length) return;
@@ -1137,6 +1351,82 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       (resume.skills || []).filter((c) => c.id !== id)
     );
   };
+  const updateSkillCategoryProficiency = (id: string, proficiency: SkillMatrixLevel | null) => {
+    updateField(
+      'skills',
+      (resume.skills || []).map((c) => (c.id === id ? { ...c, proficiency } : c))
+    );
+  };
+
+  // Learning Activities (Internship Resume)
+  const addLearningActivity = () => {
+    const item: LearningActivityItem = {
+      id: `learn_${Date.now()}`,
+      title: '',
+      activityType: 'Course',
+      subject: '',
+      provider: '',
+      instructor: '',
+      completionDate: '',
+      certificateId: '',
+      credentialUrl: '',
+      skillsAcquired: [],
+      description: '',
+    };
+    updateField('learningActivities', [...(resume.learningActivities || []), item]);
+  };
+  const updateLearningActivity = (id: string, updates: Partial<LearningActivityItem>) => {
+    updateField(
+      'learningActivities',
+      (resume.learningActivities || []).map((l) => (l.id === id ? { ...l, ...updates } : l))
+    );
+  };
+  const deleteLearningActivity = (id: string) => {
+    updateField(
+      'learningActivities',
+      (resume.learningActivities || []).filter((l) => l.id !== id)
+    );
+  };
+  const moveLearningActivity = (index: number, delta: -1 | 1) => {
+    const arr = [...(resume.learningActivities || [])];
+    const target = index + delta;
+    if (target < 0 || target >= arr.length) return;
+    const [moved] = arr.splice(index, 1);
+    arr.splice(target, 0, moved);
+    updateField('learningActivities', arr);
+  };
+
+  // Internship Career Interests & Preferences (Template 10)
+  const updateInternshipPreferences = (updates: Partial<InternshipPreferences>) => {
+    updateField('internshipPreferences', {
+      ...(resume.internshipPreferences || {}),
+      ...updates,
+    });
+  };
+  const addCareerInterestsFromDraft = () => {
+    const incoming = careerInterestDraft
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (incoming.length === 0) return;
+    const existing = resume.careerInterests || [];
+    const seen = new Set(existing.map((c) => c.toLowerCase()));
+    const next = [...existing];
+    for (const item of incoming) {
+      if (!seen.has(item.toLowerCase())) {
+        next.push(item);
+        seen.add(item.toLowerCase());
+      }
+    }
+    updateField('careerInterests', next);
+    setCareerInterestDraft('');
+  };
+  const removeCareerInterestTag = (index: number) => {
+    updateField(
+      'careerInterests',
+      (resume.careerInterests || []).filter((_, i) => i !== index)
+    );
+  };
 
   // Awards
   const addAward = () => {
@@ -1579,6 +1869,27 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               Elegant Serif
             </button>
             <button
+              onClick={() => handleLoadProfile('modern-corporate')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-[#3873b3] font-semibold rounded shadow-xs"
+              title="Modern Corporate (ModernCV Classic) Sample"
+            >
+              Modern Corporate
+            </button>
+            <button
+              onClick={() => handleLoadProfile('fresher-resume')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-[#3b6998] font-semibold rounded shadow-xs"
+              title="Fresher Resume (Overleaf Students & Fresh Graduates) Sample"
+            >
+              Fresher Resume
+            </button>
+            <button
+              onClick={() => handleLoadProfile('internship-resume')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-900 font-semibold rounded shadow-xs"
+              title="Internship Resume (Two-Column Student Application) Sample"
+            >
+              Internship
+            </button>
+            <button
               onClick={() => handleLoadProfile('student')}
               className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-800 font-medium rounded shadow-xs"
               title="Undergraduate Student"
@@ -1834,6 +2145,486 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         </div>
       )}
 
+      {/* Modern Corporate Context, Persona Mode & Section Manager Banner */}
+      {isModernCorporateTemplate && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-5 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-[#3873b3]">Modern Corporate (ModernCV Classic) Mode:</span>{' '}
+              <span className="text-slate-600">
+                Select your career profile and reorder or hide sections cleanly. Empty optional sections are omitted automatically without deleting saved data.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {(
+                [
+                  { value: 'corporate', label: 'Corporate & Mgmt' },
+                  { value: 'experienced', label: 'Experienced' },
+                  { value: 'student', label: 'Student' },
+                  { value: 'fresher', label: 'Fresher' },
+                  { value: 'technical', label: 'Technical' },
+                ] as const
+              ).map((opt) => {
+                const active = (resume.targetBackground || 'corporate') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('targetBackground', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-[#3873b3] text-white border-[#3873b3]'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowSectionManager((prev) => !prev)}
+                aria-expanded={showSectionManager}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{showSectionManager ? 'Hide Section Manager' : 'Manage Sections'}</span>
+              </button>
+            </div>
+          </div>
+
+          {showSectionManager && (
+            <div className="pt-3 border-t border-slate-200 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Section Order &amp; Visibility (Hidden sections keep all saved entries)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('custom-sections')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Custom Section</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetElegantSerifLayout}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Order &amp; Visibility</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {getNormalizedModernCorporateOrder(resume.sectionOrderOverride).map((secKey, idx, arr) => {
+                  const meta = MODERN_CORPORATE_SECTION_CATALOG[secKey];
+                  if (!meta) return null;
+                  const hidden = isSectionHidden(secKey);
+                  return (
+                    <div
+                      key={secKey}
+                      className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded border text-xs bg-white ${
+                        hidden ? 'border-slate-200 opacity-65' : 'border-slate-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(meta.editorId)}
+                        className={`text-left truncate font-medium flex-1 cursor-pointer hover:underline ${
+                          hidden ? 'line-through text-slate-500' : 'text-slate-800'
+                        }`}
+                      >
+                        {idx + 1}. {meta.baseLabel}
+                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, -1)}
+                          disabled={idx === 0}
+                          aria-label={`Move ${meta.baseLabel} up`}
+                          title="Move section up"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, 1)}
+                          disabled={idx === arr.length - 1}
+                          aria-label={`Move ${meta.baseLabel} down`}
+                          title="Move section down"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionVisibility(secKey)}
+                          aria-label={hidden ? `Show ${meta.baseLabel}` : `Hide ${meta.baseLabel}`}
+                          title={hidden ? 'Show section' : 'Hide section without deleting data'}
+                          className={`p-1 rounded cursor-pointer ${
+                            hidden
+                              ? 'text-amber-600 hover:text-amber-800'
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Fresher Resume Track Selector & Section Manager Banner */}
+      {isFresherResumeTemplate && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-5 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-[#3b6998]">Fresher Resume Track &amp; Layout:</span>{' '}
+              <span className="text-slate-600">
+                Select your academic/career track and reorder or hide sections cleanly. Empty optional sections (including Internships if none) omit automatically without deleting data.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {(
+                [
+                  { value: 'engineering', label: 'Engineering' },
+                  { value: 'cs', label: 'Computer Science' },
+                  { value: 'cybersecurity', label: 'Cybersecurity' },
+                  { value: 'non-technical', label: 'Non-Technical' },
+                  { value: 'graduate', label: 'Recent Graduate' },
+                ] as const
+              ).map((opt) => {
+                const active = (resume.fresherTrack || 'cs') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('fresherTrack', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-[#3b6998] text-white border-[#3b6998]'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowSectionManager((prev) => !prev)}
+                aria-expanded={showSectionManager}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{showSectionManager ? 'Hide Section Manager' : 'Manage Sections'}</span>
+              </button>
+            </div>
+          </div>
+
+          {showSectionManager && (
+            <div className="pt-3 border-t border-slate-200 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Section Order &amp; Visibility (Hidden sections keep all saved entries)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('custom-sections')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Custom Section</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetElegantSerifLayout}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Order &amp; Visibility</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {getNormalizedFresherResumeOrder(resume.sectionOrderOverride).map((secKey, idx, arr) => {
+                  const meta = FRESHER_RESUME_SECTION_CATALOG[secKey];
+                  if (!meta) return null;
+                  const hidden = isSectionHidden(secKey);
+                  return (
+                    <div
+                      key={secKey}
+                      className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded border text-xs bg-white ${
+                        hidden ? 'border-slate-200 opacity-65' : 'border-slate-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(meta.editorId)}
+                        className={`text-left truncate font-medium flex-1 cursor-pointer hover:underline ${
+                          hidden ? 'line-through text-slate-500' : 'text-slate-800'
+                        }`}
+                      >
+                        {idx + 1}. {meta.baseLabel}
+                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, -1)}
+                          disabled={idx === 0}
+                          aria-label={`Move ${meta.baseLabel} up`}
+                          title="Move section up"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, 1)}
+                          disabled={idx === arr.length - 1}
+                          aria-label={`Move ${meta.baseLabel} down`}
+                          title="Move section down"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionVisibility(secKey)}
+                          aria-label={hidden ? `Show ${meta.baseLabel}` : `Hide ${meta.baseLabel}`}
+                          title={hidden ? 'Show section' : 'Hide section without deleting data'}
+                          className={`p-1 rounded cursor-pointer ${
+                            hidden
+                              ? 'text-amber-600 hover:text-amber-800'
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Internship Resume (Template 10) Track Selector, 10-Step Completion Tracker & Section Manager */}
+      {isInternshipResumeTemplate && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3.5 mb-5 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-slate-900">
+                Internship Resume — Guided 10-Step Track:
+              </span>{' '}
+              <span className="text-slate-600">
+                Select your internship track. Empty optional sections (Learning, Co-Curricular, Career Interests, Prior Internships) hide automatically with zero penalty.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {(
+                [
+                  { value: 'cs', label: 'CS / Software' },
+                  { value: 'cybersecurity', label: 'Cybersecurity' },
+                  { value: 'ece', label: 'ECE / Hardware' },
+                  { value: 'research', label: 'Research' },
+                  { value: 'non-technical', label: 'Non-Technical' },
+                ] as { value: InternshipTrack; label: string }[]
+              ).map((opt) => {
+                const active = (resume.internshipTrack || 'cs') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('internshipTrack', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setShowSectionManager((prev) => !prev)}
+                aria-expanded={showSectionManager}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold border border-slate-300 bg-white text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>{showSectionManager ? 'Hide Section Manager' : 'Manage Sections'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 10-Step Guided Completion Tracker */}
+          <div className="pt-2.5 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                10-Step Guided Progress ({completenessReport.overallScore}% Ready)
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Click any step to jump directly
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+              {INTERNSHIP_RESUME_SECTIONS.map((step) => {
+                const statusInfo = getEditorSectionStatus(step.id);
+                const statusLabel = statusInfo?.statusLabel || 'Optional / Skipped';
+                const isCurrent = activeSection === step.id;
+                const badgeStyle =
+                  statusLabel === 'Completed'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : statusLabel === 'In Progress'
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : statusLabel === 'Not Started'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                    : 'text-slate-500 bg-slate-100 border-slate-200';
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setActiveSection(step.id)}
+                    className={`flex flex-col items-start justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-800 border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold truncate w-full">
+                      {step.label.replace(' (Opt.)', '')}
+                    </span>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                        isCurrent
+                          ? 'bg-white/15 text-white border-white/25'
+                          : badgeStyle
+                      }`}
+                    >
+                      {statusLabel === 'Completed' ? (
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'In Progress' ? (
+                        <Clock className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'Not Started' ? (
+                        <AlertCircle className="w-2.5 h-2.5" />
+                      ) : (
+                        <MinusCircle className="w-2.5 h-2.5" />
+                      )}
+                      <span>{statusLabel}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {showSectionManager && (
+            <div className="pt-3 border-t border-slate-200 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Section Order &amp; Visibility (Hidden sections preserve all saved entries)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('custom-sections')}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Custom Section</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetElegantSerifLayout}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Order &amp; Visibility</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {getNormalizedInternshipResumeOrder(resume.sectionOrderOverride).map((secKey, idx, arr) => {
+                  const meta = INTERNSHIP_RESUME_SECTION_CATALOG[secKey];
+                  if (!meta) return null;
+                  const hidden = isSectionHidden(secKey);
+                  return (
+                    <div
+                      key={secKey}
+                      className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded border text-xs bg-white ${
+                        hidden ? 'border-slate-200 opacity-65' : 'border-slate-300'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(meta.editorId)}
+                        className={`text-left truncate font-medium flex-1 cursor-pointer hover:underline ${
+                          hidden ? 'line-through text-slate-500' : 'text-slate-800'
+                        }`}
+                      >
+                        {idx + 1}. {meta.baseLabel}
+                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, -1)}
+                          disabled={idx === 0}
+                          aria-label={`Move ${meta.baseLabel} up`}
+                          title="Move section up"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveElegantSerifSection(secKey, 1)}
+                          disabled={idx === arr.length - 1}
+                          aria-label={`Move ${meta.baseLabel} down`}
+                          title="Move section down"
+                          className="p-1 text-slate-500 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                        >
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleSectionVisibility(secKey)}
+                          aria-label={hidden ? `Show ${meta.baseLabel}` : `Hide ${meta.baseLabel}`}
+                          title={hidden ? 'Show section' : 'Hide section without deleting data'}
+                          className={`p-1 rounded cursor-pointer ${
+                            hidden
+                              ? 'text-amber-600 hover:text-amber-800'
+                              : 'text-slate-500 hover:text-slate-900'
+                          }`}
+                        >
+                          {hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Editor Body: Sidebar + Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
@@ -1851,6 +2642,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 ? 'Harvard Style Sections'
                 : isElegantSerifTemplate
                 ? 'Elegant Serif Sections'
+                : isModernCorporateTemplate
+                ? 'Modern Corporate Sections'
+                : isFresherResumeTemplate
+                ? 'Fresher Resume Sections'
+                : isInternshipResumeTemplate
+                ? 'Internship Resume (10 Steps)'
                 : isJakesTemplate
                 ? "Resume Sections (Jake's)"
                 : isClassicTemplate
@@ -1878,6 +2675,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               isSoftwareDevTemplate ||
               isHarvardTemplate ||
               isElegantSerifTemplate ||
+              isModernCorporateTemplate ||
+              isFresherResumeTemplate ||
+              isInternshipResumeTemplate ||
               !isJakesTemplate ||
               JAKES_EDITOR_SECTIONS.has(sec.id);
 
@@ -1952,7 +2752,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             <section aria-labelledby="section-header-title">
               <div className="border-b border-slate-200 pb-3 mb-5">
                 <h2 id="section-header-title" className="text-lg font-bold text-slate-900">
-                  {isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate
+                  {isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate
                     ? 'Personal Header & Optional Photo'
                     : 'Personal Header'}
                 </h2>
@@ -1965,6 +2765,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     ? 'Centered full name with a single compact horizontal contact line below (street/city/postal/country, email, phone, and optional links). No photograph is displayed.'
                     : isElegantSerifTemplate
                     ? 'Monochrome editorial light-grey banner with centered large serif name, tagline, metadata (location, nationality, DOB), and clickable contact links. No photo is shown unless you upload one.'
+                    : isModernCorporateTemplate
+                    ? 'Overleaf ModernCV Classic split header: two-tone light sans-serif name and italic title on left, right-aligned italic icon contact stack and optional framed portrait on right.'
+                    : isFresherResumeTemplate
+                    ? 'Overleaf 3-column fresher header: Phone & Email on left, centered Name & Target Job Role in middle, and clickable LinkedIn / GitHub / Portfolio links on right. No photograph.'
+                    : isInternshipResumeTemplate
+                    ? 'Two-column Internship Resume header: bold uppercase name, headline below, and compact horizontal icon contact row (email, phone, location, LinkedIn, GitHub, portfolio). No photograph.'
                     : isClassicTemplate
                     ? 'Structured Classic Professional header with contact details, multiple phones, and an optional framed portrait photo.'
                     : isTwoColumnTemplate
@@ -1973,7 +2779,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </p>
               </div>
 
-              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate) && (
+              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
                 <div className="mb-5 p-4 rounded-xl border border-slate-200 bg-slate-50/70">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -1989,9 +2795,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               : resume.personalInfo.photoShape === 'square'
                               ? isElegantSerifTemplate
                                 ? 'w-16 h-16 border border-slate-800'
+                                : isModernCorporateTemplate
+                                ? 'w-16 h-16 border-2 border-[#3873b3]'
                                 : 'w-16 h-16 border-2 border-[#1e4e8c]'
                               : isElegantSerifTemplate
                               ? 'w-14 h-18 border border-slate-800'
+                              : isModernCorporateTemplate
+                              ? 'w-14 h-18 border-2 border-[#3873b3]'
                               : 'w-14 h-18 border-2 border-[#1e4e8c]'
                           }`}
                         />
@@ -2012,6 +2822,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         <p className="text-[11px] text-slate-500 mt-0.5 max-w-md">
                           {isElegantSerifTemplate
                             ? 'Hidden by default in Modern Simple CV. Upload an optional monochrome/portrait headshot only if required; leave empty for the clean borderless banner.'
+                            : isModernCorporateTemplate
+                            ? 'Optional in ModernCV Classic. Upload a framed corporate portrait on the top right only if desired; leave empty to omit cleanly.'
                             : isTwoColumnTemplate
                             ? 'Upload a JPG, PNG, or WebP headshot cropped to Circle (1:1), Square, or Portrait. Leave empty to omit cleanly.'
                             : 'Upload a JPG, PNG, or WebP headshot and crop to Classic Portrait (3:4) or Square (1:1). Leave empty to omit the photo cleanly.'}
@@ -2029,6 +2841,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             ? 'bg-[#8f131b] hover:bg-[#700d14]'
                             : isElegantSerifTemplate
                             ? 'bg-slate-900 hover:bg-black'
+                            : isModernCorporateTemplate
+                            ? 'bg-[#3873b3] hover:bg-[#2b5c91]'
                             : 'bg-[#1e4e8c] hover:bg-[#173d6e]'
                         }`}
                       >
@@ -2370,7 +3184,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   </>
                 )}
 
-                {(isSoftwareDevTemplate || isHarvardTemplate || isElegantSerifTemplate) &&
+                {(isSoftwareDevTemplate ||
+                  isHarvardTemplate ||
+                  isElegantSerifTemplate ||
+                  isModernCorporateTemplate ||
+                  isFresherResumeTemplate ||
+                  isInternshipResumeTemplate) &&
                   !isTwoColumnTemplate && (
                   <div className="sm:col-span-2 pt-3 border-t border-slate-200">
                     <div className="flex items-center justify-between mb-2">
@@ -2504,7 +3323,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   </>
                 )}
 
-                {isClassicTemplate && (
+                {(isClassicTemplate || isModernCorporateTemplate) && (
                   <>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -2553,7 +3372,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         type="text"
                         value={resume.personalInfo.additionalInfo || ''}
                         onChange={(e) => updatePersonalInfo('additionalInfo', e.target.value)}
-                        placeholder="e.g. EU Work Authorization · Nationality"
+                        placeholder="e.g. CFA Charterholder · EU & UK Work Authorization"
                         className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                     </div>
@@ -2569,17 +3388,21 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-objective-title" className="text-lg font-bold text-slate-900">
-                    {isClassicTemplate
+                    {isClassicTemplate || isModernCorporateTemplate
                       ? 'Professional Summary & Personal Quote'
                       : isElegantSerifTemplate
                       ? 'Professional Profile'
+                      : isFresherResumeTemplate
+                      ? 'Career Highlights & Impact Summary'
                       : 'Career Objective / Professional Summary'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {isClassicTemplate
-                      ? 'Concise professional overview plus an optional italic opening motto / quote displayed under your header.'
+                    {isClassicTemplate || isModernCorporateTemplate
+                      ? 'Concise executive summary plus an optional centered italic opening motto / quote displayed beneath your header.'
                       : isElegantSerifTemplate
                       ? 'Optional concise editorial profile statement, academic interests, and career goals.'
+                      : isFresherResumeTemplate
+                      ? 'Centered keyword highlights (separated by •) and concise 1–2 line Impact statement below the Overleaf 3-column header. Leave blank to hide.'
                       : 'Displayed underneath the OBJECTIVE section heading as a clean paragraph.'}
                   </p>
                 </div>
@@ -2589,10 +3412,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     onClick={() =>
                       handleOpenImprove(
                         resume.objective || '',
-                        isClassicTemplate
+                        isClassicTemplate || isModernCorporateTemplate
                           ? 'Professional Summary'
                           : isElegantSerifTemplate
                           ? 'Professional Profile'
+                          : isFresherResumeTemplate
+                          ? 'Impact Statement'
                           : 'Career Objective',
                         resume.targetRole,
                         (improved) => updateField('objective', improved)
@@ -2607,19 +3432,52 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               </div>
 
               <div className="space-y-4">
+                {isFresherResumeTemplate && (
+                  <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold text-slate-700">
+                        Header Keywords / Core Highlights (Optional, comma-separated)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => toggleSectionVisibility('strengths')}
+                        className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 underline cursor-pointer"
+                      >
+                        {isSectionHidden('strengths') ? 'Show Keywords Line' : 'Hide Keywords Line'}
+                      </button>
+                    </div>
+                    <CommaArrayInput
+                      ariaLabel="Fresher Highlights Keywords"
+                      value={resume.strengths}
+                      onChange={(items) => updateField('strengths', items)}
+                      placeholder="e.g. Full-Stack Engineering, Distributed Systems, Cloud Infrastructure"
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                    <p className="text-[11px] text-slate-500">
+                      Rendered centered below the header divider as bold bullet-separated keywords. Only items you enter are shown.
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    {isClassicTemplate
+                    {isClassicTemplate || isModernCorporateTemplate
                       ? 'Professional Summary'
                       : isElegantSerifTemplate
                       ? 'Profile Summary'
+                      : isFresherResumeTemplate
+                      ? 'Impact Statement / Career Summary (Optional)'
                       : 'Objective / Summary'}
                   </label>
                   <textarea
                     rows={5}
                     value={resume.objective || ''}
                     onChange={(e) => updateField('objective', e.target.value)}
-                    placeholder="Dedicated computational biologist and machine learning researcher with 7+ years of experience..."
+                    placeholder={
+                      isFresherResumeTemplate
+                        ? 'e.g. Final-year Computer Science undergraduate experienced in shipping backend APIs and open-source developer tools.'
+                        : 'Dedicated corporate strategy executive or engineering leader with 8+ years of experience...'
+                    }
                     className="w-full p-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed font-serif"
                   />
                   <p className="text-xs text-slate-400 mt-1.5">
@@ -2627,7 +3485,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   </p>
                 </div>
 
-                {isClassicTemplate && (
+                {(isClassicTemplate || isModernCorporateTemplate) && (
                   <div className="pt-3 border-t border-slate-200">
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold text-slate-700">
@@ -2655,7 +3513,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       type="text"
                       value={resume.personalQuote || ''}
                       onChange={(e) => updateField('personalQuote', e.target.value)}
-                      placeholder="e.g. Engineering resilient, privacy-first infrastructure through clarity and rigor."
+                      placeholder="e.g. Turning complex capital allocation decisions into durable operational performance."
                       className="w-full px-3 py-2 border border-slate-300 rounded text-sm italic bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                     />
                   </div>
@@ -2892,7 +3750,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           />
                         </div>
 
-                        {(isHarvardTemplate || isElegantSerifTemplate) && (
+                        {(isHarvardTemplate ||
+                          isElegantSerifTemplate ||
+                          isFresherResumeTemplate ||
+                          isInternshipResumeTemplate) && (
                           <>
                             <div>
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -2915,6 +3776,35 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                 value={edu.coursework}
                                 onChange={(items) => updateEducation(edu.id, { coursework: items })}
                                 placeholder="e.g. Econometrics, Microeconomic Theory, Algorithms, Corporate Finance"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {(isFresherResumeTemplate || isInternshipResumeTemplate) && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Grading Scale (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={edu.gradingScale || ''}
+                                onChange={(e) => updateEducation(edu.id, { gradingScale: e.target.value })}
+                                placeholder="e.g. 10.0, 4.0, or %"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                University / Board (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={edu.board || ''}
+                                onChange={(e) => updateEducation(edu.id, { board: e.target.value })}
+                                placeholder="e.g. IIT Bombay Senate, CBSE"
                                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                               />
                             </div>
@@ -2952,7 +3842,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </>
                         )}
 
-                        {(isClassicTemplate || isElegantSerifTemplate) && (
+                        {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isFresherResumeTemplate) && (
                           <div className="sm:col-span-2">
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-xs font-semibold text-slate-700">
@@ -2990,6 +3880,133 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {isInternshipResumeTemplate && (
+                <div className="mt-6 pt-5 border-t border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Senior Secondary / High School Education (Optional)
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Renders neatly beneath your university degree inside EDUCATION (e.g. Class XII / A-Levels). Leave empty to omit.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addHighSchool}
+                      className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      <span>Add High School</span>
+                    </button>
+                  </div>
+                  {(resume.highSchool || []).length > 0 && (
+                    <div className="space-y-3">
+                      {(resume.highSchool || []).map((hs, hsIdx) => (
+                        <div
+                          key={hs.id}
+                          className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase text-slate-600">
+                              High School / Secondary #{hsIdx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => deleteHighSchool(hs.id)}
+                              className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                              title="Remove high school"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Qualification / Stream
+                              </label>
+                              <input
+                                type="text"
+                                value={hs.qualification || ''}
+                                onChange={(e) =>
+                                  updateHighSchool(hs.id, { qualification: e.target.value })
+                                }
+                                placeholder="e.g. Senior Secondary (Class XII, PCM)"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                School Name
+                              </label>
+                              <input
+                                type="text"
+                                value={hs.schoolName}
+                                onChange={(e) =>
+                                  updateHighSchool(hs.id, { schoolName: e.target.value })
+                                }
+                                placeholder="e.g. Delhi Public School"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Board (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={hs.board || ''}
+                                onChange={(e) => updateHighSchool(hs.id, { board: e.target.value })}
+                                placeholder="e.g. CBSE, ISC, IB"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Graduation Year / Dates
+                              </label>
+                              <input
+                                type="text"
+                                value={hs.graduationDate}
+                                onChange={(e) =>
+                                  updateHighSchool(hs.id, { graduationDate: e.target.value })
+                                }
+                                placeholder="e.g. 2023"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Location
+                              </label>
+                              <input
+                                type="text"
+                                value={hs.location || ''}
+                                onChange={(e) => updateHighSchool(hs.id, { location: e.target.value })}
+                                placeholder="e.g. Jaipur, India"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Score / Percentage / GPA
+                              </label>
+                              <input
+                                type="text"
+                                value={hs.gpa || ''}
+                                onChange={(e) => updateHighSchool(hs.id, { gpa: e.target.value })}
+                                placeholder="e.g. 95.4%"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -3605,7 +4622,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           />
                         </div>
 
-                        {isClassicTemplate && (
+                        {(isClassicTemplate || isModernCorporateTemplate) && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Experience Category (Optional)
@@ -3625,6 +4642,39 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               <option value="Other">Other Experience</option>
                             </select>
                           </div>
+                        )}
+
+                        {isModernCorporateTemplate && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Department / Practice Area (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={exp.department || ''}
+                                onChange={(e) =>
+                                  updateExperience(exp.id, { department: e.target.value })
+                                }
+                                placeholder="e.g. European Industrials & Infrastructure"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Key Results Summary (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={exp.results || ''}
+                                onChange={(e) =>
+                                  updateExperience(exp.id, { results: e.target.value })
+                                }
+                                placeholder="e.g. Delivered $18.5M annualized synergies across 14 operating sites"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+                          </>
                         )}
                       </div>
 
@@ -3646,7 +4696,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         </label>
                       </div>
 
-                      {(isClassicTemplate || isElegantSerifTemplate) && (
+                      {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="text-xs font-semibold text-slate-700">
@@ -3682,7 +4732,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         </div>
                       )}
 
-                      {isElegantSerifTemplate && (
+                      {(isElegantSerifTemplate || isModernCorporateTemplate || isFresherResumeTemplate) && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -3694,24 +4744,42 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               onChange={(items) =>
                                 updateExperience(exp.id, { technologies: items })
                               }
-                              placeholder="e.g. LaTeX, TypeScript, Python"
+                              placeholder="e.g. Capital IQ, Bloomberg, SQL, Tableau"
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
                             />
                           </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">
-                              Skills Demonstrated (Optional, comma-separated)
-                            </label>
-                            <CommaArrayInput
-                              ariaLabel="Experience Skills Demonstrated"
-                              value={exp.skillsDemonstrated}
-                              onChange={(items) =>
-                                updateExperience(exp.id, { skillsDemonstrated: items })
-                              }
-                              placeholder="e.g. Systems Design, Academic Mentoring"
-                              className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                            />
-                          </div>
+                          {isElegantSerifTemplate && (
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Skills Demonstrated (Optional, comma-separated)
+                              </label>
+                              <CommaArrayInput
+                                ariaLabel="Experience Skills Demonstrated"
+                                value={exp.skillsDemonstrated}
+                                onChange={(items) =>
+                                  updateExperience(exp.id, { skillsDemonstrated: items })
+                                }
+                                placeholder="e.g. Systems Design, Academic Mentoring"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          )}
+                          {isFresherResumeTemplate && (
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Skills Learned (Optional, comma-separated)
+                              </label>
+                              <CommaArrayInput
+                                ariaLabel="Experience Skills Learned"
+                                value={exp.skillsLearned}
+                                onChange={(items) =>
+                                  updateExperience(exp.id, { skillsLearned: items })
+                                }
+                                placeholder="e.g. Go, PostgreSQL, Load Testing, Docker"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -3752,7 +4820,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         />
                       </div>
 
-                      {(isClassicTemplate || isElegantSerifTemplate) &&
+                      {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate) &&
                         (exp.highlights || []).some((h) => h.trim().length > 0) && (
                           <div className="pt-2 border-t border-slate-200 space-y-2">
                             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -4107,6 +5175,198 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {isInternshipResumeTemplate && (
+                <div className="mt-7 pt-6 border-t border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        Academic, Lab &amp; Capstone Projects (Shown under RESEARCH WORK)
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Add engineering builds, security labs, or course projects alongside your research topics.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addProject}
+                      className="inline-flex items-center shrink-0 px-3 py-1.5 text-xs font-semibold text-slate-900 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      <span>Add Project</span>
+                    </button>
+                  </div>
+
+                  {(!resume.projects || resume.projects.length === 0) ? (
+                    <div className="p-6 text-center border border-dashed border-slate-300 rounded-lg">
+                      <p className="text-xs text-slate-500">
+                        No projects added yet. Optional if you already listed research topics above.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {resume.projects.map((proj, pIdx) => (
+                        <div
+                          key={proj.id}
+                          className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3"
+                        >
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                            <span className="text-xs font-bold uppercase text-slate-600">
+                              Project #{pIdx + 1}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => moveArrayItem('projects', pIdx, -1)}
+                                disabled={pIdx === 0}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                                title="Move up"
+                              >
+                                <ChevronUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => moveArrayItem('projects', pIdx, 1)}
+                                disabled={pIdx === (resume.projects?.length || 1) - 1}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                                title="Move down"
+                              >
+                                <ChevronDown className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteProject(proj.id)}
+                                className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                                title="Delete project"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="sm:col-span-2">
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Project Title *
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.title}
+                                onChange={(e) => updateProject(proj.id, { title: e.target.value })}
+                                placeholder="e.g. Zero-Trust Packet Anomaly Detector"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Start / Timeline
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.startDate || ''}
+                                onChange={(e) => updateProject(proj.id, { startDate: e.target.value })}
+                                placeholder="e.g. 08/2024"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                End Date
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.endDate || ''}
+                                onChange={(e) => updateProject(proj.id, { endDate: e.target.value })}
+                                placeholder="e.g. 12/2024 or Present"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                GitHub / Demo Link (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={proj.githubUrl || proj.link || ''}
+                                onChange={(e) =>
+                                  updateProject(proj.id, { githubUrl: e.target.value, link: e.target.value })
+                                }
+                                placeholder="e.g. https://github.com/username/project"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Technologies Used (Comma-separated)
+                              </label>
+                              <CommaArrayInput
+                                ariaLabel="Internship Project Technologies"
+                                value={proj.technologies}
+                                onChange={(items) => updateProject(proj.id, { technologies: items })}
+                                placeholder="e.g. Python, Scapy, FastAPI, Docker"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-semibold text-slate-700">
+                                  Summary / Bullet Points (One bullet per line)
+                                </label>
+                                {((proj.highlights || []).some((h) => h.trim()) ||
+                                  proj.description?.trim()) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleOpenImprove(
+                                        (proj.highlights || []).filter(Boolean).join('\n') ||
+                                          proj.description ||
+                                          '',
+                                        'Internship Project Contributions',
+                                        `Project: ${proj.title}`,
+                                        (improved) =>
+                                          updateProject(proj.id, {
+                                            highlights: improved
+                                              .split('\n')
+                                              .filter((l) => l.trim().length > 0),
+                                          })
+                                      )
+                                    }
+                                    className="inline-flex items-center text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                                  >
+                                    <Sparkles className="w-3 h-3 mr-1 text-indigo-600" />
+                                    <span>AI Improve</span>
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                rows={2}
+                                value={
+                                  (proj.highlights || []).some((h) => h.trim())
+                                    ? (proj.highlights || []).join('\n')
+                                    : proj.description || ''
+                                }
+                                onChange={(e) =>
+                                  updateProject(proj.id, {
+                                    highlights: e.target.value.split('\n'),
+                                    description: '',
+                                  })
+                                }
+                                placeholder="Built real-time packet inspection pipeline...&#10;Evaluated accuracy on CICIDS dataset..."
+                                className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white leading-relaxed"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -4519,7 +5779,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           />
                         </div>
 
-                        {isSoftwareDevTemplate && (
+                        {(isSoftwareDevTemplate || isModernCorporateTemplate) && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Project Type (Optional)
@@ -4530,13 +5790,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               onChange={(e) =>
                                 updateProject(proj.id, { projectType: e.target.value })
                               }
-                              placeholder="e.g. Open Source, Personal Project, Capstone"
+                              placeholder="e.g. Corporate Initiative, Open Source, Capstone"
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                             />
                           </div>
                         )}
 
-                        {(isTwoColumnTemplate || isElegantSerifTemplate) && (
+                        {(isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
                           <div className="sm:col-span-2">
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Funding Agency / Organization / Institution (Optional)
@@ -4547,7 +5807,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               onChange={(e) =>
                                 updateProject(proj.id, { institution: e.target.value })
                               }
-                              placeholder="e.g. National Science Foundation (CCF-214091) or Course Project"
+                              placeholder="e.g. Meridian Capital Partners or Course Project"
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                             />
                           </div>
@@ -4988,10 +6248,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             <section aria-labelledby="section-strengths-title">
               <div className="border-b border-slate-200 pb-3 mb-5">
                 <h2 id="section-strengths-title" className="text-lg font-bold text-slate-900">
-                  Strengths
+                  {isModernCorporateTemplate ? 'Core Competencies' : 'Strengths'}
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Add your own strengths or key skills to display as crisp outlined keyword tags in the right sidebar. No strengths are ever auto-assigned.
+                  {isModernCorporateTemplate
+                    ? 'Add executive or functional core competencies to render as clean ATS-friendly text inside the ModernCV layout (never shown as skill bars or pills). No competencies are ever auto-assigned.'
+                    : 'Add your own strengths or key skills to display as crisp outlined keyword tags in the right sidebar. No strengths are ever auto-assigned.'}
                 </p>
               </div>
 
@@ -5115,7 +6377,10 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                           >
                             <option value="">
-                              {isHarvardTemplate || isElegantSerifTemplate
+                              {isHarvardTemplate ||
+                              isElegantSerifTemplate ||
+                              isModernCorporateTemplate ||
+                              isFresherResumeTemplate
                                 ? 'Unconfirmed (Hide level)'
                                 : 'Unconfirmed (Hide dots)'}
                             </option>
@@ -5201,17 +6466,429 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             </section>
           )}
 
+          {/* 6d. Learning & Training (Internship Resume Step 3 - Optional) */}
+          {activeSection === 'learning' && (
+            <section aria-labelledby="section-learning-title">
+              <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between gap-3">
+                <div>
+                  <h2 id="section-learning-title" className="text-lg font-bold text-slate-900">
+                    Learning &amp; Training (Optional)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Specialized workshops, lab trainings, bootcamps, and coursework modules. Kept strictly separate from verified Certifications.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addLearningActivity}
+                  className="inline-flex items-center shrink-0 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Add Learning Item</span>
+                </button>
+              </div>
+
+              {(!resume.learningActivities || resume.learningActivities.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg">
+                  <p className="text-xs text-slate-500">
+                    No learning or training activities added yet. Optional — empty section hides automatically.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addLearningActivity}
+                    className="mt-2 text-xs font-bold text-slate-900 hover:underline cursor-pointer"
+                  >
+                    + Add a course, workshop, or training module
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {resume.learningActivities.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3"
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <span className="text-xs font-bold uppercase text-slate-600">
+                          Learning Entry #{idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveLearningActivity(idx, -1)}
+                            disabled={idx === 0}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                            title="Move up"
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveLearningActivity(idx, 1)}
+                            disabled={idx === (resume.learningActivities?.length || 1) - 1}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                            title="Move down"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteLearningActivity(item.id)}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                            title="Delete learning entry"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Course / Topic Title *
+                          </label>
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, { title: e.target.value })
+                            }
+                            placeholder="e.g. Cybersecurity Analyst Training & SOC Labs"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Activity Type
+                          </label>
+                          <select
+                            value={item.activityType || 'Course'}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, {
+                                activityType: e.target.value as LearningActivityType,
+                              })
+                            }
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          >
+                            <option value="Course">Course</option>
+                            <option value="Workshop">Workshop</option>
+                            <option value="Bootcamp">Bootcamp</option>
+                            <option value="Lab Training">Lab Training</option>
+                            <option value="Online Course">Online Course</option>
+                            <option value="Certification Prep">Certification Prep</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Provider / Institution / Platform
+                          </label>
+                          <input
+                            type="text"
+                            value={item.provider || ''}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, { provider: e.target.value })
+                            }
+                            placeholder="e.g. NPTEL / Coursera / University Lab"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Subject Area / Domain (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={item.subject || ''}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, { subject: e.target.value })
+                            }
+                            placeholder="e.g. Network Defense & Incident Triage"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Completion Date / Timeline
+                          </label>
+                          <input
+                            type="text"
+                            value={item.completionDate || ''}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, { completionDate: e.target.value })
+                            }
+                            placeholder="e.g. Oct 2024 or Ongoing"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Credential / Course Link (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={item.credentialUrl || ''}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, { credentialUrl: e.target.value })
+                            }
+                            placeholder="e.g. https://..."
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Key Topics / Skills Practiced (Comma-separated, optional)
+                          </label>
+                          <CommaArrayInput
+                            ariaLabel="Learning Skills Acquired"
+                            value={item.skillsAcquired}
+                            onChange={(items) =>
+                              updateLearningActivity(item.id, { skillsAcquired: items })
+                            }
+                            placeholder="e.g. Wireshark, Splunk, Threat Hunting, Packet Inspection"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-semibold text-slate-700">
+                              Brief Summary / Outcomes (Optional)
+                            </label>
+                            {item.description?.trim() && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenImprove(
+                                    item.description || '',
+                                    'Learning & Training Summary',
+                                    item.title,
+                                    (improved) =>
+                                      updateLearningActivity(item.id, { description: improved })
+                                  )
+                                }
+                                className="inline-flex items-center text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                              >
+                                <Sparkles className="w-3 h-3 mr-1 text-indigo-600" />
+                                <span>AI Improve</span>
+                              </button>
+                            )}
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={item.description || ''}
+                            onChange={(e) =>
+                              updateLearningActivity(item.id, { description: e.target.value })
+                            }
+                            placeholder="Hands-on packet capture labs and log correlation exercises..."
+                            className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white leading-relaxed"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 6e. Career Interests & Internship Preferences (Template 10 Step 6 - Optional) */}
+          {activeSection === 'career-interests' && (
+            <section aria-labelledby="section-career-interests-title">
+              <div className="border-b border-slate-200 pb-3 mb-5">
+                <h2 id="section-career-interests-title" className="text-lg font-bold text-slate-900">
+                  Career Interests &amp; Target Roles (Optional)
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Renders under CAREER INTERESTS in your right column with crisp pill tags. Strictly isolated from Technical Skills.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                {/* Target Role / Domain Tags */}
+                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3">
+                  <div className="text-xs font-bold text-slate-800">
+                    Target Internship Domains / Career Interests
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={careerInterestDraft}
+                      onChange={(e) => setCareerInterestDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addCareerInterestsFromDraft();
+                        }
+                      }}
+                      placeholder="Add domains or roles (comma-separated, e.g. Software Engineering Intern, Backend Systems, Cloud Security)"
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCareerInterestsFromDraft}
+                      className="inline-flex items-center justify-center px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs shrink-0 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      <span>Add Tags</span>
+                    </button>
+                  </div>
+
+                  {(resume.careerInterests || []).length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic">
+                      No career interest tags added yet. Add specific target roles or domains above.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {(resume.careerInterests || []).map((tag, idx) => (
+                        <span
+                          key={`${tag}-${idx}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-white border border-slate-300 text-slate-800 rounded"
+                        >
+                          <span>{tag}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeCareerInterestTag(idx)}
+                            className="text-slate-400 hover:text-rose-600 cursor-pointer"
+                            aria-label={`Remove ${tag}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Structured Internship Preferences */}
+                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3">
+                  <div className="text-xs font-bold text-slate-800">
+                    Internship Availability &amp; Preferences (Optional)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Target Internship Role
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.internshipPreferences?.targetRole || ''}
+                        onChange={(e) =>
+                          updateInternshipPreferences({ targetRole: e.target.value })
+                        }
+                        placeholder="e.g. Summer Software Engineering Intern"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Preferred Industry / Sector
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.internshipPreferences?.preferredIndustry || ''}
+                        onChange={(e) =>
+                          updateInternshipPreferences({ preferredIndustry: e.target.value })
+                        }
+                        placeholder="e.g. Distributed Cloud, FinTech, Cybersecurity"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Duration (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.internshipPreferences?.duration || ''}
+                        onChange={(e) =>
+                          updateInternshipPreferences({ duration: e.target.value })
+                        }
+                        placeholder="e.g. 10–12 Weeks or 6 Months"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Work Arrangement (Optional)
+                      </label>
+                      <select
+                        value={resume.internshipPreferences?.workArrangement || ''}
+                        onChange={(e) =>
+                          updateInternshipPreferences({
+                            workArrangement: e.target.value as InternshipPreferences['workArrangement'],
+                          })
+                        }
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                      >
+                        <option value="">Unspecified</option>
+                        <option value="Onsite">Onsite</option>
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Remote">Remote</option>
+                        <option value="Flexible">Flexible</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Availability Date (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.internshipPreferences?.availabilityDate || ''}
+                        onChange={(e) =>
+                          updateInternshipPreferences({ availabilityDate: e.target.value })
+                        }
+                        placeholder="e.g. May 2025 – Aug 2025"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Preferred Technologies (Optional, comma-separated)
+                      </label>
+                      <CommaArrayInput
+                        ariaLabel="Preferred Internship Technologies"
+                        value={resume.internshipPreferences?.preferredTechnologies}
+                        onChange={(items) =>
+                          updateInternshipPreferences({ preferredTechnologies: items })
+                        }
+                        placeholder="e.g. Go, Rust, Kubernetes, PyTorch"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* 7. Skills */}
           {activeSection === 'skills' && (
             <section aria-labelledby="section-skills-title">
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-skills-title" className="text-lg font-bold text-slate-900">
-                    {isClassicTemplate ? 'Computer Skills' : 'Skills by Category'}
+                    {isClassicTemplate
+                      ? 'Computer Skills'
+                      : isModernCorporateTemplate
+                      ? 'Technical Skills (2-Column ModernCV)'
+                      : isInternshipResumeTemplate
+                      ? 'Technical & Domain Skills'
+                      : 'Skills by Category'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {isClassicTemplate
                       ? 'Compact categorized computer & technical skills (e.g. Programming Languages, Operating Systems, Frameworks, Tools).'
+                      : isModernCorporateTemplate
+                      ? 'Paired 2-column categories (rendered cleanly with right-aligned category labels and comma-separated skills, zero bars or charts).'
+                      : isInternshipResumeTemplate
+                      ? 'Add your verified skills. 5-dot proficiency indicators remain hidden by default unless you manually select a 1–5 rating.'
                       : 'Organize skills into research foundations, programming, tools, and platforms.'}
                   </p>
                 </div>
@@ -5238,6 +6915,37 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       'Cloud Platforms',
                       'Other Technologies',
                     ]
+                  : isModernCorporateTemplate
+                  ? [
+                      'Valuation & Finance',
+                      'Data & Analytics',
+                      'Market Terminals',
+                      'Enterprise Systems',
+                      'Governance',
+                      'Workflow',
+                      'Programming Languages',
+                      'Cloud & DevOps',
+                    ]
+                  : isInternshipResumeTemplate
+                  ? resume.internshipTrack === 'cybersecurity'
+                    ? ['Network Security', 'SOC & SIEM Tools', 'Scripting & Linux', 'Vulnerability Testing']
+                    : resume.internshipTrack === 'ece'
+                    ? ['Embedded C & Verilog', 'PCB & Hardware', 'Simulation & Lab Tools', 'Microcontrollers']
+                    : resume.internshipTrack === 'research'
+                    ? ['Research Methods', 'Statistical & ML Tools', 'Scientific Writing', 'Programming']
+                    : resume.internshipTrack === 'non-technical'
+                    ? ['Analysis & Strategy', 'Communication & Research', 'Productivity Tools', 'Operations']
+                    : ['Programming Languages', 'Frameworks & Backend', 'Databases & Cloud', 'Developer Tools']
+                  : isFresherResumeTemplate
+                  ? resume.fresherTrack === 'cybersecurity'
+                    ? ['Security & Defense Tools', 'Networking & Protocols', 'Scripting & OS', 'Compliance & Forensics']
+                    : resume.fresherTrack === 'engineering'
+                    ? ['Core Engineering', 'CAD & Simulation', 'Programming Languages', 'Lab & Testing Tools']
+                    : resume.fresherTrack === 'non-technical'
+                    ? ['Research & Analysis', 'Communication & Writing', 'Software & Office Tools', 'Domain Knowledge']
+                    : resume.fresherTrack === 'graduate'
+                    ? ['Core Skills', 'Programming & Analytics', 'Software & Tools', 'Domain Foundations']
+                    : ['Programming Languages', 'Frameworks & Libraries', 'Databases & Cloud', 'Developer Tools']
                   : isHarvardTemplate
                   ? ['Technical & Quantitative', 'Programming & Data', 'Software & Tools']
                   : ['Languages', 'Developer Tools', 'Technologies/Frameworks']
@@ -5288,6 +6996,58 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
                       />
                     </div>
+
+                    {isInternshipResumeTemplate && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200/80">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-semibold text-slate-600">
+                            5-Dot Proficiency (Optional):
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateSkillCategoryProficiency(cat.id, null)}
+                            className={`px-2 py-0.5 text-[11px] font-semibold border rounded cursor-pointer transition-colors ${
+                              !cat.proficiency
+                                ? 'bg-slate-900 text-white border-slate-900'
+                                : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
+                            }`}
+                          >
+                            Unconfirmed (Hide Dots)
+                          </button>
+                          {([1, 2, 3, 4, 5] as SkillMatrixLevel[]).map((lvl) => {
+                            const filled =
+                              cat.proficiency !== null &&
+                              cat.proficiency !== undefined &&
+                              lvl <= cat.proficiency;
+                            return (
+                              <button
+                                key={lvl}
+                                type="button"
+                                onClick={() =>
+                                  updateSkillCategoryProficiency(
+                                    cat.id,
+                                    cat.proficiency === lvl ? null : lvl
+                                  )
+                                }
+                                className={`w-6 h-6 text-[11px] font-bold border rounded transition-colors cursor-pointer ${
+                                  filled
+                                    ? 'bg-slate-900 border-slate-900 text-white'
+                                    : 'bg-white border-slate-300 text-slate-600 hover:border-slate-500'
+                                }`}
+                                title={`Level ${lvl}: ${getSkillMatrixLevelLabel(lvl)}`}
+                              >
+                                {lvl}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <span className="text-[11px] text-slate-500">
+                          {cat.proficiency
+                            ? `${cat.proficiency}/5 — ${getSkillMatrixLevelLabel(cat.proficiency)}`
+                            : 'Dots hidden in CV & PDF'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -5872,9 +7632,163 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </div>
               )}
 
+              {isInternshipResumeTemplate && (
+                <div className="mt-7 pt-6 border-t border-slate-200 space-y-6">
+                  {/* Optional Certifications Manager */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Certifications (Optional)
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          Verified industry or vendor credentials. Separate from Learning &amp; Training.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addCertification}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        <span>Add Certification</span>
+                      </button>
+                    </div>
+                    {(resume.certifications || []).length > 0 && (
+                      <div className="space-y-2.5">
+                        {(resume.certifications || []).map((cert) => (
+                          <div
+                            key={cert.id}
+                            className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                          >
+                            <input
+                              type="text"
+                              value={cert.name}
+                              onChange={(e) => updateCertification(cert.id, { name: e.target.value })}
+                              placeholder="Certificate Name"
+                              className="sm:col-span-5 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white font-semibold"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issuer}
+                              onChange={(e) => updateCertification(cert.id, { issuer: e.target.value })}
+                              placeholder="Issuer (e.g. AWS, CompTIA)"
+                              className="sm:col-span-4 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <input
+                              type="text"
+                              value={cert.issueDate}
+                              onChange={(e) =>
+                                updateCertification(cert.id, { issueDate: e.target.value })
+                              }
+                              placeholder="Date"
+                              className="sm:col-span-2 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => deleteCertification(cert.id)}
+                              className="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 rounded justify-self-end cursor-pointer"
+                              title="Delete certification"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Optional Languages Manager */}
+                  <div className="space-y-3 pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Spoken Languages (Optional)
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          Leave empty to hide automatically.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={addLanguage}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        <span>Add Language</span>
+                      </button>
+                    </div>
+                    {(resume.languages || []).length > 0 && (
+                      <div className="space-y-2">
+                        {(resume.languages || []).map((lang) => (
+                          <div
+                            key={lang.id}
+                            className="p-2.5 border border-slate-200 rounded-lg bg-slate-50/50 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                          >
+                            <input
+                              type="text"
+                              value={lang.language}
+                              onChange={(e) => updateLanguage(lang.id, { language: e.target.value })}
+                              placeholder="Language (e.g. English)"
+                              className="sm:col-span-6 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                            <select
+                              value={lang.proficiency}
+                              onChange={(e) =>
+                                updateLanguage(lang.id, { proficiency: e.target.value })
+                              }
+                              className="sm:col-span-5 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            >
+                              <option value="">Unconfirmed (Hide level)</option>
+                              <option value="Native / Bilingual">Native / Bilingual</option>
+                              <option value="Fluent">Fluent</option>
+                              <option value="Professional Working">Professional Working</option>
+                              <option value="Intermediate">Intermediate</option>
+                              <option value="Elementary">Elementary</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => deleteLanguage(lang.id)}
+                              className="sm:col-span-1 p-1.5 text-slate-400 hover:text-red-600 rounded justify-self-end cursor-pointer"
+                              title="Remove language"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 10 Final Review & Preview Summary */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          Step 10 Review &amp; Generate Internship CV
+                        </h3>
+                        <p className="text-xs text-slate-600">
+                          Overall readiness: <strong>{completenessReport.overallScore}%</strong>. Empty optional sections will be cleanly omitted from your preview and PDF.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onPreview(resume)}
+                        className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer shrink-0"
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                        <span>Generate &amp; Preview PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <p className="text-[11px] text-slate-500 mt-4">
                 {isHarvardTemplate
                   ? 'Note: Any Awards & Honors, Selected Projects, Certifications, Publications, Volunteer Service, or Memberships stored on your resume also render automatically under Additional Information (hidden cleanly if empty).'
+                  : isInternshipResumeTemplate
+                  ? 'Note: All entries across Templates 1–10 share the same resume record cleanly—switching templates preserves your saved data.'
                   : "Note: Any Projects, Publications, Awards, Certifications, or Leadership data entered in Academic CV or Jake's Resume stays preserved and also renders cleanly in Preview/PDF."}
               </p>
             </section>
@@ -5890,6 +7804,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Most Proud Of (Achievements & Awards)'
                       : isSoftwareDevTemplate
                       ? 'Achievements'
+                      : isInternshipResumeTemplate
+                      ? 'Co-Curricular & Events (Optional)'
                       : 'Honors & Awards'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -5897,6 +7813,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Highlight proud milestones, honors, or recognition with selectable burgundy sidebar icons.'
                       : isSoftwareDevTemplate
                       ? 'Hackathon wins, engineering awards, or scholarships shown under ADDITIONAL → Achievements. Optional.'
+                      : isInternshipResumeTemplate
+                      ? 'Hackathons, competitions, clubs, student chapters, volunteer events, or scholarships shown under CO-CURRICULAR/ EVENTS.'
                       : 'Fellowships, best paper awards, teaching recognition, and academic honors.'}
                   </p>
                 </div>
@@ -5911,6 +7829,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Add Milestone'
                       : isSoftwareDevTemplate
                       ? 'Add Achievement'
+                      : isInternshipResumeTemplate
+                      ? 'Add Co-Curricular Event'
                       : 'Add Award'}
                   </span>
                 </button>
@@ -6055,6 +7975,113 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                   updateAward(ach.id, { achievementDetails: e.target.value })
                                 }
                                 placeholder="e.g. Top 1% of graduating cohort; £15,000 research stipend"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {(isFresherResumeTemplate || isInternshipResumeTemplate) && (
+                          <>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Rank / Placement (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.rank || ''}
+                                onChange={(e) => updateAward(ach.id, { rank: e.target.value })}
+                                placeholder="e.g. 1st Place, Top 1%, Finalist"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Certificate / Proof URL (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.url || ''}
+                                onChange={(e) => updateAward(ach.id, { url: e.target.value })}
+                                placeholder="e.g. https://..."
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {isInternshipResumeTemplate && (
+                          <>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Event / Activity Type (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.participationType || ''}
+                                onChange={(e) =>
+                                  updateAward(ach.id, { participationType: e.target.value })
+                                }
+                                placeholder="e.g. Hackathon, Club, Competition"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Team / Participation Mode
+                              </label>
+                              <select
+                                value={ach.teamType || ''}
+                                onChange={(e) =>
+                                  updateAward(ach.id, {
+                                    teamType: (e.target.value || undefined) as
+                                      | 'Individual'
+                                      | 'Team'
+                                      | undefined,
+                                  })
+                                }
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              >
+                                <option value="">Unspecified</option>
+                                <option value="Individual">Individual</option>
+                                <option value="Team">Team</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Your Role (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.role || ''}
+                                onChange={(e) => updateAward(ach.id, { role: e.target.value })}
+                                placeholder="e.g. Team Lead, Backend Developer"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Key Responsibilities (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.responsibilities || ''}
+                                onChange={(e) =>
+                                  updateAward(ach.id, { responsibilities: e.target.value })
+                                }
+                                placeholder="e.g. Led threat triage and API integration"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Outcome / Impact (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.outcome || ''}
+                                onChange={(e) => updateAward(ach.id, { outcome: e.target.value })}
+                                placeholder="e.g. Selected top 5 out of 240 teams"
                                 className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                               />
                             </div>
@@ -6679,6 +8706,21 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                           />
                         </div>
+
+                        {isFresherResumeTemplate && (
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                              Skills Covered (Optional, comma-separated)
+                            </label>
+                            <CommaArrayInput
+                              ariaLabel="Certification Skills Covered"
+                              value={c.skillsCovered}
+                              onChange={(items) => updateCertification(c.id, { skillsCovered: items })}
+                              placeholder="e.g. AWS VPC, IAM, Serverless Compute"
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -6692,64 +8734,68 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             <section aria-labelledby="section-add-title">
               <div className="border-b border-slate-200 pb-3 mb-5">
                 <h2 id="section-add-title" className="text-lg font-bold text-slate-900">
-                  Additional Information
+                  {isFresherResumeTemplate ? 'Interests & Additional Info' : 'Additional Information'}
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Languages with proficiencies, scholarly interests, and background.
+                  {isFresherResumeTemplate
+                    ? 'Extracurricular hobbies and personal interests (Languages have their own dedicated section).'
+                    : 'Languages with proficiencies, scholarly interests, and background.'}
                 </p>
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Languages &amp; Proficiency
-                    </label>
-                    <button
-                      type="button"
-                      onClick={addLanguage}
-                      className="text-xs font-semibold text-slate-900 hover:underline"
-                    >
-                      + Add Language
-                    </button>
-                  </div>
+                {!isFresherResumeTemplate && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Languages &amp; Proficiency
+                      </label>
+                      <button
+                        type="button"
+                        onClick={addLanguage}
+                        className="text-xs font-semibold text-slate-900 hover:underline"
+                      >
+                        + Add Language
+                      </button>
+                    </div>
 
-                  <div className="space-y-2">
-                    {(resume.languages || []).map((l) => (
-                      <div key={l.id} className="flex items-center space-x-2">
-                        <input
-                          type="text"
-                          value={l.language}
-                          onChange={(e) => updateLanguage(l.id, { language: e.target.value })}
-                          placeholder="e.g. English, Mandarin, French"
-                          className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                        />
-                        <select
-                          value={l.proficiency}
-                          onChange={(e) => updateLanguage(l.id, { proficiency: e.target.value })}
-                          className="px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                        >
-                          <option value="Native / Bilingual">Native / Bilingual</option>
-                          <option value="Fluent">Fluent</option>
-                          <option value="Professional Working">Professional Working</option>
-                          <option value="Intermediate">Intermediate</option>
-                          <option value="Elementary">Elementary</option>
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => deleteLanguage(l.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                    <div className="space-y-2">
+                      {(resume.languages || []).map((l) => (
+                        <div key={l.id} className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={l.language}
+                            onChange={(e) => updateLanguage(l.id, { language: e.target.value })}
+                            placeholder="e.g. English, Mandarin, French"
+                            className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                          <select
+                            value={l.proficiency}
+                            onChange={(e) => updateLanguage(l.id, { proficiency: e.target.value })}
+                            className="px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          >
+                            <option value="Native / Bilingual">Native / Bilingual</option>
+                            <option value="Fluent">Fluent</option>
+                            <option value="Professional Working">Professional Working</option>
+                            <option value="Intermediate">Intermediate</option>
+                            <option value="Elementary">Elementary</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => deleteLanguage(l.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="pt-3 border-t border-slate-200">
+                <div className={isFresherResumeTemplate ? '' : 'pt-3 border-t border-slate-200'}>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Scholarly / Professional Interests
+                    {isFresherResumeTemplate ? 'Interests & Hobbies' : 'Scholarly / Professional Interests'}
                   </label>
                   <input
                     type="text"
@@ -6775,7 +8821,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     Optional academic advisors, dissertation committee members, or professional supervisors.
                   </p>
                 </div>
-                {((!isClassicTemplate && !isTwoColumnTemplate && !isElegantSerifTemplate) ||
+                {((!isClassicTemplate && !isTwoColumnTemplate && !isElegantSerifTemplate && !isModernCorporateTemplate) ||
                   (resume.referencesDisplayMode || 'detailed') === 'detailed') && (
                   <button
                     type="button"
@@ -6788,7 +8834,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 )}
               </div>
 
-              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate) && (
+              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
                 <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="text-xs font-bold text-slate-700 mb-2">
                     References Display Mode
@@ -6828,6 +8874,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                 ? 'bg-white border-[#8f131b] ring-1 ring-[#8f131b]'
                                 : isElegantSerifTemplate
                                 ? 'bg-white border-slate-900 ring-1 ring-slate-900'
+                                : isModernCorporateTemplate
+                                ? 'bg-white border-[#3873b3] ring-1 ring-[#3873b3]'
                                 : 'bg-white border-[#1e4e8c] ring-1 ring-[#1e4e8c]'
                               : 'bg-white/60 border-slate-200 hover:border-slate-300'
                           }`}
@@ -6841,12 +8889,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </div>
               )}
 
-              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate) &&
+              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) &&
               resume.referencesDisplayMode === 'on-request' ? (
                 <div className="p-6 text-center border border-slate-200 bg-slate-50 rounded-lg text-xs text-slate-600">
                   Your CV will display: <strong className="text-slate-900">References available upon request.</strong>
                 </div>
-              ) : (isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate) &&
+              ) : (isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) &&
                 resume.referencesDisplayMode === 'hidden' ? (
                 <div className="p-6 text-center border border-dashed border-slate-300 rounded-lg text-xs text-slate-500">
                   The Referees section is currently omitted from your CV. Select another display mode above to show it.
@@ -6964,7 +9012,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           />
                         </div>
 
-                        {isElegantSerifTemplate && (
+                        {(isElegantSerifTemplate || isModernCorporateTemplate) && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Phone Number (Optional)
@@ -6979,7 +9027,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </div>
                         )}
 
-                        {(isTwoColumnTemplate || isElegantSerifTemplate) && (
+                        {(isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
                           <div className="sm:col-span-2">
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Mailing Address (Optional — multi-line supported)

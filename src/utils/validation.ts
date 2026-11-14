@@ -332,6 +332,232 @@ export function calculateResumeCompleteness(resume: Partial<Resume>): number {
     return Math.min(100, score);
   }
 
+  if (resume.template === 'modern-corporate') {
+    const bg = resume.targetBackground || 'corporate';
+    let score = 0;
+
+    if (resume.personalInfo) {
+      if (resume.personalInfo.fullName?.trim()) score += 10;
+      if (resume.personalInfo.email?.trim()) score += 6;
+      if (resume.personalInfo.phone?.trim()) score += 4;
+      if (resume.personalInfo.jobTitle?.trim()) score += 4;
+    }
+
+    if (resume.objective?.trim()) {
+      score += 10;
+    }
+
+    const hasExp = Boolean(resume.experience && resume.experience.length > 0);
+    const hasEdu = Boolean(resume.education && resume.education.length > 0);
+    const hasProj = Boolean(resume.projects && resume.projects.length > 0);
+
+    if (bg === 'student' || bg === 'fresher') {
+      if (hasEdu) score += 24;
+      if (hasExp && hasProj) score += 24;
+      else if (hasExp || hasProj) score += 18;
+    } else if (bg === 'technical') {
+      if (hasExp) score += 24;
+      if (hasEdu) score += 14;
+      if (hasProj) score += 10;
+    } else {
+      // corporate / experienced
+      if (hasExp) score += 28;
+      if (hasEdu) score += 16;
+      if (hasProj) score += 4;
+    }
+
+    const hasStrengths = Boolean(
+      resume.strengths && resume.strengths.some((s) => s.trim().length > 0)
+    );
+    const totalSkills = (resume.skills || []).reduce(
+      (acc, s) => acc + (s.skills?.length || 0),
+      0
+    );
+    if (hasStrengths) score += 8;
+    if (totalSkills >= 4) score += 8;
+    else if (totalSkills > 0) score += 5;
+
+    let bonus = 0;
+    if (resume.certifications && resume.certifications.length > 0) bonus += 2;
+    if (resume.achievements && resume.achievements.length > 0) bonus += 2;
+    if (resume.languages && resume.languages.some((l) => l.language?.trim())) bonus += 2;
+    if (resume.leadership && resume.leadership.length > 0) bonus += 2;
+    if (resume.memberships && resume.memberships.length > 0) bonus += 1;
+    if (
+      (resume.interestItems && resume.interestItems.some((i) => i.name?.trim())) ||
+      resume.interests?.trim()
+    ) {
+      bonus += 1;
+    }
+    if (
+      resume.referencesDisplayMode === 'on-request' ||
+      (resume.references && resume.references.length > 0)
+    ) {
+      bonus += 2;
+    }
+    score += Math.min(10, bonus);
+
+    return Math.min(100, score);
+  }
+
+  if (resume.template === 'fresher-resume') {
+    const track = resume.fresherTrack || 'cs';
+    let score = 0;
+
+    if (resume.personalInfo) {
+      if (resume.personalInfo.fullName?.trim()) score += 8;
+      if (resume.personalInfo.email?.trim()) score += 6;
+      if (resume.personalInfo.phone?.trim()) score += 4;
+      if (resume.personalInfo.jobTitle?.trim()) score += 2;
+    }
+
+    if (resume.education && resume.education.length > 0) {
+      score += 25;
+    }
+
+    const projCount = (resume.projects || []).filter((p) => p.title?.trim()).length;
+    const expCount = (resume.experience || []).filter((e) => e.company?.trim() || e.position?.trim()).length;
+    const leadCount = (resume.leadership || []).filter((l) => l.organization?.trim() || l.role?.trim()).length;
+    const volCount = (resume.volunteer || []).filter((v) => v.organization?.trim() || v.role?.trim()).length;
+
+    if (track === 'non-technical' || track === 'graduate') {
+      if (projCount >= 2 || expCount >= 1 || leadCount >= 1 || volCount >= 1) {
+        score += 20;
+      } else if (projCount > 0) {
+        score += 14;
+      }
+    } else {
+      if (projCount >= 2) score += 20;
+      else if (projCount === 1) score += 14;
+      else if (expCount > 0) score += 12;
+    }
+
+    const totalSkills = (resume.skills || []).reduce(
+      (acc, s) => acc + (s.skills?.filter((sk) => sk.trim()).length || 0),
+      0
+    );
+    if (totalSkills >= 3) score += 15;
+    else if (totalSkills > 0) score += 9;
+
+    if (resume.objective?.trim()) score += 8;
+    if ((resume.strengths || []).filter((s) => s.trim()).length >= 2) score += 4;
+
+    let bonus = 0;
+    if (expCount > 0) bonus += 4;
+    if ((resume.coursework || []).some((c) => c.trim())) bonus += 2;
+    if ((resume.achievements || []).length > 0) bonus += 3;
+    if ((resume.certifications || []).length > 0) bonus += 3;
+    if ((resume.publications || []).length > 0) bonus += 3;
+    if (leadCount > 0) bonus += 2;
+    if ((resume.volunteer || []).length > 0) bonus += 2;
+    if ((resume.languages || []).some((l) => l.language?.trim())) bonus += 2;
+    if (resume.interests?.trim() || (resume.interestItems || []).some((i) => i.name?.trim())) {
+      bonus += 1;
+    }
+    score += Math.min(8, bonus);
+
+    return Math.min(100, score);
+  }
+
+  if (resume.template === 'internship-resume') {
+    let score = 0;
+
+    if (resume.personalInfo) {
+      if (resume.personalInfo.fullName?.trim()) score += 10;
+      if (resume.personalInfo.email?.trim()) score += 6;
+      if (resume.personalInfo.phone?.trim()) score += 4;
+      if (
+        resume.personalInfo.city?.trim() ||
+        resume.personalInfo.state?.trim() ||
+        resume.personalInfo.country?.trim() ||
+        resume.personalInfo.location?.trim()
+      ) {
+        score += 2;
+      }
+      if (resume.personalInfo.jobTitle?.trim()) score += 3;
+    }
+
+    const hasUnivEdu = (resume.education || []).some(
+      (e) => e.institution?.trim() || e.degree?.trim()
+    );
+    const hasHighSchool = (resume.highSchool || []).some(
+      (h) => h.schoolName?.trim() || h.qualification?.trim()
+    );
+    if (hasUnivEdu) score += 25;
+    else if (hasHighSchool) score += 15;
+
+    const resCount = (resume.researchExperience || []).filter(
+      (r) => r.title?.trim() || r.objectives?.trim() || r.methodology?.trim()
+    ).length;
+    const projCount = (resume.projects || []).filter(
+      (p) => p.title?.trim() || p.description?.trim()
+    ).length;
+    const workItemCount = resCount + projCount;
+    if (workItemCount >= 2) score += 20;
+    else if (workItemCount === 1) score += 14;
+
+    const skillItemCount =
+      (resume.skills || []).reduce(
+        (acc, c) =>
+          acc +
+          (c.skills?.filter((s) => s.trim()).length || (c.category?.trim() ? 1 : 0)),
+        0
+      ) + (resume.skillMatrix || []).filter((m) => m.skill?.trim()).length;
+    if (skillItemCount >= 3) score += 15;
+    else if (skillItemCount > 0) score += 9;
+
+    // Optional enrichment bonus (never penalizes empty optional sections or unconfirmed skill dots)
+    let bonus = 0;
+    if (
+      (resume.learningActivities || []).some(
+        (l) => l.title?.trim() || l.subject?.trim() || l.provider?.trim()
+      )
+    ) {
+      bonus += 4;
+    }
+    if (
+      (resume.achievements || []).some(
+        (a) => a.title?.trim() || a.description?.trim() || a.achievementDetails?.trim()
+      )
+    ) {
+      bonus += 4;
+    }
+    if (
+      (resume.careerInterests || []).some((c) => c.trim()) ||
+      resume.internshipPreferences?.targetRole?.trim() ||
+      resume.internshipPreferences?.preferredIndustry?.trim()
+    ) {
+      bonus += 3;
+    }
+    if (
+      (resume.interestItems || []).some((i) => i.name?.trim()) ||
+      resume.interests?.trim()
+    ) {
+      bonus += 2;
+    }
+    if (
+      (resume.experience || []).some((e) => e.company?.trim() || e.position?.trim())
+    ) {
+      bonus += 4;
+    }
+    if ((resume.certifications || []).some((c) => c.name?.trim() || c.issuer?.trim())) {
+      bonus += 2;
+    }
+    if ((resume.languages || []).some((l) => l.language?.trim())) {
+      bonus += 2;
+    }
+    if (
+      (resume.customSections || []).some(
+        (cs) => cs.title?.trim() && cs.bullets?.some((b) => b.trim())
+      )
+    ) {
+      bonus += 2;
+    }
+    score += Math.min(15, bonus);
+
+    return Math.min(100, score);
+  }
+
   let score = 0;
   const totalWeight = 100;
 
@@ -2396,7 +2622,929 @@ function analyzeElegantSerifSections(
   };
 }
 
+function analyzeModernCorporateSections(
+  resume: Partial<Resume>
+): import('../types/resume').CvCompletenessReport {
+  const sections: import('../types/resume').SectionAnalysis[] = [];
+  const recs: string[] = [];
+  const bg = resume.targetBackground || 'corporate';
+  const hidden = new Set(resume.hiddenSections || []);
+
+  const pi = resume.personalInfo;
+  const piIssues: string[] = [];
+  const piSuggestions: string[] = [];
+  let piScore = 0;
+  if (pi?.fullName?.trim()) piScore += 35;
+  else piIssues.push('Full name is missing.');
+  if (pi?.email?.trim()) piScore += 30;
+  else piIssues.push('Professional email address is missing.');
+  if (pi?.phone?.trim()) piScore += 20;
+  else piIssues.push('Phone number is missing.');
+  if (pi?.jobTitle?.trim()) piScore += 15;
+  else piSuggestions.push('Add a target headline / professional title beneath your name.');
+  if (!pi?.linkedin?.trim() && !pi?.website?.trim()) {
+    piSuggestions.push('Consider adding LinkedIn or a personal website link.');
+  }
+
+  sections.push({
+    sectionId: 'header',
+    name: '1. Header & Contact Details',
+    status: piScore >= 85 ? 'complete' : 'needs_details',
+    statusLabel: piScore >= 85 ? 'Complete' : 'Needs details',
+    isOptional: false,
+    score: piScore,
+    issues: piIssues,
+    suggestions: piSuggestions,
+  });
+  if (piScore < 85) recs.push('Complete your name, target title, email, and phone in Header.');
+
+  const obj = resume.objective?.trim() || '';
+  const objWords = obj.split(/\s+/).filter(Boolean).length;
+  sections.push({
+    sectionId: 'objective',
+    name: '2. Professional Summary',
+    status:
+      objWords >= 18 ? 'complete' : objWords > 0 ? 'needs_details' : 'optional_empty',
+    statusLabel:
+      objWords >= 18
+        ? 'Complete'
+        : objWords > 0
+        ? 'Too brief'
+        : hidden.has('objective')
+        ? 'Hidden'
+        : 'Optional (Recommended)',
+    isOptional: true,
+    score: objWords >= 18 ? 100 : objWords > 0 ? 60 : 0,
+    issues:
+      objWords > 0 && objWords < 18
+        ? ['Summary is short; aim for 2–3 crisp executive sentences.']
+        : [],
+    suggestions:
+      objWords === 0
+        ? ['Add a concise 2–3 line executive summary aligned with your target role.']
+        : [],
+  });
+
+  const exp = resume.experience || [];
+  const expIsOptional = bg === 'student' || bg === 'fresher';
+  let expScore = 0;
+  const expIssues: string[] = [];
+  const expSuggestions: string[] = [];
+  if (exp.length > 0) {
+    const missingDetails = exp.filter(
+      (e) =>
+        !e.company?.trim() ||
+        !e.position?.trim() ||
+        ((!e.highlights || e.highlights.every((h) => !h.trim())) && !e.description?.trim())
+    );
+    if (missingDetails.length > 0) {
+      expScore = 65;
+      expIssues.push('One or more experience entries need company, title, or bullet points.');
+    } else {
+      expScore = 100;
+    }
+  } else if (!expIsOptional) {
+    expIssues.push('Add at least one work experience role with measurable outcomes.');
+    recs.push('Add work experience entries under Work Experience.');
+  } else {
+    expSuggestions.push('Optional for students/freshers—add internships, co-ops, or part-time roles if any.');
+  }
+
+  sections.push({
+    sectionId: 'experience',
+    name: '3. Work Experience',
+    status:
+      expScore === 100
+        ? 'complete'
+        : exp.length === 0 && expIsOptional
+        ? 'optional_empty'
+        : 'needs_details',
+    statusLabel:
+      expScore === 100
+        ? 'Complete'
+        : exp.length === 0 && expIsOptional
+        ? 'Not provided (Optional)'
+        : 'Needs details',
+    isOptional: expIsOptional,
+    score: expScore,
+    issues: expIssues,
+    suggestions: expSuggestions,
+  });
+
+  const strengths = (resume.strengths || []).filter((s) => s.trim().length > 0);
+  sections.push({
+    sectionId: 'strengths',
+    name: '4. Core Competencies',
+    status: strengths.length >= 3 ? 'complete' : strengths.length > 0 ? 'needs_details' : 'optional_empty',
+    statusLabel:
+      strengths.length >= 3
+        ? 'Complete'
+        : strengths.length > 0
+        ? 'Add more'
+        : 'Optional',
+    isOptional: true,
+    score: strengths.length >= 3 ? 100 : strengths.length > 0 ? 60 : 0,
+    issues: [],
+    suggestions:
+      strengths.length === 0
+        ? ['Optional: Add 4–6 ATS-friendly domain competencies (e.g., Financial Modeling, M&A Strategy).']
+        : [],
+  });
+
+  const edu = resume.education || [];
+  let eduScore = 0;
+  const eduIssues: string[] = [];
+  if (edu.length > 0) {
+    const valid = edu.filter((e) => e.institution?.trim() && e.degree?.trim());
+    eduScore = valid.length === edu.length ? 100 : 60;
+    if (valid.length < edu.length) {
+      eduIssues.push('Ensure each education entry includes degree and institution.');
+    }
+  } else {
+    eduIssues.push('Add your highest degree or current academic program.');
+    recs.push('Add an education entry under Education.');
+  }
+  sections.push({
+    sectionId: 'education',
+    name: '5. Education',
+    status: eduScore === 100 ? 'complete' : 'needs_details',
+    statusLabel: eduScore === 100 ? 'Complete' : 'Needs details',
+    isOptional: false,
+    score: eduScore,
+    issues: eduIssues,
+    suggestions: [],
+  });
+
+  const totalSkills = (resume.skills || []).reduce(
+    (acc, c) => acc + (c.skills?.filter((s) => s.trim()).length || 0),
+    0
+  );
+  sections.push({
+    sectionId: 'skills',
+    name: '6. Technical Skills',
+    status:
+      totalSkills >= 4 ? 'complete' : totalSkills > 0 ? 'needs_details' : 'optional_empty',
+    statusLabel:
+      totalSkills >= 4
+        ? 'Complete'
+        : totalSkills > 0
+        ? 'Add more'
+        : 'Not provided (Optional)',
+    isOptional: true,
+    score: totalSkills >= 4 ? 100 : totalSkills > 0 ? 60 : 0,
+    issues: [],
+    suggestions:
+      totalSkills === 0
+        ? ['Add categorized technical/computer skills for 2-column ModernCV layout.']
+        : [],
+  });
+
+  const projs = resume.projects || [];
+  sections.push({
+    sectionId: 'projects',
+    name: '7. Projects',
+    status: projs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: projs.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: projs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      projs.length === 0 && (bg === 'student' || bg === 'fresher' || bg === 'technical')
+        ? ['Recommended: Add 2–3 impactful corporate, capstone, or engineering projects.']
+        : [],
+  });
+
+  const certs = resume.certifications || [];
+  sections.push({
+    sectionId: 'certifications',
+    name: '8. Certifications',
+    status: certs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: certs.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: certs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const awards = resume.achievements || [];
+  sections.push({
+    sectionId: 'achievements',
+    name: '9. Awards & Achievements',
+    status: awards.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: awards.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: awards.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const langs = (resume.languages || []).filter((l) => l.language?.trim());
+  sections.push({
+    sectionId: 'languages',
+    name: '10. Languages',
+    status: langs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: langs.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: langs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const lead = resume.leadership || [];
+  sections.push({
+    sectionId: 'leadership',
+    name: '11. Leadership & Activities',
+    status: lead.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: lead.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: lead.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const mems = resume.memberships || [];
+  sections.push({
+    sectionId: 'memberships',
+    name: '12. Professional Memberships',
+    status: mems.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: mems.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: mems.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const hasInt =
+    Boolean(resume.interestItems && resume.interestItems.some((i) => i.name?.trim())) ||
+    Boolean(resume.interests?.trim());
+  sections.push({
+    sectionId: 'interests',
+    name: '13. Interests',
+    status: hasInt ? 'complete' : 'optional_empty',
+    statusLabel: hasInt ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: hasInt ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const hasRefs =
+    resume.referencesDisplayMode === 'on-request' ||
+    (resume.references && resume.references.length > 0);
+  sections.push({
+    sectionId: 'references',
+    name: '14. References',
+    status: hasRefs ? 'complete' : 'optional_empty',
+    statusLabel: hasRefs ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: hasRefs ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const overallScore = calculateResumeCompleteness(resume);
+  let overallStatus: 'excellent' | 'good' | 'in_progress' | 'needs_work' = 'needs_work';
+  if (overallScore >= 85) overallStatus = 'excellent';
+  else if (overallScore >= 65) overallStatus = 'good';
+  else if (overallScore >= 40) overallStatus = 'in_progress';
+
+  return {
+    overallScore,
+    overallStatus,
+    sections,
+    topRecommendations:
+      recs.length > 0
+        ? recs
+        : ['Your Modern Corporate CV is balanced, ATS-friendly, and formatted to Overleaf ModernCV standards.'],
+  };
+}
+
+function analyzeFresherResumeSections(
+  resume: Partial<Resume>
+): import('../types/resume').CvCompletenessReport {
+  const sections: import('../types/resume').SectionAnalysis[] = [];
+  const recs: string[] = [];
+  const track = resume.fresherTrack || 'cs';
+  const hidden = new Set(resume.hiddenSections || []);
+
+  // 1. Header
+  const pi = resume.personalInfo;
+  const piIssues: string[] = [];
+  const piSuggestions: string[] = [];
+  let piScore = 0;
+  if (pi?.fullName?.trim()) piScore += 35;
+  else piIssues.push('Full name is missing.');
+  if (pi?.email?.trim()) piScore += 30;
+  else piIssues.push('Email address is missing.');
+  if (pi?.phone?.trim()) piScore += 20;
+  else piIssues.push('Phone number is missing.');
+  if (pi?.jobTitle?.trim()) piScore += 15;
+  else piSuggestions.push('Add your Target Job / Role below your name (e.g. Junior Software Engineer).');
+  if (!pi?.linkedin?.trim() && !pi?.website?.trim() && !pi?.github?.trim()) {
+    piSuggestions.push('Add LinkedIn, Portfolio, or GitHub link for the right-side header column.');
+  }
+
+  sections.push({
+    sectionId: 'header',
+    name: '1. Header & Contact Details',
+    status: piScore >= 85 ? 'complete' : 'needs_details',
+    statusLabel: piScore >= 85 ? 'Complete' : 'Needs details',
+    isOptional: false,
+    score: piScore,
+    issues: piIssues,
+    suggestions: piSuggestions,
+  });
+  if (piScore < 85) recs.push('Complete your name, target role, email, and phone in Header.');
+
+  // 2. Highlights & Impact Summary (Optional)
+  const keywords = (resume.strengths || []).filter((s) => s.trim().length > 0);
+  const impact = resume.objective?.trim() || '';
+  const hasObjectiveStrip = keywords.length > 0 || impact.length > 0;
+  sections.push({
+    sectionId: 'objective',
+    name: '2. Career Highlights & Impact',
+    status: hasObjectiveStrip ? 'complete' : 'optional_empty',
+    statusLabel: hasObjectiveStrip
+      ? 'Complete'
+      : hidden.has('objective')
+      ? 'Hidden'
+      : 'Optional',
+    isOptional: true,
+    score: hasObjectiveStrip ? 100 : 0,
+    issues: [],
+    suggestions: !hasObjectiveStrip
+      ? ['Optional: Add 3–4 short keyword highlights and a concise 1–2 line Impact statement.']
+      : [],
+  });
+
+  // 3. Education (Primary for Freshers)
+  const edu = resume.education || [];
+  let eduScore = 0;
+  const eduIssues: string[] = [];
+  if (edu.length > 0) {
+    const valid = edu.filter((e) => e.institution?.trim() && e.degree?.trim());
+    eduScore = valid.length === edu.length ? 100 : 60;
+    if (valid.length < edu.length) {
+      eduIssues.push('Ensure each education entry lists degree title and institution.');
+    }
+  } else {
+    eduIssues.push('Add your current or completed degree under Education.');
+    recs.push('Add your degree, specialization, university, dates, and optional GPA under Education.');
+  }
+  sections.push({
+    sectionId: 'education',
+    name: '3. Education',
+    status: eduScore === 100 ? 'complete' : 'needs_details',
+    statusLabel: eduScore === 100 ? 'Complete' : 'Needs details',
+    isOptional: false,
+    score: eduScore,
+    issues: eduIssues,
+    suggestions: [],
+  });
+
+  // 4. Projects (Primary for CS/Eng/Cyber, optional-friendly for Non-Technical)
+  const projs = resume.projects || [];
+  const projIsOptional = track === 'non-technical' || track === 'graduate';
+  let projScore = 0;
+  const projIssues: string[] = [];
+  if (projs.length > 0) {
+    const valid = projs.filter(
+      (p) => p.title?.trim() && ((p.highlights || []).some((h) => h.trim()) || p.description?.trim())
+    );
+    projScore = valid.length === projs.length ? 100 : 65;
+    if (valid.length < projs.length) {
+      projIssues.push('Add concrete outcome or technical bullets for each project.');
+    }
+  } else if (!projIsOptional) {
+    projIssues.push('Add 2–3 academic, personal, capstone, or lab projects.');
+    recs.push('Add your strongest academic or capstone projects under Projects.');
+  }
+  sections.push({
+    sectionId: 'projects',
+    name: '4. Projects',
+    status:
+      projScore === 100
+        ? 'complete'
+        : projs.length === 0 && projIsOptional
+        ? 'optional_empty'
+        : 'needs_details',
+    statusLabel:
+      projScore === 100
+        ? 'Complete'
+        : projs.length === 0 && projIsOptional
+        ? 'Optional'
+        : 'Needs details',
+    isOptional: projIsOptional,
+    score: projScore,
+    issues: projIssues,
+    suggestions:
+      projs.length === 0
+        ? ['Highlight capstone projects, labs, coursework builds, or hackathons.']
+        : [],
+  });
+
+  // 5. Internships / Work Experience (Always optional for Freshers)
+  const exp = resume.experience || [];
+  sections.push({
+    sectionId: 'experience',
+    name: '5. Internships & Experience',
+    status: exp.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: exp.length > 0 ? 'Complete' : 'Not provided (Optional)',
+    isOptional: true,
+    score: exp.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      exp.length === 0
+        ? ['Optional for freshers: Add internships, co-ops, industrial training, or teaching assistantships if any.']
+        : [],
+  });
+
+  // 6. Relevant Coursework
+  const cw = (resume.coursework || []).filter((c) => c.trim().length > 0);
+  sections.push({
+    sectionId: 'coursework',
+    name: '6. Relevant Coursework',
+    status: cw.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: cw.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: cw.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      cw.length === 0 ? ['Optional: Add core academic subjects relevant to your target track.'] : [],
+  });
+
+  // 7. Skills
+  const totalSkills = (resume.skills || []).reduce(
+    (acc, c) => acc + (c.skills?.filter((s) => s.trim()).length || 0),
+    0
+  );
+  sections.push({
+    sectionId: 'skills',
+    name: '7. Skills',
+    status: totalSkills >= 3 ? 'complete' : totalSkills > 0 ? 'needs_details' : 'needs_details',
+    statusLabel: totalSkills >= 3 ? 'Complete' : totalSkills > 0 ? 'Add more' : 'Needs details',
+    isOptional: false,
+    score: totalSkills >= 3 ? 100 : totalSkills > 0 ? 60 : 0,
+    issues: totalSkills === 0 ? ['Add categorized skills (e.g., Programming, Tools, Domain Skills).'] : [],
+    suggestions: [],
+  });
+  if (totalSkills === 0) recs.push('Add confirmed skill categories under Skills.');
+
+  // 8. Publications (Optional)
+  const pubs = resume.publications || [];
+  sections.push({
+    sectionId: 'publications',
+    name: '8. Publications',
+    status: pubs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: pubs.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: pubs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  // 9. Awards & Honors (Optional)
+  const awards = resume.achievements || [];
+  sections.push({
+    sectionId: 'achievements',
+    name: '9. Awards & Honors',
+    status: awards.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: awards.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: awards.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  // 10. Certifications (Optional)
+  const certs = resume.certifications || [];
+  sections.push({
+    sectionId: 'certifications',
+    name: '10. Certifications',
+    status: certs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: certs.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: certs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  // 11. Leadership & Extracurriculars (Optional)
+  const lead = resume.leadership || [];
+  sections.push({
+    sectionId: 'leadership',
+    name: '11. Leadership & Activities',
+    status: lead.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: lead.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: lead.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  // 12. Volunteer Experience (Optional)
+  const vol = resume.volunteer || [];
+  sections.push({
+    sectionId: 'volunteer',
+    name: '12. Volunteer Experience',
+    status: vol.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: vol.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: vol.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  // 13. Languages (Optional)
+  const langs = (resume.languages || []).filter((l) => l.language?.trim());
+  sections.push({
+    sectionId: 'languages',
+    name: '13. Languages',
+    status: langs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: langs.length > 0 ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: langs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  // 14. Additional Info / Interests (Optional)
+  const hasInt =
+    Boolean(resume.interestItems && resume.interestItems.some((i) => i.name?.trim())) ||
+    Boolean(resume.interests?.trim());
+  sections.push({
+    sectionId: 'additional',
+    name: '14. Additional Information',
+    status: hasInt ? 'complete' : 'optional_empty',
+    statusLabel: hasInt ? 'Complete' : 'Optional',
+    isOptional: true,
+    score: hasInt ? 100 : 0,
+    issues: [],
+    suggestions: [],
+  });
+
+  const overallScore = calculateResumeCompleteness(resume);
+  let overallStatus: 'excellent' | 'good' | 'in_progress' | 'needs_work' = 'needs_work';
+  if (overallScore >= 85) overallStatus = 'excellent';
+  else if (overallScore >= 65) overallStatus = 'good';
+  else if (overallScore >= 40) overallStatus = 'in_progress';
+
+  return {
+    overallScore,
+    overallStatus,
+    sections,
+    topRecommendations:
+      recs.length > 0
+        ? recs
+        : ['Your Fresher Resume is clean, ATS-friendly, and follows Overleaf formatting standards.'],
+  };
+}
+
+function analyzeInternshipResumeSections(
+  resume: Partial<Resume>
+): import('../types/resume').CvCompletenessReport {
+  const sections: import('../types/resume').SectionAnalysis[] = [];
+  const recs: string[] = [];
+  const track = resume.internshipTrack || 'cs';
+
+  // 1. Personal Info
+  const pi = resume.personalInfo;
+  const piIssues: string[] = [];
+  const piSuggestions: string[] = [];
+  let piScore = 0;
+  if (pi?.fullName?.trim()) piScore += 40;
+  else piIssues.push('Full name is missing.');
+  if (pi?.email?.trim()) piScore += 30;
+  else piIssues.push('Email address is missing.');
+  if (pi?.phone?.trim()) piScore += 20;
+  else piIssues.push('Phone number is missing.');
+  if (
+    pi?.jobTitle?.trim() ||
+    pi?.city?.trim() ||
+    pi?.location?.trim() ||
+    pi?.linkedin?.trim() ||
+    pi?.github?.trim()
+  ) {
+    piScore += 10;
+  } else {
+    piSuggestions.push('Add a brief target internship headline, location, LinkedIn, or GitHub link.');
+  }
+  const piStarted = Boolean(
+    pi?.fullName?.trim() ||
+      pi?.email?.trim() ||
+      pi?.phone?.trim() ||
+      pi?.jobTitle?.trim() ||
+      pi?.location?.trim() ||
+      pi?.city?.trim()
+  );
+  sections.push({
+    sectionId: 'header',
+    name: '1. Personal Info',
+    status: piScore >= 90 ? 'complete' : 'needs_details',
+    statusLabel: piScore >= 90 ? 'Completed' : piStarted ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: piScore,
+    issues: piIssues,
+    suggestions: piSuggestions,
+  });
+  if (piScore < 90) recs.push('Complete your full name, email, and phone number in Step 1 (Personal Info).');
+
+  // 2. Education
+  const edu = resume.education || [];
+  const hs = resume.highSchool || [];
+  const validEdu = edu.filter((e) => e.institution?.trim() && e.degree?.trim());
+  const hasAnyEduDraft = edu.length > 0 || hs.some((h) => h.schoolName?.trim() || h.qualification?.trim());
+  const eduIssues: string[] = [];
+  let eduScore = 0;
+  if (edu.length > 0 && validEdu.length === edu.length) {
+    eduScore = 100;
+  } else if (hasAnyEduDraft) {
+    eduScore = 60;
+    eduIssues.push('Ensure each degree lists both institution and degree title.');
+  } else {
+    eduIssues.push('Add your current degree, university, and expected graduation dates.');
+    recs.push('Add your degree, college/university, and graduation timeline under Education.');
+  }
+  sections.push({
+    sectionId: 'education',
+    name: '2. Education',
+    status: eduScore === 100 ? 'complete' : 'needs_details',
+    statusLabel: eduScore === 100 ? 'Completed' : hasAnyEduDraft ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: eduScore,
+    issues: eduIssues,
+    suggestions: [],
+  });
+
+  // 3. Learning & Training (Optional)
+  const rawLearning = resume.learningActivities || [];
+  const validLearning = rawLearning.filter(
+    (item) =>
+      Boolean(item.title?.trim()) ||
+      Boolean(item.subject?.trim()) ||
+      Boolean(item.provider?.trim()) ||
+      Boolean(item.description?.trim())
+  );
+  sections.push({
+    sectionId: 'learning',
+    name: '3. Learning & Training',
+    status:
+      validLearning.length > 0
+        ? 'complete'
+        : rawLearning.length > 0
+        ? 'needs_details'
+        : 'optional_empty',
+    statusLabel:
+      validLearning.length > 0
+        ? 'Completed'
+        : rawLearning.length > 0
+        ? 'In Progress'
+        : 'Optional / Skipped',
+    isOptional: true,
+    score: validLearning.length > 0 ? 100 : rawLearning.length > 0 ? 50 : 0,
+    issues: [],
+    suggestions:
+      validLearning.length === 0
+        ? ['Optional: Add courses, bootcamps, workshops, or lab training relevant to your internship.']
+        : [],
+  });
+
+  // 4. Interests (Optional)
+  const hasInterests =
+    (resume.interestItems || []).some((i) => i.name?.trim()) ||
+    Boolean(resume.interests?.trim());
+  sections.push({
+    sectionId: 'interests',
+    name: '4. Interests',
+    status: hasInterests ? 'complete' : 'optional_empty',
+    statusLabel: hasInterests ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasInterests ? 100 : 0,
+    issues: [],
+    suggestions: !hasInterests
+      ? ['Optional: Add 3–5 authentic domain or personal interests.']
+      : [],
+  });
+
+  // 5. Research Work & Projects
+  const rawRes = resume.researchExperience || [];
+  const rawProj = resume.projects || [];
+  const validRes = rawRes.filter(
+    (r) =>
+      r.title?.trim() &&
+      Boolean(
+        r.objectives?.trim() ||
+          r.methodology?.trim() ||
+          r.findings?.trim() ||
+          r.outcomes?.trim()
+      )
+  );
+  const validProj = rawProj.filter(
+    (p) =>
+      p.title?.trim() &&
+      Boolean(p.description?.trim() || (p.highlights || []).some((h) => h.trim()))
+  );
+  const totalRawWork = rawRes.length + rawProj.length;
+  const totalValidWork = validRes.length + validProj.length;
+  const researchOptional = track === 'non-technical';
+  let workScore = 0;
+  const workIssues: string[] = [];
+  if (totalRawWork > 0 && totalValidWork === totalRawWork) {
+    workScore = 100;
+  } else if (totalRawWork > 0) {
+    workScore = 60;
+    workIssues.push('Add a brief summary or bullet points for each research or project entry.');
+  } else if (!researchOptional) {
+    workIssues.push('Add 1–3 research topics, capstone builds, or academic projects.');
+    recs.push('Add academic projects or research work under Step 5 (Research Work & Projects).');
+  }
+  sections.push({
+    sectionId: 'research',
+    name: '5. Research Work & Projects',
+    status:
+      workScore === 100
+        ? 'complete'
+        : totalRawWork === 0 && researchOptional
+        ? 'optional_empty'
+        : 'needs_details',
+    statusLabel:
+      workScore === 100
+        ? 'Completed'
+        : totalRawWork > 0
+        ? 'In Progress'
+        : researchOptional
+        ? 'Optional / Skipped'
+        : 'Not Started',
+    isOptional: researchOptional,
+    score: workScore,
+    issues: workIssues,
+    suggestions:
+      totalRawWork === 0
+        ? ['Include thesis work, lab assignments, open-source contributions, or course projects.']
+        : [],
+  });
+
+  // 6. Career Interests (Optional)
+  const prefs = resume.internshipPreferences;
+  const hasCareerInterests =
+    (resume.careerInterests || []).some((c) => c.trim()) ||
+    Boolean(
+      prefs?.targetRole?.trim() ||
+        prefs?.preferredIndustry?.trim() ||
+        prefs?.duration?.trim() ||
+        prefs?.workArrangement?.trim() ||
+        prefs?.availabilityDate?.trim() ||
+        (prefs?.preferredTechnologies || []).some((t) => t.trim())
+    );
+  sections.push({
+    sectionId: 'career-interests',
+    name: '6. Career Interests',
+    status: hasCareerInterests ? 'complete' : 'optional_empty',
+    statusLabel: hasCareerInterests ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasCareerInterests ? 100 : 0,
+    issues: [],
+    suggestions: !hasCareerInterests
+      ? ['Optional: Specify target internship roles, industries, or preferred tracks.']
+      : [],
+  });
+
+  // 7. Co-Curricular & Events (Optional)
+  const rawAch = resume.achievements || [];
+  const validAch = rawAch.filter(
+    (a) => a.title?.trim() || a.description?.trim() || a.achievementDetails?.trim()
+  );
+  sections.push({
+    sectionId: 'achievements',
+    name: '7. Co-Curricular & Events',
+    status:
+      validAch.length > 0
+        ? 'complete'
+        : rawAch.length > 0
+        ? 'needs_details'
+        : 'optional_empty',
+    statusLabel:
+      validAch.length > 0
+        ? 'Completed'
+        : rawAch.length > 0
+        ? 'In Progress'
+        : 'Optional / Skipped',
+    isOptional: true,
+    score: validAch.length > 0 ? 100 : rawAch.length > 0 ? 50 : 0,
+    issues: [],
+    suggestions:
+      validAch.length === 0
+        ? ['Optional: Add hackathons, competitions, clubs, student chapters, or scholarships.']
+        : [],
+  });
+
+  // 8. Technical Skills (Proficiency dots are strictly optional/manual)
+  const totalSkillCount =
+    (resume.skills || []).reduce(
+      (acc, c) =>
+        acc + (c.skills?.filter((s) => s.trim()).length || (c.category?.trim() ? 1 : 0)),
+      0
+    ) + (resume.skillMatrix || []).filter((m) => m.skill?.trim()).length;
+  const skillScore = totalSkillCount >= 3 ? 100 : totalSkillCount > 0 ? 60 : 0;
+  if (totalSkillCount === 0) {
+    recs.push('Add at least 3 verified skills or tools in Step 8 (Technical Skills).');
+  }
+  sections.push({
+    sectionId: 'skills',
+    name: '8. Technical Skills',
+    status: skillScore === 100 ? 'complete' : 'needs_details',
+    statusLabel:
+      skillScore === 100 ? 'Completed' : totalSkillCount > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: skillScore,
+    issues:
+      totalSkillCount === 0
+        ? ['Add programming languages, tools, or domain skills. Proficiency dots stay hidden unless you rate them.']
+        : [],
+    suggestions:
+      totalSkillCount > 0 && totalSkillCount < 3
+        ? ['Add 1–2 more core tools or domain skills to round out your internship profile.']
+        : [],
+  });
+
+  // 9. Internship Experience (Always Optional — never penalized)
+  const rawExp = resume.experience || [];
+  const validExp = rawExp.filter(
+    (e) =>
+      (e.company?.trim() || e.position?.trim()) &&
+      ((e.highlights || []).some((h) => h.trim()) || Boolean(e.description?.trim()))
+  );
+  sections.push({
+    sectionId: 'experience',
+    name: '9. Internship Experience',
+    status:
+      validExp.length > 0
+        ? 'complete'
+        : rawExp.length > 0
+        ? 'needs_details'
+        : 'optional_empty',
+    statusLabel:
+      validExp.length > 0
+        ? 'Completed'
+        : rawExp.length > 0
+        ? 'In Progress'
+        : 'Optional / Skipped',
+    isOptional: true,
+    score: validExp.length > 0 ? 100 : rawExp.length > 0 ? 50 : 0,
+    issues: [],
+    suggestions:
+      rawExp.length === 0
+        ? ['Optional: Skip cleanly if this is your first internship, or add prior internships/assistantships.']
+        : [],
+  });
+
+  // 10. Additional Information & Review (Certifications, Languages, Custom Sections)
+  const hasCerts = (resume.certifications || []).some((c) => c.name?.trim() || c.issuer?.trim());
+  const hasLangs = (resume.languages || []).some((l) => l.language?.trim());
+  const hasCustom = (resume.customSections || []).some(
+    (cs) => cs.title?.trim() && cs.bullets?.some((b) => b.trim())
+  );
+  const hasAdditional = hasCerts || hasLangs || hasCustom;
+  sections.push({
+    sectionId: 'custom-sections',
+    name: '10. Additional Info & Review',
+    status: hasAdditional ? 'complete' : 'optional_empty',
+    statusLabel: hasAdditional ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasAdditional ? 100 : 0,
+    issues: [],
+    suggestions: !hasAdditional
+      ? ['Optional: Add certifications, spoken languages, or custom sections before previewing your PDF.']
+      : [],
+  });
+
+  const overallScore = calculateResumeCompleteness(resume);
+  let overallStatus: 'excellent' | 'good' | 'in_progress' | 'needs_work' = 'needs_work';
+  if (overallScore >= 85) overallStatus = 'excellent';
+  else if (overallScore >= 65) overallStatus = 'good';
+  else if (overallScore >= 40) overallStatus = 'in_progress';
+
+  return {
+    overallScore,
+    overallStatus,
+    sections,
+    topRecommendations:
+      recs.length > 0
+        ? recs
+        : ['Your Internship Resume is clean, balanced, and hides unused optional sections automatically.'],
+  };
+}
+
 export function analyzeResumeSections(resume: Partial<Resume>): import('../types/resume').CvCompletenessReport {
+  if (resume?.template === 'internship-resume') {
+    return analyzeInternshipResumeSections(resume);
+  }
+  if (resume?.template === 'fresher-resume') {
+    return analyzeFresherResumeSections(resume);
+  }
+  if (resume?.template === 'modern-corporate') {
+    return analyzeModernCorporateSections(resume);
+  }
   if (resume?.template === 'elegant-serif') {
     return analyzeElegantSerifSections(resume);
   }

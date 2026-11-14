@@ -44,6 +44,7 @@ interface ResumePreviewPageProps {
 const HEADING_STYLE_OPTIONS: { value: TemplateHeadingStyle; label: string }[] = [
   { value: 'uppercase-rule', label: 'Uppercase + Rule' },
   { value: 'classic-blue-rule', label: 'Classic Blue + Rule' },
+  { value: 'moderncv-bar', label: 'ModernCV Left Bar' },
   { value: 'burgundy-gold-rule', label: 'Burgundy + Gold Rule' },
   { value: 'title-rule', label: 'Title Case + Thin Rule' },
   { value: 'left-accent', label: 'Left Accent Bar' },
