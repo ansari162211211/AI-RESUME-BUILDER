@@ -253,6 +253,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             Create Account
           </button>
         </div>
+
+        {/* Temporary Auth Domain Debug Info */}
+        <div className="mt-6 p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 space-y-1.5">
+          <div className="font-semibold text-slate-900">
+            Firebase Auth Debug Info (Temporary)
+          </div>
+          <div className="break-all">
+            <span className="font-medium text-slate-600">window.location.origin:</span>{' '}
+            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
+              {typeof window !== 'undefined' ? window.location.origin : 'N/A'}
+            </code>
+          </div>
+          <div className="break-all">
+            <span className="font-medium text-slate-600">window.location.hostname:</span>{' '}
+            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
+              {typeof window !== 'undefined' ? window.location.hostname : 'N/A'}
+            </code>
+          </div>
+          <div className="break-all">
+            <span className="font-medium text-slate-600">Firebase authDomain:</span>{' '}
+            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
+              {auth.app.options.authDomain || 'N/A'}
+            </code>
+          </div>
+          <div className="break-all">
+            <span className="font-medium text-slate-600">Firebase projectId:</span>{' '}
+            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
+              {auth.app.options.projectId || 'N/A'}
+            </code>
+          </div>
+        </div>
       </div>
 
       <ForgotPasswordModal

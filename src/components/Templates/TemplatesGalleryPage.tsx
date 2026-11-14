@@ -16,6 +16,8 @@ import {
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_HARVARD_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -58,6 +60,10 @@ export const TemplatesGalleryPage: React.FC<TemplatesGalleryPageProps> = ({
         ? SAMPLE_TWO_COLUMN_CV
         : templateId === 'software-developer'
         ? SAMPLE_SOFTWARE_DEVELOPER_CV
+        : templateId === 'harvard-style'
+        ? SAMPLE_HARVARD_CV
+        : templateId === 'elegant-serif'
+        ? SAMPLE_ELEGANT_SERIF_CV
         : SAMPLE_ACADEMIC_CV;
     return {
       ...sampleBase,

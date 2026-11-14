@@ -11,6 +11,7 @@ export type ResumeSectionKey =
   | 'thesis'
   | 'coursework'
   | 'experience'
+  | 'research'
   | 'publications'
   | 'projects'
   | 'daily-life'
@@ -34,7 +35,8 @@ export type TemplateLayoutMode =
   | 'asymmetric-labels' // 24% left section title, 76% right content (Modern Minimalist)
   | 'sidebar-light' // 32% light tinted left sidebar + 68% main column
   | 'sidebar-dark' // 31% dark accent left sidebar + 69% main column
-  | 'main-left-sidebar-right'; // ~61% left main column + ~37% right white sidebar (AltaCV Two Column Professional)
+  | 'main-left-sidebar-right' // ~61% left main column + ~37% right white sidebar (AltaCV Two Column Professional)
+  | 'two-column-editorial'; // 50% / 50% balanced white 2-column Overleaf Modern Simple CV (Elegant Serif)
 
 export type TemplateHeaderVariant =
   | 'centered-academic' // Centered uppercase name + thick bottom border
@@ -160,6 +162,45 @@ export const TWO_COLUMN_SIDEBAR_ORDER: ResumeSectionKey[] = [
 export const TWO_COLUMN_ORDER: ResumeSectionKey[] = [
   ...TWO_COLUMN_MAIN_ORDER,
   ...TWO_COLUMN_SIDEBAR_ORDER,
+];
+
+export const ELEGANT_SERIF_LEFT_ORDER: ResumeSectionKey[] = [
+  'education',
+  'experience',
+  'research',
+  'projects',
+];
+
+export const ELEGANT_SERIF_RIGHT_ORDER: ResumeSectionKey[] = [
+  'objective',
+  'skills',
+  'publications',
+  'achievements',
+  'certifications',
+  'languages',
+  'leadership',
+  'memberships',
+  'interests',
+  'references',
+  'custom-sections',
+];
+
+export const ELEGANT_SERIF_ORDER: ResumeSectionKey[] = [
+  'objective',
+  'education',
+  'experience',
+  'research',
+  'projects',
+  'publications',
+  'achievements',
+  'skills',
+  'languages',
+  'certifications',
+  'leadership',
+  'memberships',
+  'interests',
+  'references',
+  'custom-sections',
 ];
 
 export const PROFESSIONAL_ORDER: ResumeSectionKey[] = [
@@ -368,6 +409,31 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       headingStyle: 'title-rule',
     },
   },
+  {
+    id: 'elegant-serif',
+    name: 'Elegant Serif',
+    shortTag: 'Modern Simple CV',
+    description:
+      'Refined academic and professional CV inspired by Overleaf Modern Simple CV with a monochrome banner header, balanced two-column serif layout, date-rail timelines, and scholarly sections.',
+    categories: ['Academic CV', 'Professional', 'Research'],
+    layout: 'two-column-editorial',
+    headerVariant: 'editorial-double-rule',
+    sectionOrder: ELEGANT_SERIF_ORDER,
+    sidebarSections: ELEGANT_SERIF_RIGHT_ORDER,
+    bulletSymbol: '•',
+    citationStyle: 'numbered',
+    centeredHeadings: false,
+    skillsLayout: 'rows',
+    defaultCustomization: {
+      fontFamily: 'serif',
+      fontSize: 'standard',
+      textColor: '#111111',
+      accentColor: '#1f2937',
+      sectionSpacing: 'balanced',
+      pageMargins: 'narrow',
+      headingStyle: 'clean-caps',
+    },
+  },
 ];
 
 export const TEXT_COLOR_SWATCHES = [
@@ -437,12 +503,13 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
   const isTwoColumn = templateId === 'two-column-professional';
   const isSoftwareDev = templateId === 'software-developer';
   const isHarvard = templateId === 'harvard-style';
+  const isElegantSerif = templateId === 'elegant-serif';
   const baseFontPt =
     custom.fontSize === 'compact'
       ? 8.75
       : custom.fontSize === 'large'
       ? 10.25
-      : isTwoColumn
+      : isTwoColumn || isElegantSerif
       ? 9.0
       : 9.5;
   const delta = baseFontPt - 9.5;
@@ -458,6 +525,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 28
       : custom.pageMargins === 'wide'
       ? 48
+      : 36
+    : isElegantSerif
+    ? custom.pageMargins === 'narrow'
+      ? 28
+      : custom.pageMargins === 'wide'
+      ? 46
       : 36
     : isSoftwareDev
     ? custom.pageMargins === 'narrow'
@@ -488,6 +561,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 54
       : 42
+    : isElegantSerif
+    ? custom.pageMargins === 'narrow'
+      ? 30
+      : custom.pageMargins === 'wide'
+      ? 48
+      : 38
     : isSoftwareDev
     ? custom.pageMargins === 'narrow'
       ? 34
@@ -518,6 +597,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 10.5
       : 7.5
+    : isElegantSerif
+    ? custom.sectionSpacing === 'tight'
+      ? 6
+      : custom.sectionSpacing === 'relaxed'
+      ? 12
+      : 8.5
     : isSoftwareDev
     ? custom.sectionSpacing === 'tight'
       ? 5
@@ -547,6 +632,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 8
       : 5.5
+    : isElegantSerif
+    ? custom.sectionSpacing === 'tight'
+      ? 4.5
+      : custom.sectionSpacing === 'relaxed'
+      ? 9
+      : 6.5
     : isSoftwareDev
     ? custom.sectionSpacing === 'tight'
       ? 3.75
@@ -576,6 +667,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 1.35
       : 1.26
+    : isElegantSerif
+    ? custom.sectionSpacing === 'tight'
+      ? 1.22
+      : custom.sectionSpacing === 'relaxed'
+      ? 1.38
+      : 1.3
     : isSoftwareDev
     ? custom.sectionSpacing === 'tight'
       ? 1.18
@@ -600,6 +697,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 22 + delta * 1.5
       : isHarvard
       ? 18 + delta * 1.4
+      : isElegantSerif
+      ? 20 + delta * 1.4
       : isSoftwareDev
       ? 22 + delta * 1.4
       : isTwoColumn
@@ -610,15 +709,17 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 11 + delta * 0.5
       : isHarvard
       ? 10.5 + delta * 0.5
+      : isElegantSerif
+      ? 11.5 + delta * 0.5
       : isSoftwareDev
       ? 10.5 + delta * 0.5
       : isTwoColumn
       ? 12 + delta * 0.5
       : 10 + delta * 0.5,
-    entryTitlePt: isTwoColumn ? 9.75 + delta : 9.5 + delta,
-    entrySubtitlePt: isTwoColumn ? 9 + delta : 9 + delta,
-    bodyPt: 8.75 + delta,
-    metaPt: 8.5 + delta * 0.5,
+    entryTitlePt: isTwoColumn ? 9.75 + delta : isElegantSerif ? 9.25 + delta : 9.5 + delta,
+    entrySubtitlePt: isTwoColumn ? 9 + delta : isElegantSerif ? 8.75 + delta : 9 + delta,
+    bodyPt: isElegantSerif ? 8.5 + delta : 8.75 + delta,
+    metaPt: isElegantSerif ? 8.25 + delta * 0.5 : 8.5 + delta * 0.5,
     marginTopPt: marginPt,
     marginBottomPt: marginPt,
     marginHorizPt,

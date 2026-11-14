@@ -58,15 +58,18 @@ CRITICAL EXTRACTION RULES:
 1. Extract ALL factual details exactly as they appear in the document: names, degrees, institutions, companies, locations, dates, titles, citations, and bullet points.
 2. DO NOT invent, hallucinate, or fabricate missing details or numbers. If an item or section is not in the CV, leave it as an empty array or empty string.
 3. Categorize information cleanly into these 14 sections:
-   - personalInfo: fullName, jobTitle, email, phone, streetAddress, city, state, postalCode, country, website, linkedin, github, otherProfiles (e.g. ORCID, Google Scholar, ResearchGate)
+   - personalInfo: fullName, jobTitle, email, phone, streetAddress, city, state, postalCode, country, website, linkedin, github, orcid, nationality, dateOfBirth, otherProfiles (e.g. Google Scholar, ResearchGate)
    - objective: career objective or professional summary paragraph
-   - education: array of { institution, degree, specialization, startDate, endDate, current, grade, achievements, location }
+   - academicInterests: string (research or academic focus areas if stated)
+   - careerGoals: string (career aspirations if stated)
+   - education: array of { institution, degree, department, specialization, startDate, endDate, current, grade, thesisTitle, dissertationDetails, honors, achievements, location }
    - coursework: string[] (relevant university courses if listed)
    - experience: array of { company, position, location, employmentType, startDate, endDate, current, highlights: string[] }
-   - publications: array of { type ('journal' | 'conference' | 'patent' | 'manuscript' | 'thesis'), title, authors, journalOrConference, publisher, year, volume, issue, pages, doi, patentNumber, location }
+   - researchExperience: array of { title, institution, supervisor, role, domain, startDate, endDate, current, objectives, methodology, technologies: string[], findings, outcomes, publications }
+   - publications: array of { type ('journal' | 'conference' | 'book' | 'research_paper' | 'patent' | 'manuscript' | 'thesis'), title, authors, journalOrConference, publisher, year, volume, issue, pages, doi, patentNumber, location }
    - projects: array of { title, description, startDate, endDate, technologies: string[], link, githubUrl, highlights: string[] }
    - skills: array of { category, skills: string[] } (organize into standard categories like 'Languages', 'Developer Tools', 'Technologies/Frameworks', or 'Programming Languages', 'Web Technologies', 'Cloud & DevOps')
-   - achievements: array of { title, issuer, date, description } (honors, awards, scholarships, fellowships)
+   - achievements: array of { title, issuer, date, category, description } (honors, awards, scholarships, fellowships)
    - leadership: array of { role, organization, startDate, endDate, current, location, highlights: string[] }
    - volunteer: array of { role, organization, startDate, endDate, current, location, highlights: string[] }
    - memberships: array of { organization, membershipType, membershipId, startDate, endDate, current }
@@ -149,10 +152,16 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
     const isClassicTemplate = template === 'classic-professional';
     const isTwoColumnTemplate = template === 'two-column-professional';
     const isSoftwareDevTemplate = template === 'software-developer';
+    const isHarvardTemplate = template === 'harvard-style';
+    const isElegantSerifTemplate = template === 'elegant-serif';
     const roleLabel = isJakesTemplate
       ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
       : isSoftwareDevTemplate
       ? 'senior software engineering hiring editor (systems impact, crisp action-led technical bullets specialist)'
+      : isHarvardTemplate
+      ? 'Harvard Office of Career Services resume editor (traditional action-verb, achievement-oriented bullet specialist)'
+      : isElegantSerifTemplate
+      ? 'distinguished editorial academic and professional CV editor (Overleaf Modern Simple CV specialist)'
       : isClassicTemplate
       ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
       : isTwoColumnTemplate
@@ -162,6 +171,10 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? "Jake's Resume Technical Software Developer Resume"
       : isSoftwareDevTemplate
       ? 'Software Developer Single-Column Resume'
+      : isHarvardTemplate
+      ? 'Harvard Style Traditional Single-Column Resume'
+      : isElegantSerifTemplate
+      ? 'Elegant Serif Academic & Professional Curriculum Vitae'
       : isClassicTemplate
       ? 'Classic Professional Multi-Page CV'
       : isTwoColumnTemplate
@@ -181,6 +194,10 @@ REQUIREMENTS:
 1. ${
       isJakesTemplate || isSoftwareDevTemplate
         ? 'Make each bullet crisp, high-impact, action-verb-led, and ATS-friendly (ideal 1-2 lines).'
+        : isHarvardTemplate
+        ? 'Follow Harvard resume bullet conventions: begin every bullet with a strong action verb, omit first-person pronouns ("I", "my"), describe concrete scope and results clearly, and maintain a formal, traditional single-column resume tone.'
+        : isElegantSerifTemplate
+        ? 'Use refined editorial, scholarly, and precise professional phrasing appropriate for a classic serif academic/executive CV; keep bullets concise and factual without marketing fluff.'
         : isClassicTemplate
         ? 'Keep phrasing crisp, clear, factual, and professional—ideal for a classic structured CV.'
         : isTwoColumnTemplate
@@ -251,10 +268,16 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
     const isClassicTemplate = currentResume?.template === 'classic-professional';
     const isTwoColumnTemplate = currentResume?.template === 'two-column-professional';
     const isSoftwareDevTemplate = currentResume?.template === 'software-developer';
+    const isHarvardTemplate = currentResume?.template === 'harvard-style';
+    const isElegantSerifTemplate = currentResume?.template === 'elegant-serif';
     const advisorName = isJakesTemplate
       ? 'Technical Resume Advisor'
       : isSoftwareDevTemplate
       ? 'Software Developer Resume Advisor'
+      : isHarvardTemplate
+      ? 'Harvard Style Resume Advisor'
+      : isElegantSerifTemplate
+      ? 'Elegant Serif CV Advisor'
       : isClassicTemplate
       ? 'Classic Professional CV Advisor'
       : isTwoColumnTemplate
@@ -264,6 +287,10 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? "Jake's Resume"
       : isSoftwareDevTemplate
       ? 'Software Developer Resume'
+      : isHarvardTemplate
+      ? 'Harvard Style Resume'
+      : isElegantSerifTemplate
+      ? 'Elegant Serif CV (Modern Simple CV)'
       : isClassicTemplate
       ? 'Classic Professional CV'
       : isTwoColumnTemplate
@@ -273,6 +300,10 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'jakes-resume'
       : isSoftwareDevTemplate
       ? 'software-developer'
+      : isHarvardTemplate
+      ? 'harvard-style'
+      : isElegantSerifTemplate
+      ? 'elegant-serif'
       : isClassicTemplate
       ? 'classic-professional'
       : isTwoColumnTemplate
@@ -286,17 +317,23 @@ CURRENT SECTION BEING INTERVIEWED: "${activeSection}"
 
 USER'S CURRENT RESUME STATE SUMMARY:
 ${JSON.stringify({
+  targetBackground: currentResume.targetBackground,
+  harvardLeadershipFirst: currentResume.harvardLeadershipFirst,
   personalInfo: currentResume.personalInfo,
   personalQuote: currentResume.personalQuote ? 'Present' : 'Empty',
   objective: currentResume.objective ? 'Present' : 'Empty',
   educationCount: currentResume.education?.length || 0,
+  studyAbroadCount: currentResume.studyAbroad?.length || 0,
+  highSchoolCount: currentResume.highSchool?.length || 0,
   thesis: currentResume.thesis?.title ? 'Present' : 'Empty',
   courseworkCount: currentResume.coursework?.length || 0,
   experienceCount: currentResume.experience?.length || 0,
+  researchExperienceCount: currentResume.researchExperience?.length || 0,
   projectsCount: currentResume.projects?.length || 0,
   dailyActivitiesCount: currentResume.dailyActivities?.length || 0,
   publicationsCount: currentResume.publications?.length || 0,
   skillsCategories: (currentResume.skills || []).map((s: any) => s.category),
+  labSkillsCount: currentResume.labSkills?.length || 0,
   skillMatrixCount: currentResume.skillMatrix?.length || 0,
   strengthsCount: currentResume.strengths?.length || 0,
   awardsCount: currentResume.achievements?.length || 0,
@@ -314,9 +351,11 @@ ${JSON.stringify({
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
 2. Probe for DEPTH and specificity matching the active template:
+   - For Elegant Serif ("elegant-serif"): Determine \`targetBackground\` ('student' | 'fresher' | 'experienced' | 'researcher') early. Support optional \`academicInterests\` and \`careerGoals\` alongside \`objective\`, plus \`researchExperience: [{ id, title, institution, supervisor, role, domain, startDate, endDate, current, objectives, methodology, technologies, findings, outcomes, publications }]\`, \`department\` / \`dissertationDetails\` in Education, and optional \`nationality\` / \`dateOfBirth\` / \`orcid\` in Personal Info. Never invent star ratings, skill bars, or unconfirmed language levels.
+   - For Harvard Style ("harvard-style"): Determine \`targetBackground\` ('student' | 'fresher' | 'experienced') early. Do NOT require High School for university upperclassmen or experienced professionals. Support optional \`studyAbroad: [{ id, institution, cityCountry, coursework, startDate, endDate }]\`, optional \`highSchool: [{ id, schoolName, location, graduationDate, gpa, testScores, honors }]\`, optional \`labSkills: string[]\`, and per-degree \`thesisTitle\`, \`coursework: string[]\`, \`honors\`. Encourage strong action verbs in \`experience\` and \`leadership\` bullets without inventing metrics. If user prefers Leadership above Experience, set \`harvardLeadershipFirst: true\`.
    - For Personal Info: name, professional headline/tagline (\`jobTitle\`), street/city/state/ZIP/country address, email, phone, LinkedIn, GitHub, website (plus optional twitter, orcid, gitlab, mastodon for Two Column Professional, or secondaryPhone / dateOfBirth for Classic Professional).
    - For Objective / Summary: professional summary paragraph (\`objective\`) and optional opening personal quote (\`personalQuote\`).
-   - For Education: institution name, degree & specialization, start/graduation dates, location, GPA/grade, and optional short description (\`description\`).
+   - For Education: institution name, degree & specialization, start/graduation dates, location, GPA/grade, optional \`thesisTitle\`, optional \`coursework\`, optional \`honors\`, and optional short description (\`description\`).
    - For Master's Thesis ("thesis", Classic Professional optional): \`thesis: { title, supervisors, institution, year, description }\`.
    - For Coursework ("coursework"): relevant university courses as string array \`coursework: string[]\`.
    - For Work Experience: organization/company name, job title, optional \`category\` ('Vocational' | 'Professional' | 'Other'), location, start/end dates, optional short role \`description\`, bullet \`highlights\`, and optional nested \`subHighlights: [{ id, parentIndex, items }]\`.
@@ -327,8 +366,9 @@ INTERVIEW GUIDELINES:
    - For Most Proud Of / Achievements ("achievements", optional): \`achievements: [{ id, title, issuer, date, description, icon ('trophy'|'heart'|'award'|'star') }]\`.
    - For Certifications ("certifications", optional): \`certifications: [{ id, name, issuer, issueDate, credentialId, link }]\`.
    - For Strengths ("strengths", Two Column Professional): \`strengths: string[]\` — extract ONLY strengths explicitly named by the user; NEVER auto-assign or fabricate strengths.
-   - For Languages ("languages"): \`[{ id, language, proficiency, comment }]\` — set \`proficiency\` ONLY if explicitly stated by the user (use \`""\` if unconfirmed; NEVER invent language dot ratings).
-   - For Skills: organize into clear categories (Jake's: \`Languages\`, \`Developer Tools\`, \`Technologies/Frameworks\`; Software Developer: \`Programming Languages\`, \`Developer Tools\`, \`Technologies & Frameworks\`; Classic Professional: \`Programming Languages\`, \`Operating Systems\`, \`Frameworks\`, \`Databases\`, \`Developer Tools\`).
+   - For Languages ("languages"): \`[{ id, language, proficiency, comment }]\` — set \`proficiency\` ONLY if explicitly stated by the user (use \`""\` if unconfirmed; NEVER invent language dot ratings or proficiency labels).
+   - For Skills: organize into clear categories (Jake's: \`Languages\`, \`Developer Tools\`, \`Technologies/Frameworks\`; Software Developer: \`Programming Languages\`, \`Developer Tools\`, \`Technologies & Frameworks\`; Harvard Style: \`Technical & Quantitative\`, \`Programming & Data\`, \`Software & Tools\`; Classic Professional: \`Programming Languages\`, \`Operating Systems\`, \`Frameworks\`, \`Databases\`, \`Developer Tools\`).
+   - For Laboratory & Research Skills ("lab-skills", Harvard Style optional): \`labSkills: string[]\`.
    - For Skill Matrix ("skill-matrix", Classic Professional): \`skillMatrix: [{ id, category, skill, level, yearsOfExperience, comment }]\` where \`level\` is 1–5 ONLY IF explicitly stated by the user; NEVER invent or auto-assign a 1–5 rating if the user didn't give one (use \`null\` and ask the user to choose 1–5).
    - For Interests ("interests"): \`interestItems: [{ id, name, description }]\` and/or \`interests\` string.
    - For Additional Info / Custom Sections ("custom-sections"): \`customSections: [{ id, title, bullets: string[] }]\`.
@@ -406,7 +446,79 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
     const isClassicTemplate = resume?.template === 'classic-professional';
     const isTwoColumnTemplate = resume?.template === 'two-column-professional';
     const isSoftwareDevTemplate = resume?.template === 'software-developer';
-    const auditPrompt = isJakesTemplate
+    const isHarvardTemplate = resume?.template === 'harvard-style';
+    const isElegantSerifTemplate = resume?.template === 'elegant-serif';
+    const auditPrompt = isElegantSerifTemplate
+      ? `You are a distinguished academic and editorial CV reviewer evaluating an Elegant Serif CV (Modern Simple CV style).
+Analyze this Elegant Serif CV across its 15 sections:
+(header, objective [optional], education, experience [optional for students/freshers], research [optional], projects [optional], publications [optional], achievements [optional], skills, languages [optional], certifications [optional], leadership [optional], memberships [optional], interests [optional], references [optional]).
+
+TARGET BACKGROUND: ${resume.targetBackground || 'researcher'}
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'objective', 'education', 'experience', 'research', 'projects', 'publications', 'achievements', 'skills', 'languages', 'certifications', 'leadership', 'memberships', 'interests', 'references'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. Do NOT penalize empty optional sections ('objective', 'research', 'projects', 'publications', 'achievements', 'languages', 'certifications', 'leadership', 'memberships', 'interests', 'references', or 'experience' unless targetBackground === 'experienced').
+4. Never suggest fabricated metrics, skill bars, star ratings, or unconfirmed language proficiencies.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isHarvardTemplate
+      ? `You are a Harvard Office of Career Services advisor reviewing a Harvard Style Resume.
+Analyze this Harvard Style Resume across its 11 sections:
+(header, education, study-abroad [optional], high-school [optional], experience [optional for students/freshers], leadership [optional], skills, languages [optional], lab-skills [optional], interests [optional], custom-sections [optional additional info]).
+
+TARGET BACKGROUND: ${resume.targetBackground || 'student'}
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Use the exact sectionId values: 'header', 'education', 'study-abroad', 'high-school', 'experience', 'leadership', 'skills', 'languages', 'lab-skills', 'interests', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. Do NOT penalize empty optional sections ('study-abroad', 'high-school', 'lab-skills', 'interests', 'custom-sections', or 'experience' when targetBackground is 'student' or 'fresher').
+4. Verify bullets start with strong action verbs and avoid fabricated metrics.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isJakesTemplate
       ? `You are a senior software engineering hiring manager and technical resume reviewer.
 Analyze this Jake's Resume layout for thoroughness, clarity, and completeness across its sections:
 (personalInfo, education, coursework [optional], experience, projects [optional], skills, leadership [optional]).

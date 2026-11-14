@@ -11,6 +11,8 @@ import {
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_HARVARD_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
@@ -209,6 +211,92 @@ test('analyzeResumeSections evaluates Software Developer across 11 sections with
   assert.ok(csStudentReport.overallScore >= 75);
 });
 
+test('analyzeResumeSections evaluates Harvard Style across 11 sections adapting to Student, Fresher, and Experienced backgrounds', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_HARVARD_CV);
+  assert.equal(fullReport.sections.length, 11);
+  assert.equal(fullReport.overallScore, 100);
+  assert.equal(fullReport.overallStatus, 'excellent');
 
+  // Student without work experience or study abroad: experience is optional_empty, study-abroad & high-school are optional_empty
+  const studentHarvard = {
+    ...SAMPLE_HARVARD_CV,
+    targetBackground: 'student' as const,
+    experience: [],
+    studyAbroad: [],
+    highSchool: [],
+    labSkills: [],
+    achievements: [],
+  };
+  const studentReport = analyzeResumeSections(studentHarvard);
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'experience')?.isOptional, true);
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'study-abroad')?.status, 'optional_empty');
+  assert.equal(studentReport.sections.find((s) => s.sectionId === 'high-school')?.status, 'optional_empty');
+  assert.ok(studentReport.overallScore >= 80);
 
+  // Fresher with projects, certifications, unconfirmed language level, and interests
+  const fresherHarvard = {
+    ...SAMPLE_HARVARD_CV,
+    targetBackground: 'fresher' as const,
+    experience: [],
+    studyAbroad: [],
+    projects: [
+      { id: 'p1', title: 'Causal Policy Evaluation', technologies: ['R'], highlights: ['Evaluated panel outcomes in R.'] },
+    ],
+    languages: [
+      { id: 'l1', language: 'English', proficiency: 'Native' },
+      { id: 'l2', language: 'Spanish', proficiency: '' },
+    ],
+  };
+  const fresherReport = analyzeResumeSections(fresherHarvard);
+  assert.equal(fresherReport.sections.find((s) => s.sectionId === 'custom-sections')?.status, 'complete');
+  assert.equal(fresherReport.sections.find((s) => s.sectionId === 'languages')?.status, 'complete');
+  assert.ok(fresherReport.overallScore >= 85);
+
+  // Experienced profile missing work experience flags Experience as required
+  const experiencedMissingExp = {
+    ...SAMPLE_HARVARD_CV,
+    targetBackground: 'experienced' as const,
+    experience: [],
+    studyAbroad: [],
+    highSchool: [],
+  };
+  const expMissingReport = analyzeResumeSections(experiencedMissingExp);
+  const expSec = expMissingReport.sections.find((s) => s.sectionId === 'experience');
+  assert.equal(expSec?.isOptional, false);
+  assert.equal(expSec?.status, 'needs_details');
+  assert.equal(expMissingReport.sections.find((s) => s.sectionId === 'study-abroad')?.status, 'optional_empty');
+  assert.equal(expMissingReport.sections.find((s) => s.sectionId === 'high-school')?.status, 'optional_empty');
+});
+
+test('analyzeResumeSections evaluates Elegant Serif (Template 7) across 15 sections and adapts to all 4 personas', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_ELEGANT_SERIF_CV);
+  assert.equal(fullReport.sections.length, 15);
+  assert.equal(fullReport.overallScore, 100);
+  assert.equal(fullReport.overallStatus, 'excellent');
+
+  const researchSec = fullReport.sections.find((s) => s.sectionId === 'research');
+  assert.ok(researchSec);
+  assert.equal(researchSec.status, 'complete');
+
+  // Experienced profile missing experience requires experience; researcher without work experience keeps experience optional
+  const expMissing = analyzeResumeSections({
+    ...SAMPLE_ELEGANT_SERIF_CV,
+    targetBackground: 'experienced' as const,
+    experience: [],
+  });
+  const expSec = expMissing.sections.find((s) => s.sectionId === 'experience');
+  assert.equal(expSec?.isOptional, false);
+  assert.equal(expSec?.status, 'needs_details');
+
+  const researcherNoWork = analyzeResumeSections({
+    ...SAMPLE_ELEGANT_SERIF_CV,
+    targetBackground: 'researcher' as const,
+    experience: [],
+    languages: [{ id: 'ul1', language: 'Italian', proficiency: '' }],
+  });
+  assert.equal(researcherNoWork.sections.find((s) => s.sectionId === 'experience')?.isOptional, true);
+  assert.equal(researcherNoWork.sections.find((s) => s.sectionId === 'experience')?.status, 'optional_empty');
+  assert.equal(researcherNoWork.sections.find((s) => s.sectionId === 'languages')?.status, 'complete');
+});
 

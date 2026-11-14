@@ -183,6 +183,10 @@ export default function App() {
             ? 'two-column'
             : template.id === 'software-developer'
             ? 'software-developer'
+            : template.id === 'harvard-style'
+            ? 'harvard'
+            : template.id === 'elegant-serif'
+            ? 'elegant-serif'
             : template.categories.includes('Student & Fresher')
             ? 'fresher'
             : template.categories.includes('Technical & Developer')
@@ -198,6 +202,10 @@ export default function App() {
             ? 'Two Column Professional CV'
             : template.id === 'software-developer'
             ? 'Software Developer Resume'
+            : template.id === 'harvard-style'
+            ? 'Harvard Style Resume'
+            : template.id === 'elegant-serif'
+            ? 'Elegant Serif CV'
             : `${template.name} CV`,
           seedType,
           user.displayName || undefined,

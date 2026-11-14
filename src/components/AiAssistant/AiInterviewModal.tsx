@@ -9,6 +9,7 @@ import {
   ArrowRight,
   SkipForward,
   User,
+  Users,
   GraduationCap,
   Briefcase,
   Code2,
@@ -94,23 +95,59 @@ const SOFTWARE_DEV_SECTION_FLOW = [
   'achievements',
 ];
 
+const HARVARD_SECTION_FLOW = [
+  'personalInfo',
+  'education',
+  'study-abroad',
+  'high-school',
+  'experience',
+  'leadership',
+  'skills',
+  'languages',
+  'lab-skills',
+  'interests',
+  'custom-sections',
+];
+
+const ELEGANT_SERIF_SECTION_FLOW = [
+  'personalInfo',
+  'objective',
+  'education',
+  'experience',
+  'research',
+  'projects',
+  'publications',
+  'achievements',
+  'skills',
+  'languages',
+  'certifications',
+  'leadership',
+  'memberships',
+  'interests',
+  'references',
+];
+
 const SECTION_LABELS: Record<string, string> = {
   personalInfo: 'Personal Info',
-  objective: 'Summary & Quote',
+  objective: 'Profile / Summary',
   education: 'Education',
+  'study-abroad': 'Study Abroad',
+  'high-school': 'High School',
   thesis: "Master's Thesis",
   coursework: 'Coursework',
   experience: 'Experience',
+  research: 'Research Experience',
   'daily-life': 'A Day of My Life',
   philosophy: 'Life Philosophy',
   languages: 'Languages',
   projects: 'Projects',
   publications: 'Publications',
   skills: 'Skills',
+  'lab-skills': 'Lab Skills',
   'skill-matrix': 'Skill Matrix',
   strengths: 'Strengths',
   interests: 'Interests',
-  'custom-sections': 'Custom Info',
+  'custom-sections': 'Additional Info',
   achievements: 'Achievements / Awards',
   leadership: 'Leadership & Activities',
   volunteer: 'Volunteer',
@@ -138,6 +175,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const isClassic = templateId === 'classic-professional';
   const isTwoColumn = templateId === 'two-column-professional';
   const isSoftwareDev = templateId === 'software-developer';
+  const isHarvard = templateId === 'harvard-style';
+  const isElegantSerif = templateId === 'elegant-serif';
   const sectionFlow = isJakes
     ? JAKES_SECTION_FLOW
     : isClassic
@@ -146,6 +185,10 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     ? TWO_COLUMN_SECTION_FLOW
     : isSoftwareDev
     ? SOFTWARE_DEV_SECTION_FLOW
+    : isHarvard
+    ? HARVARD_SECTION_FLOW
+    : isElegantSerif
+    ? ELEGANT_SERIF_SECTION_FLOW
     : ACADEMIC_SECTION_FLOW;
   const activeSection = sectionFlow[currentSectionIndex] || 'personalInfo';
 
@@ -182,6 +225,14 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         ? initialName
           ? `Hello ${initialName}! I'm your Classic Professional CV Advisor. I already see your basic contact details${hasEdu ? ' and education' : ''}${hasExp ? ' and experience' : ''}. Would you like to refine your Summary & Quote, add your Master's Thesis, update your Skill Matrix, or review another section?`
           : `Welcome! I'm your Classic Professional CV Advisor. We'll build your structured CV step by step—personal info, summary, education, optional thesis, vocational/professional experience, languages, computer skills, skill matrix, interests, custom sections, and references. First, what is your full name, city/country, and target role?`
+        : isHarvard
+        ? initialName
+          ? `Hello ${initialName}! I'm your Harvard Style Resume Advisor. We'll refine your Education (including optional Study Abroad or High School), action-verb Experience bullets, Leadership & Activities, Skills & Interests, and optional Additional Information. First, are you building this as a College Student, Fresher / Recent Graduate, or Experienced Professional?`
+          : `Welcome! I'm your Harvard Style Resume Advisor. I'll guide you through building a crisp, traditional Harvard-style resume—one step at a time, skipping any optional section you don't need. To begin, are you a College Student, Fresher / Recent Graduate, or Experienced Professional, and what is your full name & email?`
+        : isElegantSerif
+        ? initialName
+          ? `Hello ${initialName}! I'm your Elegant Serif CV Advisor. Together we'll shape your Professional Profile, Education, Experience, Research Experience, Publications, Awards, Skills, Languages, and optional academic sections—omitting anything not needed. Are you preparing this CV as a Student, Fresher, Experienced Professional, or Researcher / Academic?`
+          : `Welcome! I'm your Elegant Serif CV Advisor (Modern Simple CV style). We'll craft a refined, scholarly CV one section at a time and skip any optional section you don't need. To start, are you a Student, Fresher, Experienced Professional, or Researcher / Academic, and what is your full name & email?`
         : isTwoColumn
         ? initialName
           ? `Hello ${initialName}! I'm your Two Column Professional CV Advisor. Let's craft or refine your header & tagline, experience, projects, optional "A Day of My Life" breakdown, publications, philosophy, proudest achievements, strengths, languages, education, and referees. You can skip any optional section at any time—where would you like to focus?`
@@ -208,6 +259,20 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               'Add Software Engineering Experience',
               'Add Technical Project',
               'Add Languages, Tools & Frameworks',
+            ]
+          : isHarvard
+          ? [
+              'College Student',
+              'Fresher / Recent Graduate',
+              'Experienced Professional',
+              'Add Education & Coursework',
+            ]
+          : isElegantSerif
+          ? [
+              'Researcher / Academic',
+              'Experienced Professional',
+              'Student / Graduate Applicant',
+              'Add Education & Research',
             ]
           : isClassic
           ? [
@@ -281,6 +346,12 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
           if (u.objective) {
             updated.objective = u.objective;
           }
+          if (u.academicInterests) {
+            updated.academicInterests = u.academicInterests;
+          }
+          if (u.careerGoals) {
+            updated.careerGoals = u.careerGoals;
+          }
           if (u.thesis && (u.thesis.title || u.thesis.description || u.thesis.supervisors)) {
             updated.thesis = { ...(prev.thesis || { title: '' }), ...u.thesis };
           }
@@ -294,11 +365,44 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
             ]);
             updated.coursework = Array.from(merged);
           }
+          if (
+            u.targetBackground === 'student' ||
+            u.targetBackground === 'fresher' ||
+            u.targetBackground === 'experienced' ||
+            u.targetBackground === 'researcher'
+          ) {
+            updated.targetBackground = u.targetBackground;
+          }
+          if (typeof u.harvardLeadershipFirst === 'boolean') {
+            updated.harvardLeadershipFirst = u.harvardLeadershipFirst;
+          }
           if (Array.isArray(u.education) && u.education.length > 0) {
             updated.education = [...(prev.education || []), ...(u.education as any)];
           }
+          if (Array.isArray(u.studyAbroad) && u.studyAbroad.length > 0) {
+            updated.studyAbroad = [...(prev.studyAbroad || []), ...(u.studyAbroad as any)];
+          }
+          if (Array.isArray(u.highSchool) && u.highSchool.length > 0) {
+            updated.highSchool = [...(prev.highSchool || []), ...(u.highSchool as any)];
+          }
+          if (Array.isArray(u.labSkills) && u.labSkills.length > 0) {
+            const merged = new Set([
+              ...(prev.labSkills || []).map((s) => s.trim()).filter(Boolean),
+              ...u.labSkills
+                .filter((s): s is string => typeof s === 'string')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            ]);
+            updated.labSkills = Array.from(merged);
+          }
           if (Array.isArray(u.experience) && u.experience.length > 0) {
             updated.experience = [...(prev.experience || []), ...(u.experience as any)];
+          }
+          if (Array.isArray(u.researchExperience) && u.researchExperience.length > 0) {
+            updated.researchExperience = [
+              ...(prev.researchExperience || []),
+              ...(u.researchExperience as any),
+            ];
           }
           if (Array.isArray(u.projects) && u.projects.length > 0) {
             updated.projects = [...(prev.projects || []), ...(u.projects as any)];
@@ -445,6 +549,10 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     ? "Build Jake's Resume with AI"
                     : isSoftwareDev
                     ? 'Build Software Developer Resume with AI'
+                    : isHarvard
+                    ? 'Build Harvard Style Resume with AI'
+                    : isElegantSerif
+                    ? 'Build Elegant Serif CV with AI'
                     : isClassic
                     ? 'Build Classic Professional CV with AI'
                     : isTwoColumn
@@ -687,6 +795,31 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                       </div>
                     </div>
                   </>
+                ) : isHarvard ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Users className="w-3 h-3 mr-1 text-slate-700" />
+                        <span>Leadership: {stagedResume.leadership?.length || 0} roles</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>
+                          Study Abroad / HS: {(stagedResume.studyAbroad?.length || 0) + (stagedResume.highSchool?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Skills &amp; Languages: {(stagedResume.skills?.length || 0) + (stagedResume.languages?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
                 ) : isClassic ? (
                   <>
                     <div className="p-2 bg-white border border-slate-200 rounded-md">
@@ -729,6 +862,29 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                         <BookOpen className="w-3 h-3 mr-1 text-purple-600" />
                         <span>
                           Day of Life: {stagedResume.dailyActivities?.length || 0} activities
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : isElegantSerif ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-slate-700" />
+                        <span>Research: {stagedResume.researchExperience?.length || 0} entries</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>Publications: {stagedResume.publications?.length || 0} records</span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Skills &amp; Languages: {(stagedResume.skills?.length || 0) + (stagedResume.languages?.length || 0)}
                         </span>
                       </div>
                     </div>

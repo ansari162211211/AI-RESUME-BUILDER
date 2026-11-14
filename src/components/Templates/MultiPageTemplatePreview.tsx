@@ -17,6 +17,9 @@ import {
   SKILL_MATRIX_LEGEND,
   buildClassicPhoneList,
   buildContactLinks,
+  buildElegantSerifContactItems,
+  buildElegantSerifMetadataRows,
+  buildHarvardContactItems,
   buildJakesAddressString,
   buildLocationString,
   buildSoftwareDevContactItems,
@@ -26,6 +29,8 @@ import {
   cleanHighlights,
   getCourseworkItems,
   getEffectiveInterests,
+  getHarvardAdditionalSubsections,
+  getHarvardSkillsAndInterests,
   getOrderedVisibleSections,
   getPublicationParts,
   getSectionDisplayTitle,
@@ -35,6 +40,7 @@ import {
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
   type ContactLinkItem,
+  type ElegantSerifContactKind,
   type TwoColumnContactKind,
   type TwoColumnPubCategoryKey,
 } from '../../utils/resumePresentation';
@@ -142,11 +148,15 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   const isClassic = template.id === 'classic-professional';
   const isTwoColumnPro = template.id === 'two-column-professional';
   const isSoftwareDev = template.id === 'software-developer';
+  const isHarvard = template.id === 'harvard-style';
+  const isElegantSerif = template.id === 'elegant-serif';
   const fontClass = custom.fontFamily === 'serif' ? 'font-cv-serif' : 'font-cv-sans';
   const isTwoColumnSidebar =
     template.layout === 'sidebar-light' || template.layout === 'sidebar-dark';
   const isMainLeftSidebarRight = template.layout === 'main-left-sidebar-right';
-  const hasTwoColumns = isTwoColumnSidebar || isMainLeftSidebarRight;
+  const isEditorialTwoColumn = template.layout === 'two-column-editorial';
+  const hasTwoColumns =
+    isTwoColumnSidebar || isMainLeftSidebarRight || isEditorialTwoColumn;
   const isAsymmetric = template.layout === 'asymmetric-labels';
   const isDarkSidebar = template.layout === 'sidebar-dark';
 
@@ -170,12 +180,200 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     () => (isSoftwareDev ? buildSoftwareDevContactItems(personalInfo) : []),
     [personalInfo, isSoftwareDev]
   );
+  const harvardContactItems = useMemo(
+    () => (isHarvard ? buildHarvardContactItems(personalInfo) : []),
+    [personalInfo, isHarvard]
+  );
   const locationString = useMemo(
     () =>
       isJakes || isSoftwareDev
         ? buildJakesAddressString(personalInfo)
         : buildLocationString(personalInfo),
     [personalInfo, isJakes, isSoftwareDev]
+  );
+
+  const renderEditorialSmallCaps = (text: string, basePt: number) => {
+    const words = text.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return text;
+    return words.map((word, idx) => {
+      const firstChar = word.slice(0, 1).toUpperCase();
+      const restChars = word.slice(1).toUpperCase();
+      return (
+        <React.Fragment key={idx}>
+          {idx > 0 ? ' ' : ''}
+          <span style={{ fontSize: `${basePt}pt` }}>{firstChar}</span>
+          {restChars && (
+            <span style={{ fontSize: `${Math.round(basePt * 0.78 * 10) / 10}pt` }}>
+              {restChars}
+            </span>
+          )}
+        </React.Fragment>
+      );
+    });
+  };
+
+  const renderEditorialMetaIcon = (
+    kind: 'title' | 'nationality' | 'dob' | 'languages' | 'info',
+    color = '#1f2937'
+  ) => {
+    const size = '7.8pt';
+    const baseStyle: React.CSSProperties = { marginRight: '4pt', flexShrink: 0, marginTop: '1pt' };
+    switch (kind) {
+      case 'title':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+          </svg>
+        );
+      case 'nationality':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+        );
+      case 'dob':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <rect x="3" y="4" width="18" height="18" rx="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        );
+      case 'languages':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        );
+      case 'info':
+      default:
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        );
+    }
+  };
+
+  const renderEditorialContactIcon = (kind: ElegantSerifContactKind, color = '#1f2937') => {
+    const size = '7.8pt';
+    const baseStyle: React.CSSProperties = { marginRight: '4pt', flexShrink: 0, marginTop: '1pt' };
+    switch (kind) {
+      case 'phone':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z" />
+          </svg>
+        );
+      case 'email':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" style={baseStyle}>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94" />
+          </svg>
+        );
+      case 'address':
+      case 'location':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+          </svg>
+        );
+      case 'linkedin':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+          </svg>
+        );
+      case 'github':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+          </svg>
+        );
+      case 'orcid':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" style={baseStyle}>
+            <circle cx="12" cy="12" r="10.5" fill={color} />
+            <text x="12" y="15.5" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#ffffff" fontFamily="sans-serif">
+              iD
+            </text>
+          </svg>
+        );
+      case 'website':
+      case 'other':
+      case 'custom':
+      default:
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+        );
+    }
+  };
+
+  const renderEditorialDateTimeline = (dateText: string, bodyNode: React.ReactNode) => (
+    <div className="cv-entry flex items-start" style={{ color: custom.textColor }}>
+      <div
+        className="font-bold text-right shrink-0"
+        style={{
+          width: '22%',
+          paddingRight: '7pt',
+          fontSize: `${scale.metaPt - 0.25}pt`,
+          lineHeight: 1.25,
+          color: '#111111',
+          wordBreak: 'break-word',
+        }}
+      >
+        {dateText}
+      </div>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          borderLeft: '0.75pt solid #555555',
+          paddingLeft: '8pt',
+          paddingBottom: '1.5pt',
+        }}
+      >
+        {bodyNode}
+      </div>
+    </div>
+  );
+
+  const renderEditorialDateRow = (dateText: string, bodyNode: React.ReactNode) => (
+    <div className="cv-entry flex items-start" style={{ color: custom.textColor }}>
+      <div
+        className="font-bold text-right shrink-0"
+        style={{
+          width: '22%',
+          paddingRight: '7pt',
+          fontSize: `${scale.metaPt - 0.25}pt`,
+          lineHeight: 1.25,
+          color: '#111111',
+          wordBreak: 'break-word',
+        }}
+      >
+        {dateText}
+      </div>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          paddingLeft: '8pt',
+        }}
+      >
+        {bodyNode}
+      </div>
+    </div>
   );
 
   // Heading renderer honoring template + customization
@@ -203,6 +401,25 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           }}
         >
           {title}
+        </h2>
+      );
+    }
+
+    if (isElegantSerif) {
+      const edSize = scale.headingPt + 0.5;
+      return (
+        <h2
+          className="cv-heading font-semibold"
+          style={{
+            fontSize: `${edSize}pt`,
+            color: '#111111',
+            borderBottom: '0.75pt solid #1a1a1a',
+            paddingBottom: '1.5pt',
+            marginBottom: '5pt',
+            lineHeight: 1.22,
+          }}
+        >
+          {renderEditorialSmallCaps(title, edSize)}
         </h2>
       );
     }
@@ -327,11 +544,11 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       case 'title-rule':
         return (
           <h2
-            className="cv-heading"
+            className={`cv-heading ${template.centeredHeadings ? 'text-center' : ''}`}
             style={{
               fontSize: `${scale.headingPt + 0.75}pt`,
-              fontWeight: 500,
-              letterSpacing: '0.15pt',
+              fontWeight: isHarvard ? 700 : 500,
+              letterSpacing: isHarvard ? '0.35pt' : '0.15pt',
               color,
               borderBottom: `0.65pt solid ${color}`,
               paddingBottom: '1.5pt',
@@ -1087,6 +1304,62 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           </header>
         );
 
+      case 'harvard-centered':
+        return (
+          <header
+            className="text-center"
+            style={{
+              marginBottom: '6pt',
+              paddingBottom: '4pt',
+              borderBottom: `0.75pt solid ${textCol}`,
+            }}
+          >
+            <h1
+              className="font-bold"
+              style={{
+                fontSize: `${scale.namePt}pt`,
+                letterSpacing: '0.35pt',
+                lineHeight: 1.15,
+                color: textCol,
+                marginBottom: '2.5pt',
+              }}
+            >
+              {nameText}
+            </h1>
+            {harvardContactItems.length > 0 && (
+              <div
+                className="flex flex-wrap items-center justify-center"
+                style={{
+                  fontSize: `${scale.metaPt}pt`,
+                  color: textCol,
+                  lineHeight: 1.3,
+                }}
+              >
+                {harvardContactItems.map((item, idx) => (
+                  <React.Fragment key={idx}>
+                    {idx > 0 && (
+                      <span style={{ margin: '0 4pt', opacity: 0.75 }}>·</span>
+                    )}
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target={item.url.startsWith('http') ? '_blank' : undefined}
+                        rel={item.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className="no-underline hover:underline"
+                        style={{ color: textCol }}
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </header>
+        );
+
       case 'corporate-banner':
         return (
           <header
@@ -1213,7 +1486,104 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           </header>
         );
 
-      case 'editorial-double-rule':
+      case 'editorial-double-rule': {
+        if (isElegantSerif) {
+          const metaRows = buildElegantSerifMetadataRows(effectiveResume);
+          const contactItems = buildElegantSerifContactItems(personalInfo);
+          const photoUrl = personalInfo.photoUrl?.trim();
+
+          return (
+            <header style={{ marginBottom: '9pt' }}>
+              <div className="flex items-stretch" style={{ gap: photoUrl ? '8pt' : 0 }}>
+                {photoUrl && (
+                  <img
+                    src={photoUrl}
+                    alt={nameText}
+                    style={{
+                      width: '54pt',
+                      height: '68pt',
+                      objectFit: 'cover',
+                      border: '0.75pt solid #d1d5db',
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <div
+                  className="flex justify-between items-start"
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#e6e6e6',
+                    padding: '10pt 14pt',
+                    gap: '12pt',
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={{ width: '53%', minWidth: 0 }}>
+                    <h1
+                      className="font-bold"
+                      style={{
+                        fontSize: `${scale.namePt}pt`,
+                        lineHeight: 1.12,
+                        color: '#111111',
+                        marginBottom: metaRows.length > 0 ? '4pt' : 0,
+                      }}
+                    >
+                      {nameText}
+                    </h1>
+                    {metaRows.map((row, rIdx) => (
+                      <div
+                        key={rIdx}
+                        className="flex items-start"
+                        style={{
+                          fontSize: `${scale.metaPt - 0.15}pt`,
+                          color: '#1f2937',
+                          lineHeight: 1.32,
+                          marginBottom: rIdx < metaRows.length - 1 ? '1.5pt' : 0,
+                        }}
+                      >
+                        {renderEditorialMetaIcon(row.kind, '#1f2937')}
+                        <span style={{ flex: 1, minWidth: 0 }}>{row.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ width: '45%', minWidth: 0 }}>
+                    {contactItems.map((c, cIdx) => (
+                      <div
+                        key={cIdx}
+                        className="flex items-start"
+                        style={{
+                          fontSize: `${scale.metaPt - 0.15}pt`,
+                          color: '#111111',
+                          lineHeight: 1.32,
+                          marginBottom: cIdx < contactItems.length - 1 ? '1.5pt' : 0,
+                        }}
+                      >
+                        {renderEditorialContactIcon(c.kind, '#1f2937')}
+                        {c.url ? (
+                          <a
+                            href={c.url}
+                            target={c.url.startsWith('http') ? '_blank' : undefined}
+                            rel={c.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                            className="no-underline hover:underline break-words"
+                            style={{ color: '#111111', flex: 1, minWidth: 0 }}
+                          >
+                            {c.label}
+                          </a>
+                        ) : (
+                          <span className="break-words" style={{ flex: 1, minWidth: 0 }}>
+                            {c.label}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </header>
+          );
+        }
+
         return (
           <header
             className="text-center"
@@ -1272,6 +1642,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             )}
           </header>
         );
+      }
 
       case 'minimal-accent-bar':
         return (
@@ -1724,11 +2095,317 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 ),
             });
           });
+          if (isElegantSerif) {
+            const extraProfileFields = [
+              effectiveResume.academicInterests?.trim()
+                ? {
+                    id: 'objective-academic-interests',
+                    label: 'Academic Interests',
+                    value: effectiveResume.academicInterests.trim(),
+                  }
+                : null,
+              effectiveResume.careerGoals?.trim()
+                ? {
+                    id: 'objective-career-goals',
+                    label: 'Career Goals',
+                    value: effectiveResume.careerGoals.trim(),
+                  }
+                : null,
+            ].filter(Boolean) as Array<{ id: string; label: string; value: string }>;
+
+            extraProfileFields.forEach((item, eIdx) => {
+              const isFirstObjUnit = paragraphs.length === 0 && eIdx === 0;
+              list.push({
+                id: item.id,
+                spacing: isFirstObjUnit ? 'section' : 'compact',
+                sectionHeading: isFirstObjUnit ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      <span className="font-bold">{item.label}: </span>
+                      <span style={{ color: '#374151' }}>{item.value}</span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+          }
           break;
         }
 
         case 'education': {
+          if (isHarvard) {
+            const hiddenSet = new Set(effectiveResume.hiddenSections || []);
+            const univEntries = effectiveResume.education || [];
+            const studyAbroadEntries = !hiddenSet.has('study-abroad')
+              ? (effectiveResume.studyAbroad || []).filter(
+                  (s) => s.institution?.trim() || s.coursework?.trim()
+                )
+              : [];
+            const highSchoolEntries = !hiddenSet.has('high-school')
+              ? (effectiveResume.highSchool || []).filter((h) => h.schoolName?.trim())
+              : [];
+
+            let emittedAnyEdu = false;
+            const nextEduSpacing = (): SpacingKind => {
+              if (!emittedAnyEdu) {
+                emittedAnyEdu = true;
+                return 'section';
+              }
+              return 'entry';
+            };
+            const nextEduHeading = () => (!emittedAnyEdu ? sectionTitle : undefined);
+
+            univEntries.forEach((edu) => {
+              const headingProp = nextEduHeading();
+              const spacingProp = nextEduSpacing();
+              const degreeLine = [edu.degree, edu.specialization].filter(Boolean).join(', ');
+              const dateRange = [
+                edu.startDate?.trim(),
+                edu.endDate?.trim() || (edu.current ? 'Present' : ''),
+              ]
+                .filter(Boolean)
+                .join(' – ');
+              const honorsText = edu.honors?.trim() || edu.achievements?.trim() || '';
+              const courseworkList = (
+                Array.isArray(edu.coursework)
+                  ? edu.coursework
+                  : typeof edu.coursework === 'string'
+                  ? edu.coursework.split(',')
+                  : []
+              )
+                .map((c) => c.trim())
+                .filter(Boolean);
+
+              list.push({
+                id: `harv-edu-${edu.id}`,
+                spacing: spacingProp,
+                sectionHeading: headingProp,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div
+                        className="flex justify-between items-baseline font-bold"
+                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                      >
+                        <span style={{ marginRight: '8pt' }}>{edu.institution}</span>
+                        {edu.location && (
+                          <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
+                            {edu.location}
+                          </span>
+                        )}
+                      </div>
+                      {(degreeLine || dateRange) && (
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1pt' }}
+                        >
+                          <span className="italic" style={{ marginRight: '8pt' }}>
+                            {degreeLine}
+                          </span>
+                          {dateRange && (
+                            <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                              {dateRange}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {edu.grade?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                          <span className="font-semibold">GPA: </span>
+                          <span>{edu.grade.trim()}</span>
+                        </div>
+                      )}
+                      {edu.thesisTitle?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                          <span className="font-semibold">Thesis: </span>
+                          <span>{edu.thesisTitle.trim()}</span>
+                        </div>
+                      )}
+                      {courseworkList.length > 0 && (
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                          <span className="font-semibold">Relevant Coursework: </span>
+                          <span>{courseworkList.join(', ')}</span>
+                        </div>
+                      )}
+                      {honorsText && (
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}>
+                          <span className="font-semibold">Awards &amp; Honors: </span>
+                          <span>{honorsText}</span>
+                        </div>
+                      )}
+                      {edu.description?.trim() && (
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: subCol, lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                          {edu.description.trim()}
+                        </div>
+                      )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+
+            studyAbroadEntries.forEach((sa, sIdx) => {
+              const headingProp = nextEduHeading();
+              const spacingProp = nextEduSpacing();
+              const dateRange = [sa.startDate?.trim(), sa.endDate?.trim()].filter(Boolean).join(' – ');
+              const saLocation = sa.cityCountry?.trim() || sa.location?.trim() || '';
+              list.push({
+                id: `harv-sa-${sa.id}`,
+                spacing: spacingProp,
+                sectionHeading: headingProp,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      {sIdx === 0 && univEntries.length > 0 && (
+                        <div
+                          className="font-bold uppercase"
+                          style={{
+                            fontSize: `${scale.metaPt - 0.5}pt`,
+                            letterSpacing: '0.4pt',
+                            color: metaCol,
+                            marginBottom: '1.5pt',
+                          }}
+                        >
+                          Study Abroad
+                        </div>
+                      )}
+                      <div
+                        className="flex justify-between items-baseline font-bold"
+                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                      >
+                        <span style={{ marginRight: '8pt' }}>{sa.institution}</span>
+                        {saLocation && (
+                          <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
+                            {saLocation}
+                          </span>
+                        )}
+                      </div>
+                      {(sa.coursework?.trim() || dateRange) && (
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}
+                        >
+                          <span className="italic" style={{ marginRight: '8pt', flex: 1 }}>
+                            {sa.coursework?.trim()}
+                          </span>
+                          {dateRange && (
+                            <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                              {dateRange}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+
+            highSchoolEntries.forEach((hs, hIdx) => {
+              const headingProp = nextEduHeading();
+              const spacingProp = nextEduSpacing();
+              const hsDetails = [
+                hs.gpa?.trim() ? `GPA: ${hs.gpa.trim()}` : '',
+                hs.testScores?.trim() || '',
+                hs.honors?.trim() || '',
+              ]
+                .filter(Boolean)
+                .join(' • ');
+
+              list.push({
+                id: `harv-hs-${hs.id}`,
+                spacing: spacingProp,
+                sectionHeading: headingProp,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      {hIdx === 0 && (univEntries.length > 0 || studyAbroadEntries.length > 0) && (
+                        <div
+                          className="font-bold uppercase"
+                          style={{
+                            fontSize: `${scale.metaPt - 0.5}pt`,
+                            letterSpacing: '0.4pt',
+                            color: metaCol,
+                            marginBottom: '1.5pt',
+                          }}
+                        >
+                          High School Education
+                        </div>
+                      )}
+                      <div
+                        className="flex justify-between items-baseline font-bold"
+                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                      >
+                        <span style={{ marginRight: '8pt' }}>{hs.schoolName}</span>
+                        {hs.location && (
+                          <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
+                            {hs.location}
+                          </span>
+                        )}
+                      </div>
+                      {(hsDetails || hs.graduationDate) && (
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}
+                        >
+                          <span className="italic" style={{ marginRight: '8pt', flex: 1 }}>
+                            {hsDetails || 'High School Diploma'}
+                          </span>
+                          {hs.graduationDate && (
+                            <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                              {hs.graduationDate}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+            break;
+          }
+
           (effectiveResume.education || []).forEach((edu, idx) => {
+            const dateRange = [
+              edu.startDate?.trim(),
+              edu.current ? 'Present' : edu.endDate?.trim(),
+            ]
+              .filter(Boolean)
+              .join(' – ');
+            const courseworkList = (
+              Array.isArray(edu.coursework)
+                ? edu.coursework
+                : typeof edu.coursework === 'string'
+                ? edu.coursework.split(',')
+                : []
+            )
+              .map((c) => c.trim())
+              .filter(Boolean);
+
             list.push({
               id: `edu-${edu.id}`,
               spacing: idx === 0 ? 'section' : 'entry',
@@ -1738,7 +2415,77 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  options.isSidebar ? (
+                  isElegantSerif ? (
+                    renderEditorialDateTimeline(
+                      dateRange,
+                      <div style={{ color: textCol }}>
+                        <div
+                          className="font-bold"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, lineHeight: 1.24, color: '#111111' }}
+                        >
+                          {edu.degree}
+                          {edu.specialization ? `, ${edu.specialization}` : ''}
+                        </div>
+                        <div
+                          className="flex flex-wrap items-center"
+                          style={{
+                            fontSize: `${scale.entrySubtitlePt - 0.25}pt`,
+                            color: '#1f2937',
+                            gap: '5pt',
+                            marginTop: '1pt',
+                          }}
+                        >
+                          <span>{renderEditorialSmallCaps(edu.institution || '', scale.entrySubtitlePt - 0.25)}</span>
+                          {edu.location && (
+                            <span className="inline-flex items-center" style={{ color: '#4b5563' }}>
+                              {renderEditorialContactIcon('location', '#4b5563')}
+                              <span>{edu.location}</span>
+                            </span>
+                          )}
+                        </div>
+                        {edu.department?.trim() && (
+                          <div className="italic" style={{ fontSize: `${scale.metaPt}pt`, color: '#374151', marginTop: '1pt' }}>
+                            {edu.department.trim()}
+                          </div>
+                        )}
+                        {edu.grade?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#111111', marginTop: '1pt' }}>
+                            <span className="font-semibold">GPA: </span>
+                            <span>{edu.grade.trim()}</span>
+                          </div>
+                        )}
+                        {(edu.thesisTitle?.trim() || edu.dissertationDetails?.trim()) && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', marginTop: '1pt', lineHeight: 1.32 }}>
+                            <span className="font-semibold">Thesis: </span>
+                            <span className="italic">{edu.thesisTitle?.trim()}</span>
+                            {edu.dissertationDetails?.trim() && (
+                              <span>
+                                {edu.thesisTitle?.trim() ? ' — ' : ''}
+                                {edu.dissertationDetails.trim()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {courseworkList.length > 0 && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.2}pt`, color: '#374151', marginTop: '1pt', lineHeight: 1.32 }}>
+                            <span className="font-semibold">Coursework: </span>
+                            <span>{courseworkList.join(', ')}</span>
+                          </div>
+                        )}
+                        {(edu.honors?.trim() || edu.achievements?.trim()) && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.2}pt`, color: '#374151', marginTop: '1pt', lineHeight: 1.32 }}>
+                            <span className="font-semibold">Honors: </span>
+                            <span>{edu.honors?.trim() || edu.achievements?.trim()}</span>
+                          </div>
+                        )}
+                        {edu.description?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.2}pt`, color: '#374151', marginTop: '1.5pt', lineHeight: scale.lineHeight }}>
+                            {edu.description.trim()}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : options.isSidebar ? (
                     isTwoColumnPro ? (
                       <div
                         className="cv-entry"
@@ -2009,6 +2756,13 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 }
               });
 
+              const expDateRange = [
+                exp.startDate?.trim(),
+                exp.current ? 'Present' : exp.endDate?.trim(),
+              ]
+                .filter(Boolean)
+                .join(' – ');
+
               list.push({
                 id: `exp-head-${exp.id}`,
                 spacing: isFirstSectionUnit ? 'section' : 'entry',
@@ -2018,7 +2772,90 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   wrapLayoutUnit(
                     sectionTitle,
                     showHeading,
-                    isTwoColumnPro ? (
+                    isElegantSerif ? (
+                      renderEditorialDateTimeline(
+                        expDateRange,
+                        <div style={{ color: textCol }}>
+                          <div
+                            className="font-bold"
+                            style={{ fontSize: `${scale.entryTitlePt}pt`, lineHeight: 1.24, color: '#111111' }}
+                          >
+                            {exp.position}
+                            {exp.employmentType ? (
+                              <span className="font-normal italic" style={{ fontSize: `${scale.metaPt}pt`, color: '#4b5563' }}>
+                                {' '}({exp.employmentType})
+                              </span>
+                            ) : null}
+                          </div>
+                          <div
+                            className="flex flex-wrap items-center"
+                            style={{
+                              fontSize: `${scale.entrySubtitlePt - 0.25}pt`,
+                              color: '#1f2937',
+                              gap: '5pt',
+                              marginTop: '1pt',
+                            }}
+                          >
+                            <span>{renderEditorialSmallCaps(exp.company || '', scale.entrySubtitlePt - 0.25)}</span>
+                            {exp.location && (
+                              <span className="inline-flex items-center" style={{ color: '#4b5563' }}>
+                                {renderEditorialContactIcon('location', '#4b5563')}
+                                <span>{exp.location}</span>
+                              </span>
+                            )}
+                          </div>
+                          {exp.description && (
+                            <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1.5pt' }}>
+                              {exp.description}
+                            </div>
+                          )}
+                          {(() => {
+                            const rawDemonstrated: unknown = exp.skillsDemonstrated;
+                            const demonstratedList = Array.isArray(rawDemonstrated)
+                              ? rawDemonstrated.map((s) => String(s).trim()).filter(Boolean)
+                              : typeof rawDemonstrated === 'string' && rawDemonstrated.trim()
+                              ? [rawDemonstrated.trim()]
+                              : [];
+                            const techAndSkills = [...(exp.technologies || []), ...demonstratedList]
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            if (techAndSkills.length === 0) return null;
+                            return (
+                              <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#4b5563', marginTop: '1pt', lineHeight: 1.3 }}>
+                                <span className="font-semibold">Technologies / Skills: </span>
+                                <span>{techAndSkills.join(', ')}</span>
+                              </div>
+                            );
+                          })()}
+                          {firstBullet && (
+                            <>
+                              <div className="flex items-start" style={{ marginTop: '2pt' }}>
+                                <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                  {bulletChar}
+                                </span>
+                                <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                  {firstBullet}
+                                </span>
+                              </div>
+                              {(subMap.get(0) || []).map((subItem, sIdx) => (
+                                <div
+                                  key={sIdx}
+                                  className="flex items-start"
+                                  style={{ marginTop: '1pt', paddingLeft: '10pt', color: '#374151' }}
+                                >
+                                  <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                    –
+                                  </span>
+                                  <span style={{ fontSize: `${scale.bodyPt - 0.25}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                    {subItem}
+                                  </span>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      )
+                    ) : isTwoColumnPro ? (
                       <div
                         className="cv-entry"
                         style={{
@@ -2099,35 +2936,65 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             {categoryHeadingForThisItem}
                           </div>
                         )}
-                        <div
-                          className="flex justify-between items-baseline font-bold"
-                          style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
-                        >
-                          <span style={{ marginRight: '8pt' }}>{exp.company}</span>
-                          <span
-                            className={`${isJakes ? 'font-bold' : 'font-normal'} shrink-0`}
-                            style={{ fontSize: `${scale.entrySubtitlePt}pt` }}
-                          >
-                            {exp.startDate} – {exp.current ? 'Present' : exp.endDate}
-                          </span>
-                        </div>
-                        <div
-                          className="flex justify-between items-baseline italic"
-                          style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol, marginBottom: '1pt' }}
-                        >
-                          <span style={{ marginRight: '8pt' }}>
-                            {exp.position}
-                            {!isJakes && exp.employmentType ? ` (${exp.employmentType})` : ''}
-                          </span>
-                          {exp.location && (
-                            <span
-                              className={`${isJakes ? 'italic' : 'not-italic'} shrink-0`}
-                              style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}
+                        {isHarvard ? (
+                          <>
+                            <div
+                              className="flex justify-between items-baseline font-bold"
+                              style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
                             >
-                              {exp.location}
-                            </span>
-                          )}
-                        </div>
+                              <span style={{ marginRight: '8pt' }}>{exp.company}</span>
+                              {exp.location && (
+                                <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
+                                  {exp.location}
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              className="flex justify-between items-baseline"
+                              style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol, marginBottom: '1pt' }}
+                            >
+                              <span className="italic" style={{ marginRight: '8pt' }}>
+                                {exp.position}
+                                {exp.employmentType ? ` (${exp.employmentType})` : ''}
+                              </span>
+                              <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                {exp.startDate} – {exp.current ? 'Present' : exp.endDate}
+                              </span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div
+                              className="flex justify-between items-baseline font-bold"
+                              style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                            >
+                              <span style={{ marginRight: '8pt' }}>{exp.company}</span>
+                              <span
+                                className={`${isJakes ? 'font-bold' : 'font-normal'} shrink-0`}
+                                style={{ fontSize: `${scale.entrySubtitlePt}pt` }}
+                              >
+                                {exp.startDate} – {exp.current ? 'Present' : exp.endDate}
+                              </span>
+                            </div>
+                            <div
+                              className="flex justify-between items-baseline italic"
+                              style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol, marginBottom: '1pt' }}
+                            >
+                              <span style={{ marginRight: '8pt' }}>
+                                {exp.position}
+                                {!isJakes && exp.employmentType ? ` (${exp.employmentType})` : ''}
+                              </span>
+                              {exp.location && (
+                                <span
+                                  className={`${isJakes ? 'italic' : 'not-italic'} shrink-0`}
+                                  style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}
+                                >
+                                  {exp.location}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        )}
                         {exp.description && (
                           <div style={{ fontSize: `${scale.bodyPt}pt`, color: subCol, lineHeight: scale.lineHeight, marginTop: '1.5pt' }}>
                             {exp.description}
@@ -2180,38 +3047,186 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                     wrapLayoutUnit(
                       undefined,
                       false,
-                      <div style={{ color: textCol }}>
-                        <div
-                          className="cv-entry flex items-start"
-                          style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro ? '2pt' : '8pt' }}
-                        >
-                          <span style={{ width: isTwoColumnPro ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro ? '#4b5563' : undefined }}>
-                            {bulletChar}
-                          </span>
-                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                            {hl}
-                          </span>
+                      isElegantSerif ? (
+                        <div className="flex items-start" style={{ color: textCol }}>
+                          <div style={{ width: '22%', paddingRight: '7pt', flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0, borderLeft: '0.75pt solid #555555', paddingLeft: '8pt' }}>
+                            <div className="cv-entry flex items-start">
+                              <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                {bulletChar}
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {hl}
+                              </span>
+                            </div>
+                            {nestedSubs.map((subItem, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex items-start"
+                                style={{ marginTop: '1pt', paddingLeft: '10pt', color: '#374151' }}
+                              >
+                                <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                  –
+                                </span>
+                                <span style={{ fontSize: `${scale.bodyPt - 0.25}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                  {subItem}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        {nestedSubs.map((subItem, sIdx) => (
+                      ) : (
+                        <div style={{ color: textCol }}>
                           <div
-                            key={sIdx}
-                            className="flex items-start"
-                            style={{ marginTop: '1pt', paddingLeft: '22pt', color: subCol }}
+                            className="cv-entry flex items-start"
+                            style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro ? '2pt' : '8pt' }}
                           >
-                            <span style={{ width: '9pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
-                              –
+                            <span style={{ width: isTwoColumnPro ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro ? '#4b5563' : undefined }}>
+                              {bulletChar}
                             </span>
-                            <span style={{ fontSize: `${scale.bodyPt - 0.25}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                              {subItem}
+                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                              {hl}
                             </span>
                           </div>
-                        ))}
-                      </div>,
+                          {nestedSubs.map((subItem, sIdx) => (
+                            <div
+                              key={sIdx}
+                              className="flex items-start"
+                              style={{ marginTop: '1pt', paddingLeft: '22pt', color: subCol }}
+                            >
+                              <span style={{ width: '9pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                –
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt - 0.25}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {subItem}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ),
                       options.inverted,
                       options.isSidebar
                     ),
                 });
               });
+            });
+          });
+          break;
+        }
+
+        case 'research': {
+          (effectiveResume.researchExperience || []).forEach((res, idx) => {
+            const dateRange = [
+              res.startDate?.trim(),
+              res.current ? 'Present' : res.endDate?.trim(),
+            ]
+              .filter(Boolean)
+              .join(' – ');
+            list.push({
+              id: `research-${res.id}`,
+              spacing: idx === 0 ? 'section' : 'entry',
+              sectionHeading: idx === 0 ? sectionTitle : undefined,
+              isSidebar: options.isSidebar,
+              render: (showHeading) =>
+                wrapLayoutUnit(
+                  sectionTitle,
+                  showHeading,
+                  isElegantSerif ? (
+                    renderEditorialDateTimeline(
+                      dateRange,
+                      <div style={{ color: textCol }}>
+                        <div
+                          className="font-bold"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, lineHeight: 1.24, color: '#111111' }}
+                        >
+                          {res.title}
+                        </div>
+                        {(res.role || res.domain) && (
+                          <div className="italic" style={{ fontSize: `${scale.metaPt}pt`, color: '#374151', marginTop: '0.5pt' }}>
+                            {[res.role, res.domain].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                        {(res.institution || res.location || res.supervisor) && (
+                          <div
+                            className="flex flex-wrap items-center"
+                            style={{ fontSize: `${scale.entrySubtitlePt - 0.25}pt`, color: '#1f2937', gap: '5pt', marginTop: '1pt' }}
+                          >
+                            {res.institution && (
+                              <span>{renderEditorialSmallCaps(res.institution, scale.entrySubtitlePt - 0.25)}</span>
+                            )}
+                            {res.location && (
+                              <span className="inline-flex items-center" style={{ color: '#4b5563' }}>
+                                {renderEditorialContactIcon('location', '#4b5563')}
+                                <span>{res.location}</span>
+                              </span>
+                            )}
+                            {res.supervisor && (
+                              <span style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#4b5563' }}>
+                                Supervisor: {res.supervisor}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {res.objectives?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1.5pt' }}>
+                            <span className="font-semibold">Objectives: </span>
+                            <span>{res.objectives.trim()}</span>
+                          </div>
+                        )}
+                        {res.methodology?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            <span className="font-semibold">Methodology: </span>
+                            <span>{res.methodology.trim()}</span>
+                          </div>
+                        )}
+                        {res.findings?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            <span className="font-semibold">Findings: </span>
+                            <span>{res.findings.trim()}</span>
+                          </div>
+                        )}
+                        {res.outcomes?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            <span className="font-semibold">Outcomes: </span>
+                            <span>{res.outcomes.trim()}</span>
+                          </div>
+                        )}
+                        {res.technologies && res.technologies.length > 0 && (
+                          <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#4b5563', marginTop: '1pt' }}>
+                            <span className="font-semibold">Methods &amp; Tools: </span>
+                            <span>{res.technologies.join(', ')}</span>
+                          </div>
+                        )}
+                        {res.publications?.trim() && (
+                          <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#374151', marginTop: '1pt' }}>
+                            <span className="font-semibold">Output: </span>
+                            <span className="italic">{res.publications.trim()}</span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div className="flex justify-between items-baseline font-bold" style={{ fontSize: `${scale.entryTitlePt}pt` }}>
+                        <span style={{ marginRight: '8pt' }}>{res.title}</span>
+                        {dateRange && <span className="font-normal shrink-0">{dateRange}</span>}
+                      </div>
+                      {res.institution && (
+                        <div className="italic" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol }}>
+                          {res.institution}
+                          {res.role ? ` — ${res.role}` : ''}
+                        </div>
+                      )}
+                      {res.objectives && (
+                        <div style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, marginTop: '1.5pt' }}>
+                          {res.objectives}
+                        </div>
+                      )}
+                    </div>
+                  ),
+                  options.inverted,
+                  options.isSidebar
+                ),
             });
           });
           break;
@@ -2308,6 +3323,67 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       options.isSidebar
                     ),
                 });
+              });
+            });
+          } else if (isElegantSerif) {
+            (effectiveResume.publications || []).forEach((pub, idx) => {
+              const { doiUrl, venue } = getPublicationParts(pub);
+              const extUrl = pub.url?.trim()
+                ? pub.url.trim().startsWith('http')
+                  ? pub.url.trim()
+                  : `https://${pub.url.trim()}`
+                : doiUrl;
+              list.push({
+                id: `pub-${pub.id}`,
+                spacing: idx === 0 ? 'section' : 'citation',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    renderEditorialDateRow(
+                      pub.year?.trim() || pub.publicationDate?.trim() || '',
+                      <div style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: textCol }}>
+                        <div>
+                          <em className="font-semibold" style={{ color: '#111111' }}>{pub.title}</em>
+                        </div>
+                        {pub.authors && (
+                          <div style={{ color: '#374151', marginTop: '0.5pt' }}>
+                            {pub.authors}
+                          </div>
+                        )}
+                        {(venue || pub.volume || pub.issue || pub.pages || pub.status) && (
+                          <div style={{ color: '#374151', fontSize: `${scale.metaPt - 0.15}pt` }}>
+                            {venue}
+                            {pub.volume ? `, Vol. ${pub.volume}` : ''}
+                            {pub.issue ? ` (${pub.issue})` : ''}
+                            {pub.pages ? `, pp. ${pub.pages}` : ''}
+                            {pub.status && pub.status !== 'Published' ? ` [${pub.status}]` : ''}
+                          </div>
+                        )}
+                        {(pub.doi || extUrl) && (
+                          <div style={{ fontSize: `${scale.metaPt - 0.25}pt`, marginTop: '0.5pt' }}>
+                            {extUrl ? (
+                              <a
+                                href={extUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="no-underline hover:underline break-all"
+                                style={{ color: '#111111' }}
+                              >
+                                {pub.doi ? `DOI: ${pub.doi}` : pub.url?.replace(/^https?:\/\//, '')}
+                              </a>
+                            ) : (
+                              <span>DOI: {pub.doi}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ),
+                    options.inverted,
+                    options.isSidebar
+                  ),
               });
             });
           } else {
@@ -2574,6 +3650,76 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         </div>
                       )}
                     </div>
+                  ) : isElegantSerif ? (
+                    renderEditorialDateTimeline(
+                      [
+                        proj.startDate?.trim(),
+                        proj.current ? 'Present' : proj.endDate?.trim(),
+                      ]
+                        .filter(Boolean)
+                        .join(' – '),
+                      <div style={{ color: textCol }}>
+                        <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#111111', lineHeight: 1.24 }}>
+                          {proj.title}
+                          {proj.teamType?.trim() && (
+                            <span className="font-normal italic" style={{ fontSize: `${scale.metaPt}pt`, color: '#4b5563' }}>
+                              {' '}({proj.teamType.trim()})
+                            </span>
+                          )}
+                        </div>
+                        {proj.institution && (
+                          <div style={{ fontSize: `${scale.entrySubtitlePt - 0.25}pt`, color: '#1f2937', marginTop: '0.5pt' }}>
+                            {renderEditorialSmallCaps(proj.institution, scale.entrySubtitlePt - 0.25)}
+                          </div>
+                        )}
+                        {(proj.githubUrl || proj.link) && (
+                          <div className="flex flex-wrap" style={{ gap: '8pt', fontSize: `${scale.metaPt - 0.2}pt`, marginTop: '1pt' }}>
+                            {proj.githubUrl && (
+                              <a
+                                href={proj.githubUrl.startsWith('http') ? proj.githubUrl : `https://${proj.githubUrl}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="no-underline hover:underline break-all"
+                                style={{ color: '#1f2937' }}
+                              >
+                                {cleanGithubLink}
+                              </a>
+                            )}
+                            {proj.link && (
+                              <a
+                                href={proj.link.startsWith('http') ? proj.link : `https://${proj.link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="no-underline hover:underline break-all"
+                                style={{ color: '#1f2937' }}
+                              >
+                                {cleanProjLink}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {proj.technologies && proj.technologies.length > 0 && (
+                          <div className="italic" style={{ fontSize: `${scale.metaPt - 0.2}pt`, color: '#4b5563', marginTop: '1pt' }}>
+                            {proj.technologies.join(', ')}
+                          </div>
+                        )}
+                        {proj.description && (
+                          <p style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#374151', marginTop: '1.5pt', marginBottom: '1pt' }}>
+                            {proj.description}
+                          </p>
+                        )}
+                        {firstBullet && (
+                          <div className="flex items-start" style={{ marginTop: '1.5pt' }}>
+                            <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                              {bulletChar}
+                            </span>
+                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                              {firstBullet}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
                   ) : isJakes ? (
                     <div className="cv-entry" style={{ color: textCol, paddingLeft: '8pt' }}>
                       <div
@@ -2738,17 +3884,31 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   wrapLayoutUnit(
                     undefined,
                     false,
-                    <div
-                      className="cv-entry flex items-start"
-                      style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro ? '2pt' : '8pt', color: textCol }}
-                    >
-                      <span style={{ width: isTwoColumnPro ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro ? '#4b5563' : undefined }}>
-                        {bulletChar}
-                      </span>
-                      <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                        {hl}
-                      </span>
-                    </div>,
+                    isElegantSerif ? (
+                      <div className="cv-entry flex items-start" style={{ color: textCol }}>
+                        <div style={{ width: '22%', paddingRight: '7pt', flexShrink: 0 }} />
+                        <div className="flex items-start" style={{ flex: 1, minWidth: 0, borderLeft: '0.75pt solid #555555', paddingLeft: '8pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            {hl}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="cv-entry flex items-start"
+                        style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro ? '2pt' : '8pt', color: textCol }}
+                      >
+                        <span style={{ width: isTwoColumnPro ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro ? '#4b5563' : undefined }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                          {hl}
+                        </span>
+                      </div>
+                    ),
                     options.inverted,
                     options.isSidebar
                   ),
@@ -2895,8 +4055,70 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'skills': {
+          if (isHarvard) {
+            const { rows } = getHarvardSkillsAndInterests(effectiveResume);
+            rows.forEach((row, idx) => {
+              list.push({
+                id: `harv-skill-${row.key}`,
+                spacing: idx === 0 ? 'section' : 'skill',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry"
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      <span className="font-bold">{row.label}: </span>
+                      <span>{row.text}</span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+            break;
+          }
+
           const visibleSkills = getVisibleSkills(effectiveResume.skills);
-          if (isJakes) {
+          if (isElegantSerif) {
+            visibleSkills.forEach((cat, idx) => {
+              const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+              if (items.length === 0) return;
+              list.push({
+                id: `skill-${cat.id}`,
+                spacing: idx === 0 ? 'section' : 'skill',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry"
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      {cat.category?.trim() && (
+                        <span className="font-bold">{cat.category.trim()}: </span>
+                      )}
+                      <span style={{ color: '#1f2937' }}>{items.join(', ')}</span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+          } else if (isJakes) {
             visibleSkills.forEach((cat, idx) => {
               list.push({
                 id: `skill-${cat.id}`,
@@ -3002,7 +4224,26 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  isTwoColumnPro ? (
+                  isElegantSerif ? (
+                    renderEditorialDateRow(
+                      ach.date?.trim() || '',
+                      <div style={{ color: textCol }}>
+                        <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#111111', lineHeight: 1.24 }}>
+                          {ach.title}
+                        </div>
+                        {(ach.category?.trim() || ach.issuer?.trim()) && (
+                          <div className="italic" style={{ fontSize: `${scale.metaPt}pt`, color: '#374151', marginTop: '0.5pt' }}>
+                            {[ach.issuer?.trim(), ach.category?.trim()].filter(Boolean).join(' · ')}
+                          </div>
+                        )}
+                        {(ach.description?.trim() || ach.achievementDetails?.trim()) && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            {[ach.description?.trim(), ach.achievementDetails?.trim()].filter(Boolean).join(' — ')}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : isTwoColumnPro ? (
                     <div
                       className="cv-entry flex items-start"
                       style={{
@@ -3063,85 +4304,165 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             const bullets = cleanHighlights(lead.highlights);
             const firstBullet = bullets[0];
             const remainingBullets = bullets.slice(1);
+            const leadDateRange = [
+              lead.startDate?.trim(),
+              lead.current ? 'Present' : lead.endDate?.trim(),
+            ]
+              .filter(Boolean)
+              .join(' – ');
 
             list.push({
               id: `lead-head-${lead.id}`,
               spacing: idx === 0 ? 'section' : 'entry',
               sectionHeading: idx === 0 ? sectionTitle : undefined,
               isSidebar: options.isSidebar,
-              render: (showHeading) =>
-                wrapLayoutUnit(
-                  sectionTitle,
-                  showHeading,
-                  isJakes ? (
-                    <div className="cv-entry" style={{ color: textCol, paddingLeft: '8pt' }}>
-                      <div
-                        className="flex justify-between items-baseline font-bold"
-                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
-                      >
-                        <span style={{ marginRight: '8pt' }}>{lead.organization}</span>
-                        <span className="font-bold shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
-                          {lead.startDate} – {lead.current ? 'Present' : lead.endDate}
-                        </span>
-                      </div>
-                      {(lead.role || lead.location) && (
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    isElegantSerif ? (
+                      renderEditorialDateRow(
+                        leadDateRange,
+                        <div style={{ color: textCol }}>
+                          <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#111111', lineHeight: 1.24 }}>
+                            {lead.role}
+                          </div>
+                          {(lead.organization || lead.location) && (
+                            <div
+                              className="flex flex-wrap items-center"
+                              style={{ fontSize: `${scale.entrySubtitlePt - 0.25}pt`, color: '#1f2937', gap: '5pt', marginTop: '0.5pt' }}
+                            >
+                              {lead.organization && (
+                                <span>{renderEditorialSmallCaps(lead.organization, scale.entrySubtitlePt - 0.25)}</span>
+                              )}
+                              {lead.location && (
+                                <span className="inline-flex items-center" style={{ color: '#4b5563' }}>
+                                  {renderEditorialContactIcon('location', '#4b5563')}
+                                  <span>{lead.location}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {firstBullet && (
+                            <div className="flex items-start" style={{ marginTop: '1.5pt' }}>
+                              <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                {bulletChar}
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {firstBullet}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ) : isHarvard ? (
+                      <div className="cv-entry" style={{ color: textCol }}>
                         <div
-                          className="flex justify-between items-baseline italic"
-                          style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol, marginBottom: '1pt' }}
+                          className="flex justify-between items-baseline font-bold"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
                         >
-                          <span style={{ marginRight: '8pt' }}>{lead.role}</span>
+                          <span style={{ marginRight: '8pt' }}>{lead.organization}</span>
                           {lead.location && (
-                            <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                            <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
                               {lead.location}
                             </span>
                           )}
                         </div>
-                      )}
-                      {firstBullet && (
-                        <div className="flex items-start" style={{ marginTop: '2pt', paddingLeft: '10pt' }}>
-                          <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
-                            {bulletChar}
-                          </span>
-                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                            {firstBullet}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="cv-entry" style={{ color: textCol }}>
-                      <div
-                        className="flex justify-between items-baseline font-bold"
-                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '1pt' }}
-                      >
-                        <span style={{ marginRight: '8pt' }}>
-                          {lead.role}, {lead.organization}
-                        </span>
-                        <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
-                          {lead.startDate} – {lead.current ? 'Present' : lead.endDate}
-                        </span>
+                        {(lead.role || lead.startDate || lead.endDate || lead.current) && (
+                          <div
+                            className="flex justify-between items-baseline"
+                            style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol, marginBottom: '1pt' }}
+                          >
+                            <span className="italic" style={{ marginRight: '8pt' }}>
+                              {lead.role}
+                            </span>
+                            {(lead.startDate || lead.endDate || lead.current) && (
+                              <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                {lead.startDate} – {lead.current ? 'Present' : lead.endDate}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {firstBullet && (
+                          <div className="flex items-start" style={{ marginTop: '2pt', paddingLeft: '8pt' }}>
+                            <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                              {bulletChar}
+                            </span>
+                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                              {firstBullet}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      {lead.location && (
-                        <div className="italic" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol, marginBottom: '1pt' }}>
-                          {lead.location}
-                        </div>
-                      )}
-                      {firstBullet && (
-                        <div className="flex items-start" style={{ marginTop: '2pt', paddingLeft: '8pt' }}>
-                          <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
-                            {bulletChar}
-                          </span>
-                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                            {firstBullet}
+                    ) : isJakes ? (
+                      <div className="cv-entry" style={{ color: textCol, paddingLeft: '8pt' }}>
+                        <div
+                          className="flex justify-between items-baseline font-bold"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                        >
+                          <span style={{ marginRight: '8pt' }}>{lead.organization}</span>
+                          <span className="font-bold shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
+                            {lead.startDate} – {lead.current ? 'Present' : lead.endDate}
                           </span>
                         </div>
-                      )}
-                    </div>
+                        {(lead.role || lead.location) && (
+                          <div
+                            className="flex justify-between items-baseline italic"
+                            style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol, marginBottom: '1pt' }}
+                          >
+                            <span style={{ marginRight: '8pt' }}>{lead.role}</span>
+                            {lead.location && (
+                              <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                {lead.location}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {firstBullet && (
+                          <div className="flex items-start" style={{ marginTop: '2pt', paddingLeft: '10pt' }}>
+                            <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                              {bulletChar}
+                            </span>
+                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                              {firstBullet}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="cv-entry" style={{ color: textCol }}>
+                        <div
+                          className="flex justify-between items-baseline font-bold"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '1pt' }}
+                        >
+                          <span style={{ marginRight: '8pt' }}>
+                            {lead.role}, {lead.organization}
+                          </span>
+                          <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt` }}>
+                            {lead.startDate} – {lead.current ? 'Present' : lead.endDate}
+                          </span>
+                        </div>
+                        {lead.location && (
+                          <div className="italic" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol, marginBottom: '1pt' }}>
+                            {lead.location}
+                          </div>
+                        )}
+                        {firstBullet && (
+                          <div className="flex items-start" style={{ marginTop: '2pt', paddingLeft: '8pt' }}>
+                            <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                              {bulletChar}
+                            </span>
+                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                              {firstBullet}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ),
+                    options.inverted,
+                    options.isSidebar
                   ),
-                  options.inverted,
-                  options.isSidebar
-                ),
-            });
+              });
 
             remainingBullets.forEach((hl, bIdx) => {
               list.push({
@@ -3152,17 +4473,31 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   wrapLayoutUnit(
                     undefined,
                     false,
-                    <div
-                      className="cv-entry flex items-start"
-                      style={{ paddingLeft: isJakes ? '18pt' : '8pt', color: textCol }}
-                    >
-                      <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
-                        {bulletChar}
-                      </span>
-                      <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
-                        {hl}
-                      </span>
-                    </div>,
+                    isElegantSerif ? (
+                      <div className="cv-entry flex items-start" style={{ color: textCol }}>
+                        <div style={{ width: '22%', paddingRight: '7pt', flexShrink: 0 }} />
+                        <div className="flex items-start" style={{ flex: 1, minWidth: 0, paddingLeft: '8pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            {hl}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="cv-entry flex items-start"
+                        style={{ paddingLeft: isJakes ? '18pt' : '8pt', color: textCol }}
+                      >
+                        <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                          {hl}
+                        </span>
+                      </div>
+                    ),
                     options.inverted,
                     options.isSidebar
                   ),
@@ -3243,6 +4578,12 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
 
         case 'memberships': {
           (effectiveResume.memberships || []).forEach((mem, idx) => {
+            const memDateRange = [
+              mem.startDate?.trim(),
+              mem.current ? 'Present' : mem.endDate?.trim(),
+            ]
+              .filter(Boolean)
+              .join(' – ');
             list.push({
               id: `mem-${mem.id}`,
               spacing: idx === 0 ? 'section' : 'compact',
@@ -3252,7 +4593,16 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  options.isSidebar ? (
+                  isElegantSerif ? (
+                    renderEditorialDateRow(
+                      memDateRange,
+                      <div style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: textCol }}>
+                        <span className="font-bold">{mem.organization}</span>
+                        {mem.membershipType ? ` — ${mem.membershipType}` : ''}
+                        {mem.membershipId ? ` (ID: ${mem.membershipId})` : ''}
+                      </div>
+                    )
+                  ) : options.isSidebar ? (
                     <div className="cv-entry" style={{ fontSize: `${scale.metaPt}pt`, color: textCol }}>
                       <div className="font-bold">{mem.organization}</div>
                       <div style={{ color: subCol }}>
@@ -3290,6 +4640,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
 
         case 'certifications': {
           (effectiveResume.certifications || []).forEach((c, idx) => {
+            const certDateRange = [c.issueDate?.trim(), c.expirationDate?.trim()]
+              .filter(Boolean)
+              .join(' – ');
             list.push({
               id: `cert-${c.id}`,
               spacing: idx === 0 ? 'section' : 'compact',
@@ -3299,7 +4652,22 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  options.isSidebar ? (
+                  isElegantSerif ? (
+                    renderEditorialDateRow(
+                      certDateRange,
+                      <div style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: textCol }}>
+                        <span className="font-bold">{c.name}</span>
+                        {c.issuer ? (
+                          <span style={{ color: '#374151' }}> — {c.issuer}</span>
+                        ) : null}
+                        {c.credentialId ? (
+                          <span style={{ color: '#4b5563', fontSize: `${scale.metaPt - 0.25}pt` }}>
+                            {' '}(ID: {c.credentialId})
+                          </span>
+                        ) : null}
+                      </div>
+                    )
+                  ) : options.isSidebar ? (
                     <div className="cv-entry" style={{ fontSize: `${scale.metaPt}pt`, color: textCol }}>
                       <div className="font-bold">{c.name}</div>
                       <div style={{ color: subCol }}>
@@ -3331,6 +4699,343 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'additional': {
+          if (isHarvard) {
+            const subsections = getHarvardAdditionalSubsections(effectiveResume);
+            let emittedAnyHarv = false;
+            const nextSpacingH = (): SpacingKind => {
+              if (!emittedAnyHarv) {
+                emittedAnyHarv = true;
+                return 'section';
+              }
+              return 'entry';
+            };
+            const nextHeadingH = () => (!emittedAnyHarv ? sectionTitle : undefined);
+
+            subsections.forEach((sub) => {
+              switch (sub.key) {
+                case 'awards': {
+                  sub.items.forEach((ach, aIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = nextSpacingH();
+                    list.push({
+                      id: `harv-add-ach-${ach.id}`,
+                      spacing: aIdx === 0 ? spacingProp : 'compact',
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {aIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div
+                              className="flex justify-between items-baseline"
+                              style={{ paddingLeft: '6pt', fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight }}
+                            >
+                              <div style={{ marginRight: '8pt' }}>
+                                <span className="font-bold">{ach.title}</span>
+                                {ach.issuer && <span> — {ach.issuer}</span>}
+                                {ach.description && (
+                                  <div style={{ color: subCol, fontSize: `${scale.metaPt}pt` }}>{ach.description}</div>
+                                )}
+                              </div>
+                              {ach.date && (
+                                <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                  {ach.date}
+                                </span>
+                              )}
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+                case 'projects': {
+                  sub.items.forEach((proj, pIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = nextSpacingH();
+                    const stack = [
+                      ...(proj.technologies || []),
+                      ...(proj.frameworks || []),
+                      ...(proj.tools || []),
+                    ].filter(Boolean);
+                    const bullets = cleanHighlights(proj.highlights);
+                    const dateRange = [proj.startDate, proj.current ? 'Present' : proj.endDate]
+                      .filter(Boolean)
+                      .join(' – ');
+                    list.push({
+                      id: `harv-add-proj-${proj.id}`,
+                      spacing: pIdx === 0 ? spacingProp : 'compact',
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {pIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div style={{ paddingLeft: '6pt' }}>
+                              <div
+                                className="flex justify-between items-baseline font-bold"
+                                style={{ fontSize: `${scale.entryTitlePt}pt` }}
+                              >
+                                <span style={{ marginRight: '8pt' }}>
+                                  {proj.title}
+                                  {stack.length > 0 && (
+                                    <span className="font-normal italic" style={{ fontSize: `${scale.metaPt}pt` }}>
+                                      {' '}({stack.join(', ')})
+                                    </span>
+                                  )}
+                                </span>
+                                {dateRange && (
+                                  <span className="font-normal shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                    {dateRange}
+                                  </span>
+                                )}
+                              </div>
+                              {proj.description && (
+                                <div style={{ fontSize: `${scale.bodyPt}pt`, color: subCol, lineHeight: scale.lineHeight }}>
+                                  {proj.description}
+                                </div>
+                              )}
+                              {bullets.map((b, bIdx) => (
+                                <div key={bIdx} className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                                  <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                    {bulletChar}
+                                  </span>
+                                  <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                    {b}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+                case 'certifications': {
+                  sub.items.forEach((cert, cIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = nextSpacingH();
+                    list.push({
+                      id: `harv-add-cert-${cert.id}`,
+                      spacing: cIdx === 0 ? spacingProp : 'compact',
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {cIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div
+                              className="flex justify-between items-baseline"
+                              style={{ paddingLeft: '6pt', fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight }}
+                            >
+                              <div style={{ marginRight: '8pt' }}>
+                                <span className="font-bold">{cert.name}</span>
+                                {cert.issuer && <span> — {cert.issuer}</span>}
+                                {cert.credentialId && (
+                                  <span style={{ color: metaCol }}> (ID: {cert.credentialId})</span>
+                                )}
+                              </div>
+                              {cert.issueDate && (
+                                <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                  {cert.issueDate}
+                                  {cert.expirationDate ? ` – ${cert.expirationDate}` : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+                case 'publications': {
+                  sub.items.forEach((pub, pIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = nextSpacingH();
+                    list.push({
+                      id: `harv-add-pub-${pub.id}`,
+                      spacing: pIdx === 0 ? spacingProp : 'compact',
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {pIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div style={{ paddingLeft: '6pt', fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight }}>
+                              {renderPublicationCitation(pub)}
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+                case 'volunteer': {
+                  sub.items.forEach((vol, vIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = nextSpacingH();
+                    const bullets = cleanHighlights(vol.highlights);
+                    list.push({
+                      id: `harv-add-vol-${vol.id}`,
+                      spacing: vIdx === 0 ? spacingProp : 'compact',
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {vIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div style={{ paddingLeft: '6pt' }}>
+                              <div className="flex justify-between items-baseline font-bold" style={{ fontSize: `${scale.entryTitlePt}pt` }}>
+                                <span style={{ marginRight: '8pt' }}>
+                                  {vol.organization}
+                                  {vol.role && <span className="font-normal italic"> — {vol.role}</span>}
+                                </span>
+                                {(vol.startDate || vol.endDate || vol.current) && (
+                                  <span className="font-normal shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                    {vol.startDate} – {vol.current ? 'Present' : vol.endDate}
+                                  </span>
+                                )}
+                              </div>
+                              {bullets.map((b, bIdx) => (
+                                <div key={bIdx} className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                                  <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                    {bulletChar}
+                                  </span>
+                                  <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                    {b}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+                case 'memberships': {
+                  sub.items.forEach((mem, mIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = nextSpacingH();
+                    list.push({
+                      id: `harv-add-mem-${mem.id}`,
+                      spacing: mIdx === 0 ? spacingProp : 'compact',
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {mIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div
+                              className="flex justify-between items-baseline"
+                              style={{ paddingLeft: '6pt', fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight }}
+                            >
+                              <span style={{ marginRight: '8pt' }}>
+                                <strong>{mem.organization}</strong>
+                                {mem.membershipType ? ` — ${mem.membershipType}` : ''}
+                              </span>
+                              {(mem.startDate || mem.endDate || mem.current) && (
+                                <span className="shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: metaCol }}>
+                                  {mem.startDate}
+                                  {mem.endDate ? ` – ${mem.endDate}` : mem.current ? ' – Present' : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+                case 'custom-sections': {
+                  sub.items.forEach((bullet, bIdx) => {
+                    const headingProp = nextHeadingH();
+                    const spacingProp = bIdx === 0 ? nextSpacingH() : ('bullet' as SpacingKind);
+                    list.push({
+                      id: `harv-add-cs-${sub.id}-${bIdx}`,
+                      spacing: spacingProp,
+                      sectionHeading: headingProp,
+                      isSidebar: options.isSidebar,
+                      render: (showHeading) =>
+                        wrapLayoutUnit(
+                          sectionTitle,
+                          showHeading,
+                          <div className="cv-entry" style={{ color: textCol }}>
+                            {bIdx === 0 && (
+                              <div className="font-bold" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, marginBottom: '1.5pt' }}>
+                                {sub.title}
+                              </div>
+                            )}
+                            <div className="flex items-start" style={{ paddingLeft: '6pt' }}>
+                              <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                                {bulletChar}
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {bullet}
+                              </span>
+                            </div>
+                          </div>,
+                          options.inverted,
+                          options.isSidebar
+                        ),
+                    });
+                  });
+                  break;
+                }
+              }
+            });
+            break;
+          }
+
           if (isSoftwareDev) {
             const subsections = getSoftwareDevAdditionalSubsections(effectiveResume);
             let emittedAny = false;
@@ -3776,6 +5481,11 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         case 'languages': {
           const langs = (effectiveResume.languages || []).filter((l) => l.language?.trim());
           langs.forEach((lang, idx) => {
+            const profText =
+              lang.proficiency?.trim() &&
+              !/^(unconfirmed|none|unspecified)$/i.test(lang.proficiency.trim())
+                ? lang.proficiency.trim()
+                : '';
             list.push({
               id: `lang-row-${lang.id}`,
               spacing: idx === 0 ? 'section' : 'compact',
@@ -3785,7 +5495,20 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  isTwoColumnPro ? (
+                  isElegantSerif ? (
+                    <div
+                      className="cv-entry"
+                      style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}
+                    >
+                      <span className="font-bold">{lang.language}</span>
+                      {profText && <span style={{ color: '#1f2937' }}> — {profText}</span>}
+                      {lang.comment?.trim() && (
+                        <span className="italic" style={{ color: '#4b5563' }}>
+                          {' '}({lang.comment.trim()})
+                        </span>
+                      )}
+                    </div>
+                  ) : isTwoColumnPro ? (
                     <div
                       className="cv-entry"
                       style={{
@@ -3943,32 +5666,62 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         case 'interests': {
           const eff = getEffectiveInterests(effectiveResume);
           if (eff.items.length > 0) {
-            eff.items.forEach((item, idx) => {
+            if (isElegantSerif) {
               list.push({
-                id: `interest-item-${item.id}`,
-                spacing: idx === 0 ? 'section' : 'compact',
-                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                id: 'interest-editorial-block',
+                spacing: 'section',
+                sectionHeading: sectionTitle,
                 isSidebar: options.isSidebar,
                 render: (showHeading) =>
                   wrapLayoutUnit(
                     sectionTitle,
                     showHeading,
-                    <div
-                      className="cv-entry flex items-baseline"
-                      style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, lineHeight: scale.lineHeight }}
-                    >
-                      <span className="font-bold shrink-0" style={{ width: '132pt', paddingRight: '6pt' }}>
-                        {item.name}
-                      </span>
-                      {item.description && (
-                        <span style={{ flex: 1, color: subCol }}>{item.description}</span>
-                      )}
+                    <div className="space-y-1">
+                      {eff.items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="cv-entry"
+                          style={{ fontSize: `${scale.bodyPt}pt`, color: textCol, lineHeight: scale.lineHeight }}
+                        >
+                          <span className="font-bold">{item.name}</span>
+                          {item.description && (
+                            <span style={{ color: '#374151' }}> — {item.description}</span>
+                          )}
+                        </div>
+                      ))}
                     </div>,
                     options.inverted,
                     options.isSidebar
                   ),
               });
-            });
+            } else {
+              eff.items.forEach((item, idx) => {
+                list.push({
+                  id: `interest-item-${item.id}`,
+                  spacing: idx === 0 ? 'section' : 'compact',
+                  sectionHeading: idx === 0 ? sectionTitle : undefined,
+                  isSidebar: options.isSidebar,
+                  render: (showHeading) =>
+                    wrapLayoutUnit(
+                      sectionTitle,
+                      showHeading,
+                      <div
+                        className="cv-entry flex items-baseline"
+                        style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: textCol, lineHeight: scale.lineHeight }}
+                      >
+                        <span className="font-bold shrink-0" style={{ width: '132pt', paddingRight: '6pt' }}>
+                          {item.name}
+                        </span>
+                        {item.description && (
+                          <span style={{ flex: 1, color: subCol }}>{item.description}</span>
+                        )}
+                      </div>,
+                      options.inverted,
+                      options.isSidebar
+                    ),
+                });
+              });
+            }
           } else if (eff.text) {
             list.push({
               id: 'interest-text-only',
@@ -4008,7 +5761,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                     showHeading,
                     <div
                       className="cv-entry flex items-start"
-                      style={{ paddingLeft: '8pt', color: textCol }}
+                      style={{ paddingLeft: isElegantSerif ? '2pt' : '8pt', color: textCol }}
                     >
                       <span style={{ width: '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
                         {bulletChar}
@@ -4046,7 +5799,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             });
             break;
           }
-          if (isTwoColumnPro || options.isSidebar) {
+          if (isTwoColumnPro || isEditorialTwoColumn || options.isSidebar) {
             (effectiveResume.references || []).forEach((ref, rIdx) => {
               list.push({
                 id: `ref-single-${ref.id}`,
@@ -4061,8 +5814,8 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       className="cv-entry"
                       style={{
                         color: textCol,
-                        borderTop: rIdx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
-                        paddingTop: rIdx > 0 ? '4pt' : 0,
+                        borderTop: isTwoColumnPro && rIdx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
+                        paddingTop: isTwoColumnPro && rIdx > 0 ? '4pt' : 0,
                       }}
                     >
                       <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt - 0.25}pt`, color: '#111827' }}>
@@ -4070,8 +5823,12 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       </div>
                       {(ref.jobTitle || ref.organization) && (
                         <div
-                          className="font-semibold"
-                          style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor, marginTop: '0.5pt' }}
+                          className={isEditorialTwoColumn ? 'italic' : 'font-semibold'}
+                          style={{
+                            fontSize: `${scale.metaPt}pt`,
+                            color: isEditorialTwoColumn ? '#374151' : custom.accentColor,
+                            marginTop: '0.5pt',
+                          }}
                         >
                           {ref.jobTitle}
                           {ref.jobTitle && ref.organization ? ', ' : ''}
@@ -4090,7 +5847,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       )}
                       {ref.email && (
                         <div className="flex items-center" style={{ fontSize: `${scale.metaPt - 0.25}pt`, color: '#1f2937', marginTop: '1.5pt' }}>
-                          {renderTwoColMetaIcon('mail', custom.accentColor)}
+                          {isEditorialTwoColumn
+                            ? renderEditorialContactIcon('email', '#1f2937')
+                            : renderTwoColMetaIcon('mail', custom.accentColor)}
                           <a href={`mailto:${ref.email}`} className="no-underline hover:underline break-all" style={{ color: '#1f2937' }}>
                             {ref.email}
                           </a>
@@ -4198,6 +5957,26 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     const sidebarSet = new Set<ResumeSectionKey>(template.sidebarSections || []);
     const sidebarKeys = visibleKeys.filter((k) => sidebarSet.has(k));
     const mainKeys = visibleKeys.filter((k) => !sidebarSet.has(k));
+
+    if (isEditorialTwoColumn) {
+      const topEditorialHeader: PreviewUnit = {
+        id: 'top-editorial-serif-header',
+        spacing: 'none',
+        render: () => renderHeader(),
+      };
+      return {
+        singleColumnUnits: [] as PreviewUnit[],
+        sidebarUnits: buildUnitsForSections(sidebarKeys, {
+          isSidebar: false,
+          inverted: false,
+        }),
+        mainUnits: buildUnitsForSections(mainKeys, {
+          isSidebar: false,
+          inverted: false,
+        }),
+        fullWidthTopHeader: topEditorialHeader,
+      };
+    }
 
     if (isMainLeftSidebarRight) {
       const topTwoColHeader: PreviewUnit = {
@@ -4378,7 +6157,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }),
       fullWidthTopHeader: topBannerHeader,
     };
-  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric]);
+  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif]);
 
   // Helper to paginate a flat array of units using measured DOM heights
   const paginateUnits = (
@@ -4627,12 +6406,14 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     fullWidthTopHeader,
     hasTwoColumns,
     isMainLeftSidebarRight,
+    isEditorialTwoColumn,
     isTwoColumnSidebar,
     custom,
     scale,
   ]);
 
-  const marginVerticalReservePt = scale.marginTopPt + scale.marginBottomPt + 6;
+  const marginVerticalReservePt =
+    scale.marginTopPt + scale.marginBottomPt + (isEditorialTwoColumn ? 24 : 6);
   const displayPages =
     pages.length > 0
       ? pages
@@ -4724,6 +6505,54 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               ))}
             </div>
             <div style={{ width: '40%', paddingLeft: '10pt', boxSizing: 'border-box' }}>
+              {sidebarUnits.map((unit) => (
+                <div key={unit.id} data-measure-unit={unit.id}>
+                  <div
+                    data-unit-pad="true"
+                    style={{
+                      paddingTop: getSpacingPt(
+                        unit.spacing,
+                        false,
+                        scale.sectionGapPt,
+                        scale.entryGapPt
+                      ),
+                    }}
+                  >
+                    {unit.render(Boolean(unit.sectionHeading))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {isEditorialTwoColumn && (
+          <>
+            {fullWidthTopHeader && (
+              <div data-measure-unit={fullWidthTopHeader.id}>
+                {fullWidthTopHeader.render(false)}
+              </div>
+            )}
+            <div style={{ width: '48.5%', paddingRight: '7pt', boxSizing: 'border-box' }}>
+              {mainUnits.map((unit) => (
+                <div key={unit.id} data-measure-unit={unit.id}>
+                  <div
+                    data-unit-pad="true"
+                    style={{
+                      paddingTop: getSpacingPt(
+                        unit.spacing,
+                        false,
+                        scale.sectionGapPt,
+                        scale.entryGapPt
+                      ),
+                    }}
+                  >
+                    {unit.render(Boolean(unit.sectionHeading))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ width: '48.5%', paddingLeft: '7pt', boxSizing: 'border-box' }}>
               {sidebarUnits.map((unit) => (
                 <div key={unit.id} data-measure-unit={unit.id}>
                   <div
@@ -4913,6 +6742,62 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               </div>
             )}
 
+            {/* Editorial Balanced Two-Column Layout (Template 7 Elegant Serif) */}
+            {isEditorialTwoColumn && (
+              <div className="relative" style={{ zIndex: 1 }}>
+                {page.hasFullWidthHeaderOnTop && <div>{page.hasFullWidthHeaderOnTop.node}</div>}
+
+                <div className="flex items-start justify-between">
+                  <div
+                    style={{
+                      width: '48.5%',
+                      paddingRight: '7pt',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {page.mainUnits.map((u, idx) => (
+                      <div
+                        key={u.id}
+                        style={{
+                          paddingTop: getSpacingPt(
+                            u.spacing,
+                            idx === 0,
+                            scale.sectionGapPt,
+                            scale.entryGapPt
+                          ),
+                        }}
+                      >
+                        {u.node}
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      width: '48.5%',
+                      paddingLeft: '7pt',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {page.sidebarUnits.map((u, idx) => (
+                      <div
+                        key={u.id}
+                        style={{
+                          paddingTop: getSpacingPt(
+                            u.spacing,
+                            idx === 0,
+                            scale.sectionGapPt,
+                            scale.entryGapPt
+                          ),
+                        }}
+                      >
+                        {u.node}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Two-Column Sidebar Layout */}
             {isTwoColumnSidebar && (
               <div className="relative" style={{ zIndex: 1 }}>
@@ -4986,16 +6871,59 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               </div>
             )}
 
+            {/* Monochrome contact footer for Template 7 Elegant Serif */}
+            {isEditorialTwoColumn && (
+              <div
+                className="flex flex-wrap justify-center items-center select-none"
+                style={{
+                  position: 'absolute',
+                  bottom: '20pt',
+                  left: `${scale.marginHorizPt}pt`,
+                  right: `${scale.marginHorizPt}pt`,
+                  gap: '10pt',
+                  fontSize: '7.8pt',
+                  color: '#374151',
+                  borderTop: '0.5pt solid #d1d5db',
+                  paddingTop: '4pt',
+                  zIndex: 2,
+                }}
+              >
+                {personalInfo.fullName?.trim() && (
+                  <span className="font-semibold" style={{ color: '#111111' }}>
+                    {personalInfo.fullName.trim()}
+                  </span>
+                )}
+                {locationString && (
+                  <span className="inline-flex items-center">
+                    {renderEditorialContactIcon('location', '#374151')}
+                    <span>{locationString}</span>
+                  </span>
+                )}
+                {personalInfo.phone?.trim() && (
+                  <span className="inline-flex items-center">
+                    {renderEditorialContactIcon('phone', '#374151')}
+                    <span>{personalInfo.phone.trim()}</span>
+                  </span>
+                )}
+                {personalInfo.email?.trim() && (
+                  <span className="inline-flex items-center">
+                    {renderEditorialContactIcon('email', '#374151')}
+                    <span>{personalInfo.email.trim()}</span>
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* Page Number Footer when multi-page */}
             {displayPages.length > 1 && (
               <div
                 className="text-center select-none"
                 style={{
                   position: 'absolute',
-                  bottom: '20pt',
+                  bottom: isEditorialTwoColumn ? '7pt' : '20pt',
                   left: isTwoColumnSidebar ? '32%' : 0,
                   right: 0,
-                  fontSize: '8.5pt',
+                  fontSize: isEditorialTwoColumn ? '7.5pt' : '8.5pt',
                   color: '#555555',
                   zIndex: 2,
                 }}

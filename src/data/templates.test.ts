@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ELEGANT_SERIF_LEFT_ORDER,
+  ELEGANT_SERIF_ORDER,
+  ELEGANT_SERIF_RIGHT_ORDER,
   TEMPLATE_CATEGORIES,
   TEMPLATE_DEFINITIONS,
   getTemplateById,
@@ -11,6 +14,8 @@ import {
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_HARVARD_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -18,12 +23,17 @@ import {
 import {
   SKILL_MATRIX_LEGEND,
   buildClassicPhoneList,
+  buildElegantSerifContactItems,
+  buildElegantSerifMetadataRows,
+  buildHarvardContactItems,
   buildJakesAddressString,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkRows,
   getCourseworkItems,
   getEffectiveInterests,
+  getHarvardAdditionalSubsections,
+  getHarvardSkillsAndInterests,
   getOrderedVisibleSections,
   getSectionDisplayTitle,
   getSkillMatrixLevelLabel,
@@ -36,8 +46,8 @@ import {
 } from '../utils/resumePresentation';
 import type { Resume } from '../types/resume';
 
-test('keeps Academic CV, Classic Professional, Jake\'s Resume, Two Column Professional, and Software Developer active in TEMPLATE_DEFINITIONS', () => {
-  assert.equal(TEMPLATE_DEFINITIONS.length, 5);
+test("keeps Templates 1 through 7 active in TEMPLATE_DEFINITIONS", () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 7);
   assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
   assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
   assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
@@ -48,11 +58,13 @@ test('keeps Academic CV, Classic Professional, Jake\'s Resume, Two Column Profes
   assert.equal(TEMPLATE_DEFINITIONS[3].name, 'Two Column Professional');
   assert.equal(TEMPLATE_DEFINITIONS[4].id, 'software-developer');
   assert.equal(TEMPLATE_DEFINITIONS[4].name, 'Software Developer');
+  assert.equal(TEMPLATE_DEFINITIONS[5].id, 'harvard-style');
+  assert.equal(TEMPLATE_DEFINITIONS[5].name, 'Harvard Style');
+  assert.equal(TEMPLATE_DEFINITIONS[6].id, 'elegant-serif');
+  assert.equal(TEMPLATE_DEFINITIONS[6].name, 'Elegant Serif');
 
   const removedIds = [
     'modern-minimalist',
-    'harvard-style',
-    'elegant-serif',
     'modern-corporate',
     'fresher-resume',
     'internship-resume',
@@ -98,8 +110,13 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(resolveTemplateId('jakes-resume'), 'jakes-resume');
   assert.equal(resolveTemplateId('two-column-professional'), 'two-column-professional');
   assert.equal(resolveTemplateId('software-developer'), 'software-developer');
+  assert.equal(resolveTemplateId('harvard-style'), 'harvard-style');
+  assert.equal(resolveTemplateId('elegant-serif'), 'elegant-serif');
   assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
-  assert.equal(getTemplateById('harvard-style').id, 'academic-cv');
+  assert.equal(getTemplateById('harvard-style').id, 'harvard-style');
+  assert.equal(getTemplateById('harvard-style').name, 'Harvard Style');
+  assert.equal(getTemplateById('elegant-serif').id, 'elegant-serif');
+  assert.equal(getTemplateById('elegant-serif').name, 'Elegant Serif');
   assert.equal(getTemplateById('academic-cv').name, 'Academic CV');
   assert.equal(getTemplateById('classic-professional').name, 'Classic Professional');
   assert.equal(getTemplateById('jakes-resume').name, "Jake's Resume");
@@ -566,3 +583,238 @@ test('Software Developer configures centered blue serif styling, clickable conta
   ]);
 });
 
+test('Harvard Style configures traditional centered serif layout, contact links, reordering, unconfirmed language hiding, and Student/Fresher/Experienced personas', () => {
+  const harvard = getTemplateById('harvard-style');
+  assert.equal(harvard.layout, 'single-column');
+  assert.equal(harvard.headerVariant, 'harvard-centered');
+  assert.equal(harvard.centeredHeadings, true);
+  assert.equal(harvard.defaultCustomization.textColor, '#000000');
+  assert.equal(harvard.defaultCustomization.accentColor, '#000000');
+  assert.equal(harvard.defaultCustomization.fontFamily, 'serif');
+  assert.equal(harvard.defaultCustomization.headingStyle, 'title-rule');
+  assert.deepEqual(harvard.sectionOrder, [
+    'education',
+    'experience',
+    'leadership',
+    'skills',
+    'additional',
+  ]);
+
+  assert.equal(getSectionDisplayTitle('education', 'harvard-style'), 'Education');
+  assert.equal(getSectionDisplayTitle('experience', 'harvard-style'), 'Experience');
+  assert.equal(getSectionDisplayTitle('leadership', 'harvard-style'), 'Leadership & Activities');
+  assert.equal(getSectionDisplayTitle('skills', 'harvard-style'), 'Skills & Interests');
+  assert.equal(getSectionDisplayTitle('additional', 'harvard-style'), 'Additional Information');
+
+  const scale = getTypographyScale(harvard.defaultCustomization, 'harvard-style');
+  assert.equal(scale.namePt, 18);
+  assert.equal(scale.marginHorizPt, 42);
+
+  const fullHarvard: Resume = {
+    ...SAMPLE_HARVARD_CV,
+    id: 'harv_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // Contact line includes street/city/state/zip/country, email, phone, linkedin, github
+  const contacts = buildHarvardContactItems(fullHarvard.personalInfo);
+  assert.ok(contacts.some((c) => c.label.includes('45 Dunster Street') && c.url === null));
+  assert.ok(contacts.some((c) => c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.label.includes('linkedin.com/in/clairemontgomery')));
+  assert.ok(contacts.some((c) => c.label.includes('github.com/cmontgomery-econ')));
+
+  assert.deepEqual(getOrderedVisibleSections(fullHarvard, harvard), [
+    'education',
+    'experience',
+    'leadership',
+    'skills',
+    'additional',
+  ]);
+
+  // Leadership-first toggle puts Leadership & Activities above Experience cleanly
+  const leadFirst: Resume = { ...fullHarvard, harvardLeadershipFirst: true };
+  assert.deepEqual(getOrderedVisibleSections(leadFirst, harvard), [
+    'education',
+    'leadership',
+    'experience',
+    'skills',
+    'additional',
+  ]);
+
+  // Test 1: College Student (University + Study Abroad + Internship + Leadership + Skills, empty highSchool & additional hidden)
+  const studentHarvard: Resume = {
+    ...fullHarvard,
+    targetBackground: 'student',
+    highSchool: [],
+    achievements: [],
+    projects: [],
+    certifications: [],
+    publications: [],
+    volunteer: [],
+    memberships: [],
+    customSections: [],
+  };
+  assert.deepEqual(getOrderedVisibleSections(studentHarvard, harvard), [
+    'education',
+    'experience',
+    'leadership',
+    'skills',
+  ]);
+  assert.equal(isSectionVisibleAndPopulated(studentHarvard, 'additional', 'harvard-style'), false);
+
+  // Test 2: Fresher (Degree + Projects + Certifications + Languages w/ one unconfirmed + Leadership + Interests, empty experience/studyAbroad/highSchool omitted)
+  const fresherHarvard: Resume = {
+    ...fullHarvard,
+    targetBackground: 'fresher',
+    studyAbroad: [],
+    highSchool: [],
+    experience: [],
+    labSkills: [],
+    achievements: [],
+    projects: [
+      {
+        id: 'fp-1',
+        title: 'Fiscal Multiplier Replication Study',
+        technologies: ['R', 'Stata'],
+        highlights: ['Replicated cross-country fiscal panel dataset in R and Stata.'],
+      },
+    ],
+    certifications: [
+      {
+        id: 'fc-1',
+        name: 'Bloomberg Market Concepts',
+        issuer: 'Bloomberg',
+        issueDate: '2025',
+      },
+    ],
+    languages: [
+      { id: 'fl-1', language: 'English', proficiency: 'Native' },
+      { id: 'fl-2', language: 'Spanish', proficiency: '' }, // unconfirmed -> level hidden
+    ],
+  };
+  assert.deepEqual(getOrderedVisibleSections(fresherHarvard, harvard), [
+    'education',
+    'leadership',
+    'skills',
+    'additional',
+  ]);
+  const fresherSkills = getHarvardSkillsAndInterests(fresherHarvard);
+  const langRow = fresherSkills.rows.find((r) => r.key === 'languages');
+  assert.ok(langRow);
+  assert.equal(langRow.text, 'English (Native), Spanish');
+  const fresherAdditional = getHarvardAdditionalSubsections(fresherHarvard);
+  assert.deepEqual(
+    fresherAdditional.map((b) => b.key),
+    ['projects', 'certifications']
+  );
+
+  // Test 3: Experienced Professional (Experiences + Achievements + Degree + Leadership + Skills + Confirmed Languages, no studyAbroad/highSchool/labSkills)
+  const experiencedHarvard: Resume = {
+    ...fullHarvard,
+    targetBackground: 'experienced',
+    studyAbroad: [],
+    highSchool: [],
+    labSkills: [],
+    languages: [
+      { id: 'el-1', language: 'English', proficiency: 'Native' },
+      { id: 'el-2', language: 'German', proficiency: 'Working' },
+    ],
+  };
+  const expSkills = getHarvardSkillsAndInterests(experiencedHarvard);
+  assert.equal(expSkills.rows.some((r) => r.key === 'lab-skills'), false);
+  assert.equal(expSkills.rows.find((r) => r.key === 'languages')?.text, 'English (Native), German (Working)');
+  assert.deepEqual(getOrderedVisibleSections(experiencedHarvard, harvard), [
+    'education',
+    'experience',
+    'leadership',
+    'skills',
+    'additional',
+  ]);
+});
+
+test('Elegant Serif (Template 7) configures editorial two-column monochrome serif layout, contacts, metadata, reordering, hiding, and all 4 personas', () => {
+  const elegant = getTemplateById('elegant-serif');
+  assert.equal(elegant.layout, 'two-column-editorial');
+  assert.equal(elegant.headerVariant, 'editorial-double-rule');
+  assert.equal(elegant.defaultCustomization.fontFamily, 'serif');
+  assert.equal(elegant.defaultCustomization.textColor, '#111111');
+  assert.equal(elegant.defaultCustomization.accentColor, '#1f2937');
+  assert.deepEqual(elegant.sectionOrder, ELEGANT_SERIF_ORDER);
+  assert.deepEqual(elegant.sidebarSections, ELEGANT_SERIF_RIGHT_ORDER);
+  assert.ok(ELEGANT_SERIF_LEFT_ORDER.includes('research'));
+
+  assert.equal(getSectionDisplayTitle('objective', 'elegant-serif'), 'Professional Profile');
+  assert.equal(getSectionDisplayTitle('research', 'elegant-serif'), 'Research Experience');
+  assert.equal(getSectionDisplayTitle('achievements', 'elegant-serif'), 'Awards & Honors');
+  assert.equal(getSectionDisplayTitle('custom-sections', 'elegant-serif'), 'Additional Information');
+
+  const fullElegant: Resume = {
+    ...SAMPLE_ELEGANT_SERIF_CV,
+    id: 'es_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // No default profile photo
+  assert.equal(Boolean(fullElegant.personalInfo.photoUrl?.trim()), false);
+
+  const contacts = buildElegantSerifContactItems(fullElegant.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'address'));
+  assert.ok(contacts.some((c) => c.kind === 'location'));
+  assert.ok(contacts.some((c) => c.kind === 'orcid' && c.url?.includes('orcid.org')));
+
+  // Metadata hides unconfirmed language levels without fabricating proficiencies
+  const metaWithUnconfirmed = buildElegantSerifMetadataRows({
+    ...fullElegant,
+    languages: [
+      { id: 'l1', language: 'German', proficiency: 'Native' },
+      { id: 'l2', language: 'Italian', proficiency: '' },
+      { id: 'l3', language: 'Spanish', proficiency: 'unconfirmed' },
+    ],
+  });
+  const langMeta = metaWithUnconfirmed.find((m) => m.kind === 'languages');
+  assert.ok(langMeta);
+  assert.equal(langMeta.label, 'Languages: German (Native), Italian, Spanish');
+
+  // Custom section reordering via sectionOrderOverride & hiding via hiddenSections without deleting data
+  const reordered = getOrderedVisibleSections(
+    {
+      ...fullElegant,
+      sectionOrderOverride: ['publications', 'research', 'education'],
+      hiddenSections: ['memberships', 'interests'],
+    },
+    elegant
+  );
+  assert.equal(reordered[0], 'publications');
+  assert.equal(reordered[1], 'research');
+  assert.equal(reordered[2], 'education');
+  assert.equal(reordered.includes('memberships'), false);
+  assert.equal(reordered.includes('interests'), false);
+
+  // Student persona: hides empty experience/publications/awards/certifications/memberships/references
+  const studentResume: Resume = {
+    ...fullElegant,
+    targetBackground: 'student',
+    experience: [],
+    researchExperience: [],
+    publications: [],
+    achievements: [],
+    certifications: [],
+    memberships: [],
+    referencesDisplayMode: 'hidden',
+    references: [],
+  };
+  const studentVisible = getOrderedVisibleSections(studentResume, elegant);
+  assert.ok(studentVisible.includes('education'));
+  assert.ok(studentVisible.includes('projects'));
+  assert.ok(studentVisible.includes('skills'));
+  assert.equal(studentVisible.includes('experience'), false);
+  assert.equal(studentVisible.includes('research'), false);
+  assert.equal(studentVisible.includes('publications'), false);
+});

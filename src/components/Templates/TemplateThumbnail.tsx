@@ -1,6 +1,8 @@
 import React from 'react';
 import type { Resume } from '../../types/resume';
 import {
+  buildHarvardContactItems,
+  getHarvardSkillsAndInterests,
   getSectionDisplayTitle,
   getOrderedVisibleSections,
   getVisibleSkills,
@@ -154,7 +156,9 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
     if (custom.headingStyle === 'title-rule') {
       return (
         <div
-          className="text-[6.8px] font-medium mb-1 pb-[1px]"
+          className={`text-[6.8px] mb-1 pb-[1px] ${
+            template.centeredHeadings ? 'text-center font-bold' : 'font-medium'
+          }`}
           style={{
             color: col,
             borderBottom: `0.65px solid ${inverted ? 'rgba(255,255,255,0.5)' : col}`,
@@ -294,6 +298,25 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
           </div>
         );
       case 'skills':
+        if (template.id === 'harvard-style') {
+          const harvardRows = resume
+            ? getHarvardSkillsAndInterests(resume).rows.slice(0, 3)
+            : [
+                { key: 'sk', label: 'Technical', text: 'Python, R, SQL, Stata, Excel' },
+                { key: 'la', label: 'Languages', text: 'English (Native), French (Advanced)' },
+                { key: 'in', label: 'Interests', text: 'Economic History, Rowing' },
+              ];
+          return (
+            <div className="space-y-0.5">
+              {harvardRows.map((row) => (
+                <div key={row.key} className="text-[4.8px] truncate" style={{ color: bodyCol }}>
+                  <span className="font-bold">{row.label}: </span>
+                  <span>{row.text}</span>
+                </div>
+              ))}
+            </div>
+          );
+        }
         if (template.skillsLayout === 'grid-2col' && !inverted) {
           const pairs = (skillCats.length > 0
             ? skillCats
@@ -512,7 +535,53 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
           </div>
         );
       }
+      case 'leadership': {
+        const leads = (resume?.leadership && resume.leadership.length > 0
+          ? resume.leadership
+          : [
+              {
+                id: 'hl1',
+                organization: 'Harvard Undergraduate Consulting Group',
+                location: 'Cambridge, MA',
+                role: 'Vice President',
+                startDate: '2023',
+                endDate: 'Present',
+                current: true,
+                highlights: ['Directed student consulting teams for regional nonprofits.'],
+              },
+            ]
+        ).slice(0, 2);
+        return (
+          <div className="space-y-0.5">
+            {leads.map((l) => (
+              <div key={l.id}>
+                <div className="flex justify-between items-baseline gap-1">
+                  <span className="text-[5.2px] font-bold truncate" style={{ color: bodyCol }}>
+                    {l.organization}
+                  </span>
+                  <span className="text-[4.6px] shrink-0" style={{ color: mutedCol }}>
+                    {l.location || l.endDate}
+                  </span>
+                </div>
+                <div className="text-[4.8px] italic truncate" style={{ color: mutedCol }}>
+                  {l.role}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      }
       case 'additional': {
+        if (template.id === 'harvard-style') {
+          return (
+            <div className="space-y-0.5 text-[4.6px] leading-[1.3]" style={{ color: bodyCol }}>
+              <div className="truncate">
+                <span className="font-bold">Awards &amp; Honors: </span>
+                <span>Thomas Temple Hoopes Prize Nominee</span>
+              </div>
+            </div>
+          );
+        }
         if (template.id === 'software-developer') {
           return (
             <div className="space-y-0.5 text-[4.5px] leading-[1.3]" style={{ color: bodyCol }}>
@@ -645,6 +714,24 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
             </div>
             <div className="text-[4.2px] mt-0.5 truncate" style={{ color: accent }}>
               {phone} · {email} · {ghHandle} · {liHandle}
+            </div>
+          </div>
+        );
+      }
+      case 'harvard-centered': {
+        const contactItems = resume?.personalInfo
+          ? buildHarvardContactItems(resume.personalInfo).slice(0, 4).map((i) => i.label)
+          : ['Cambridge, MA', email, phone];
+        return (
+          <div className="text-center pb-1 mb-1.5" style={{ borderBottom: `0.75px solid ${textCol}` }}>
+            <div
+              className="text-[9.5px] font-bold leading-tight truncate"
+              style={{ color: textCol }}
+            >
+              {personName}
+            </div>
+            <div className="text-[4.3px] mt-0.5 truncate" style={{ color: textCol }}>
+              {contactItems.join(' · ')}
             </div>
           </div>
         );
@@ -796,6 +883,201 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
         );
     }
   };
+
+  if (template.layout === 'two-column-editorial') {
+    const thumbPhoto = resume?.personalInfo?.photoUrl;
+    const renderEditorialHeading = (label: string) => (
+      <div className="mb-1">
+        <div
+          className="text-[5.8px] uppercase tracking-[0.08em] font-semibold"
+          style={{ color: '#111111' }}
+        >
+          {label}
+        </div>
+        <div className="h-[0.65px] mt-[1px]" style={{ backgroundColor: '#1a1a1a' }} />
+      </div>
+    );
+
+    return (
+      <div
+        aria-hidden="true"
+        className={`w-full aspect-[210/297] bg-white overflow-hidden select-none p-2.5 flex flex-col justify-between ${fontClass}`}
+      >
+        <div>
+          {/* Top Gray Banner Header (#e6e6e6) */}
+          <div className="flex items-stretch gap-1.5 mb-2">
+            {thumbPhoto && (
+              <img
+                src={thumbPhoto}
+                alt=""
+                className="w-8 h-9 object-cover shrink-0 border border-neutral-300"
+              />
+            )}
+            <div
+              className="flex-1 min-w-0 px-2 py-1.5 flex justify-between items-start gap-1.5"
+              style={{ backgroundColor: '#e6e6e6' }}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="text-[8.6px] font-bold leading-tight truncate text-[#111111]">
+                  {personName}
+                </div>
+                <div className="text-[4.2px] text-[#333333] truncate mt-0.5">{jobTitle}</div>
+                {resume?.personalInfo?.nationality && (
+                  <div className="text-[4px] text-[#444444] truncate">
+                    Nationality: {resume.personalInfo.nationality}
+                  </div>
+                )}
+              </div>
+              <div className="text-right text-[4px] leading-[1.3] text-[#222222] shrink-0 max-w-[46%] truncate">
+                <div className="truncate">{phone}</div>
+                <div className="truncate">{email}</div>
+                <div className="truncate">{location}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Balanced 50/50 2-Column Editorial Grid */}
+          <div className="flex items-start gap-2">
+            {/* Left Column (50%) - Timeline Sections */}
+            <div className="w-[50%] space-y-1.5">
+              <div>
+                {renderEditorialHeading('Education')}
+                <div className="space-y-1">
+                  {(eduItems.length > 0
+                    ? eduItems
+                    : [
+                        {
+                          id: 'ee1',
+                          institution: 'ETH Zurich',
+                          degree: 'Ph.D. Computational Linguistics',
+                          startDate: '2019',
+                          endDate: '2023',
+                        },
+                      ]
+                  ).map((edu) => (
+                    <div key={edu.id} className="flex items-stretch">
+                      <div className="w-[24%] pr-1 text-right text-[4px] text-[#444444] shrink-0">
+                        {edu.startDate}–{edu.endDate}
+                      </div>
+                      <div className="flex-1 min-w-0 pl-1 border-l border-neutral-500">
+                        <div className="text-[4.6px] font-bold truncate text-[#111111]">
+                          {edu.degree}
+                        </div>
+                        <div className="text-[4.1px] uppercase tracking-wider truncate text-[#444444]">
+                          {edu.institution}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                {renderEditorialHeading('Experience')}
+                <div className="space-y-1">
+                  {(expItems.length > 0
+                    ? expItems
+                    : [
+                        {
+                          id: 'ex1',
+                          company: 'ETH Zurich NLP Lab',
+                          position: 'Postdoctoral Fellow',
+                          startDate: '2023',
+                          endDate: 'Present',
+                          current: true,
+                          highlights: ['Led European cross-lingual corpus parsing research.'],
+                        },
+                      ]
+                  ).map((exp) => (
+                    <div key={exp.id} className="flex items-stretch">
+                      <div className="w-[24%] pr-1 text-right text-[4px] text-[#444444] shrink-0">
+                        {exp.startDate}–{exp.current ? 'Present' : exp.endDate}
+                      </div>
+                      <div className="flex-1 min-w-0 pl-1 border-l border-neutral-500">
+                        <div className="text-[4.6px] font-bold truncate text-[#111111]">
+                          {exp.position}
+                        </div>
+                        <div className="text-[4.1px] uppercase truncate text-[#444444]">
+                          {exp.company}
+                        </div>
+                        {exp.highlights?.[0] && (
+                          <div className="text-[4px] truncate text-[#333333]">
+                            {exp.highlights[0]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column (50%) - Profile, Skills, Publications */}
+            <div className="w-[50%] space-y-1.5">
+              <div>
+                <div className="text-center text-[4.8px] font-bold uppercase tracking-widest text-[#111111] mb-0.5">
+                  Profile
+                </div>
+                <p className="text-[4.2px] leading-[1.32] line-clamp-3 text-[#222222]">
+                  {resume?.objective?.trim() ||
+                    'Computational linguist and applied scientist advancing interpretable syntactic modeling and multilingual NLP.'}
+                </p>
+              </div>
+
+              <div>
+                {renderEditorialHeading('Skills')}
+                <div className="space-y-0.5">
+                  {(skillCats.length > 0
+                    ? skillCats
+                    : [
+                        { id: 'es1', category: 'Programming', skills: ['Python', 'PyTorch', 'R', 'LaTeX'] },
+                        { id: 'es2', category: 'Research', skills: ['NLP', 'Corpus Analytics'] },
+                      ]
+                  )
+                    .slice(0, 2)
+                    .map((cat) => (
+                      <div key={cat.id} className="text-[4.3px] truncate text-[#222222]">
+                        <span className="font-bold">{cat.category}: </span>
+                        <span>{cat.skills.slice(0, 3).join(', ')}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              <div>
+                {renderEditorialHeading('Publications')}
+                <div className="space-y-0.5">
+                  {(pubItems.length > 0
+                    ? pubItems
+                    : [
+                        {
+                          id: 'ep1',
+                          year: '2023',
+                          title: 'Entropy-Regularized Structural Probes',
+                          journalOrConference: 'ACL',
+                        },
+                      ]
+                  )
+                    .slice(0, 2)
+                    .map((p) => (
+                      <div key={p.id} className="flex items-start gap-1 text-[4.1px] text-[#222222]">
+                        <span className="font-bold shrink-0">{p.year}</span>
+                        <span className="italic truncate">{p.title}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Muted Footer */}
+        <div className="text-center text-[3.8px] text-[#555555] pt-1 border-t border-neutral-200 truncate">
+          {personName} · {location} · {email}
+        </div>
+      </div>
+    );
+  }
 
   if (template.layout === 'main-left-sidebar-right') {
     const thumbPhoto = resume?.personalInfo?.photoUrl;

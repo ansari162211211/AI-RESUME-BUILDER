@@ -753,6 +753,179 @@ export function buildHarvardContactItems(personalInfo: PersonalInfo): HarvardCon
   return items;
 }
 
+export type ElegantSerifContactKind =
+  | 'phone'
+  | 'email'
+  | 'address'
+  | 'location'
+  | 'website'
+  | 'linkedin'
+  | 'github'
+  | 'orcid'
+  | 'other'
+  | 'custom';
+
+export interface ElegantSerifContactItem {
+  kind: ElegantSerifContactKind;
+  label: string;
+  url: string | null;
+}
+
+export function buildElegantSerifContactItems(
+  personalInfo: PersonalInfo
+): ElegantSerifContactItem[] {
+  const items: ElegantSerifContactItem[] = [];
+
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      kind: 'phone',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+
+  if (personalInfo.email?.trim()) {
+    items.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+
+  if (personalInfo.streetAddress?.trim()) {
+    items.push({
+      kind: 'address',
+      label: personalInfo.streetAddress.trim(),
+      url: null,
+    });
+  }
+
+  const locParts: string[] = [];
+  if (personalInfo.city?.trim()) locParts.push(personalInfo.city.trim());
+  const stateZip = [personalInfo.state?.trim(), personalInfo.postalCode?.trim()]
+    .filter(Boolean)
+    .join(' ');
+  if (stateZip) locParts.push(stateZip);
+  if (personalInfo.country?.trim()) locParts.push(personalInfo.country.trim());
+  const locText =
+    locParts.length > 0 ? locParts.join(', ') : (personalInfo.location || '').trim();
+  if (locText) {
+    items.push({
+      kind: 'location',
+      label: locText,
+      url: null,
+    });
+  }
+
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    items.push({
+      kind: 'website',
+      label: raw.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+      url: sanitizePdfUrl(raw),
+    });
+  }
+
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com')
+      ? raw
+      : `https://linkedin.com/in/${raw.replace(/^linkedin\.com\/in\//i, '')}`;
+    items.push({
+      kind: 'linkedin',
+      label: label.includes('linkedin.com') ? label : `linkedin.com/in/${label}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const label = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com')
+      ? raw
+      : `https://github.com/${raw.replace(/^github\.com\//i, '')}`;
+    items.push({
+      kind: 'github',
+      label: label.includes('github.com') ? label : `github.com/${label}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.orcid?.trim()) {
+    const raw = personalInfo.orcid.trim();
+    const clean = raw.replace(/^https?:\/\/orcid\.org\//i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('orcid.org') ? raw : `https://orcid.org/${clean}`;
+    items.push({
+      kind: 'orcid',
+      label: `orcid.org/${clean}`,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.otherProfiles?.trim()) {
+    items.push({
+      kind: 'other',
+      label: personalInfo.otherProfiles.trim(),
+      url: null,
+    });
+  }
+
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (link.label?.trim() || link.url?.trim()) {
+        items.push({
+          kind: 'custom',
+          label:
+            link.label?.trim() ||
+            link.url.trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+          url: link.url?.trim() ? sanitizePdfUrl(link.url.trim()) : null,
+        });
+      }
+    }
+  }
+
+  return items;
+}
+
+export interface ElegantSerifMetadataRow {
+  kind: 'title' | 'nationality' | 'dob' | 'languages' | 'info';
+  label: string;
+}
+
+export function buildElegantSerifMetadataRows(
+  resume: Resume
+): ElegantSerifMetadataRow[] {
+  const rows: ElegantSerifMetadataRow[] = [];
+  const p = resume.personalInfo;
+  if (!p) return rows;
+
+  if (p.jobTitle?.trim()) {
+    rows.push({ kind: 'title', label: p.jobTitle.trim() });
+  }
+  if (p.nationality?.trim()) {
+    rows.push({ kind: 'nationality', label: `Nationality: ${p.nationality.trim()}` });
+  }
+  if (p.dateOfBirth?.trim()) {
+    rows.push({ kind: 'dob', label: p.dateOfBirth.trim() });
+  }
+  const confirmedLangs = (resume.languages || [])
+    .filter((l) => l.language?.trim())
+    .map((l) => {
+      const prof = l.proficiency?.trim();
+      const hasValidProf = prof && !/^(unconfirmed|none|unspecified)$/i.test(prof);
+      return hasValidProf ? `${l.language.trim()} (${prof})` : l.language.trim();
+    });
+  if (confirmedLangs.length > 0 && !(resume.hiddenSections || []).includes('languages')) {
+    rows.push({ kind: 'languages', label: `Languages: ${confirmedLangs.join(', ')}` });
+  }
+  if (p.additionalInfo?.trim()) {
+    rows.push({ kind: 'info', label: p.additionalInfo.trim() });
+  }
+
+  return rows;
+}
+
 export interface HarvardSkillsRow {
   key: string;
   label: string;
@@ -940,7 +1113,11 @@ export function isSectionVisibleAndPopulated(
 
   switch (sectionKey) {
     case 'objective':
-      return Boolean(resume.objective && resume.objective.trim().length > 0);
+      return Boolean(
+        (resume.objective && resume.objective.trim().length > 0) ||
+          (effectiveTplId === 'elegant-serif' &&
+            (resume.academicInterests?.trim() || resume.careerGoals?.trim()))
+      );
     case 'philosophy':
       return Boolean(resume.personalQuote && resume.personalQuote.trim().length > 0);
     case 'daily-life': {
@@ -980,6 +1157,17 @@ export function isSectionVisibleAndPopulated(
       return getCourseworkItems(resume).length > 0;
     case 'experience':
       return Boolean(resume.experience && resume.experience.length > 0);
+    case 'research':
+      return Boolean(
+        resume.researchExperience &&
+          resume.researchExperience.some(
+            (r) =>
+              r.title?.trim() ||
+              r.institution?.trim() ||
+              r.objectives?.trim() ||
+              r.findings?.trim()
+          )
+      );
     case 'publications':
       return Boolean(resume.publications && resume.publications.length > 0);
     case 'projects':
@@ -1047,7 +1235,18 @@ export function getOrderedVisibleSections(
   template: TemplateDefinition
 ): ResumeSectionKey[] {
   let order = [...template.sectionOrder];
-  if (template.id === 'harvard-style' && resume.harvardLeadershipFirst) {
+  if (
+    template.id === 'elegant-serif' &&
+    Array.isArray(resume.sectionOrderOverride) &&
+    resume.sectionOrderOverride.length > 0
+  ) {
+    const validSet = new Set(template.sectionOrder);
+    const customOrder = resume.sectionOrderOverride.filter((k): k is ResumeSectionKey =>
+      validSet.has(k as ResumeSectionKey)
+    );
+    const missing = template.sectionOrder.filter((k) => !customOrder.includes(k));
+    order = [...customOrder, ...missing];
+  } else if (template.id === 'harvard-style' && resume.harvardLeadershipFirst) {
     const expIdx = order.indexOf('experience');
     const leadIdx = order.indexOf('leadership');
     if (expIdx !== -1 && leadIdx !== -1 && expIdx < leadIdx) {
@@ -1129,6 +1328,43 @@ export function getSectionDisplayTitle(
     }
   }
 
+  if (templateId === 'elegant-serif') {
+    switch (key) {
+      case 'objective':
+        return 'Professional Profile';
+      case 'education':
+        return 'Education';
+      case 'experience':
+        return 'Experience';
+      case 'research':
+        return 'Research Experience';
+      case 'projects':
+        return 'Projects';
+      case 'publications':
+        return 'Publications';
+      case 'achievements':
+        return 'Awards & Honors';
+      case 'skills':
+        return 'Skills';
+      case 'languages':
+        return 'Languages';
+      case 'certifications':
+        return 'Certifications';
+      case 'leadership':
+        return 'Leadership & Activities';
+      case 'memberships':
+        return 'Professional Memberships';
+      case 'interests':
+        return 'Interests';
+      case 'references':
+        return 'References';
+      case 'custom-sections':
+        return 'Additional Information';
+      default:
+        break;
+    }
+  }
+
   switch (key) {
     case 'objective':
       if (templateId === 'executive-resume') return 'EXECUTIVE SUMMARY';
@@ -1152,6 +1388,8 @@ export function getSectionDisplayTitle(
     case 'experience':
       if (templateId === 'research-scholar') return 'RESEARCH & ACADEMIC APPOINTMENTS';
       return 'EXPERIENCE';
+    case 'research':
+      return 'RESEARCH EXPERIENCE';
     case 'daily-life':
       return 'A DAY OF MY LIFE';
     case 'philosophy':

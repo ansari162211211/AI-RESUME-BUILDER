@@ -14,8 +14,10 @@ import type { Resume } from '../types/resume';
 import {
   SAMPLE_ACADEMIC_CV,
   SAMPLE_CLASSIC_PROFESSIONAL_CV,
+  SAMPLE_ELEGANT_SERIF_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
+  SAMPLE_HARVARD_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
@@ -163,6 +165,8 @@ export type TemplateProfileType =
   | 'jakes'
   | 'two-column'
   | 'software-developer'
+  | 'harvard'
+  | 'elegant-serif'
   | 'experienced'
   | 'fresher'
   | 'student'
@@ -195,6 +199,12 @@ export async function createNewResume(
       break;
     case 'software-developer':
       base = SAMPLE_SOFTWARE_DEVELOPER_CV;
+      break;
+    case 'harvard':
+      base = SAMPLE_HARVARD_CV;
+      break;
+    case 'elegant-serif':
+      base = SAMPLE_ELEGANT_SERIF_CV;
       break;
     case 'experienced':
       base = SAMPLE_EXPERIENCED_CV;

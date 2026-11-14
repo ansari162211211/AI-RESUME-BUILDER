@@ -22,6 +22,7 @@ export interface PersonalInfo {
   orcid?: string;
   gitlab?: string;
   mastodon?: string;
+  nationality?: string;
   customLinks?: Array<{ id: string; label: string; url: string }>;
   otherProfiles?: string; // Google Scholar, ORCID, ResearchGate, etc.
 }
@@ -47,12 +48,34 @@ export interface ExperienceItem {
   current: boolean;
   highlights: string[];
   subHighlights?: ExperienceSubHighlights[];
+  technologies?: string[];
+  skillsDemonstrated?: string[];
+}
+
+export interface ResearchExperienceItem {
+  id: string;
+  title: string;
+  institution: string;
+  supervisor?: string;
+  role?: string;
+  domain?: string;
+  location?: string;
+  startDate: string;
+  endDate: string;
+  current?: boolean;
+  objectives?: string;
+  methodology?: string;
+  technologies?: string[];
+  findings?: string;
+  outcomes?: string;
+  publications?: string;
 }
 
 export interface EducationItem {
   id: string;
   institution: string;
   degree: string;
+  department?: string;
   specialization?: string; // Field of Study / Major / Concentration
   location?: string;
   startDate: string;
@@ -60,7 +83,8 @@ export interface EducationItem {
   current: boolean;
   grade?: string; // GPA / CGPA / Grade
   thesisTitle?: string; // Optional Thesis title (Harvard & Academic)
-  coursework?: string; // Optional per-entry relevant coursework
+  dissertationDetails?: string;
+  coursework?: string[] | string; // Optional per-entry relevant coursework
   honors?: string; // Optional academic awards and honors
   achievements?: string; // Thesis title, Advisor, Honors (legacy / combined)
   description?: string;
@@ -69,7 +93,8 @@ export interface EducationItem {
 export interface StudyAbroadItem {
   id: string;
   institution: string;
-  location?: string; // City and country
+  cityCountry?: string; // City and country
+  location?: string; // City and country alias
   coursework?: string; // Coursework or academic description
   startDate: string;
   endDate: string;
@@ -134,6 +159,7 @@ export interface ProjectItem {
   id: string;
   title: string;
   projectType?: string; // Personal, Academic, Open Source, Client, Hackathon, Capstone
+  teamType?: 'Individual' | 'Team';
   institution?: string; // Funding agency / institution
   technologies: string[];
   frameworks?: string[];
@@ -189,6 +215,8 @@ export interface AwardItem {
   title: string;
   issuer: string;
   date: string;
+  category?: string;
+  achievementDetails?: string;
   description?: string;
   icon?: 'trophy' | 'heart' | 'award' | 'star';
 }
@@ -317,12 +345,15 @@ export interface Resume {
   personalInfo: PersonalInfo;
   personalQuote?: string;
   objective?: string;
+  academicInterests?: string;
+  careerGoals?: string;
   education: EducationItem[];
   thesis?: MasterThesisInfo;
   studyAbroad?: StudyAbroadItem[];
   highSchool?: HighSchoolItem[];
   coursework?: string[];
   experience: ExperienceItem[];
+  researchExperience?: ResearchExperienceItem[];
   projects: ProjectItem[];
   dailyActivities?: DailyActivityItem[];
   showDailyActivityChart?: boolean;
@@ -334,7 +365,7 @@ export interface Resume {
   achievements: AwardItem[];
   leadership?: LeadershipItem[];
   harvardLeadershipFirst?: boolean;
-  targetBackground?: 'student' | 'fresher' | 'experienced';
+  targetBackground?: 'student' | 'fresher' | 'experienced' | 'researcher';
   volunteer?: VolunteerItem[];
   memberships?: MembershipItem[];
   certifications: CertificationItem[];
@@ -346,6 +377,7 @@ export interface Resume {
   referencesDisplayMode?: ReferencesDisplayMode;
   fontFamily?: CvFontFamily;
   hiddenSections?: string[];
+  sectionOrderOverride?: string[];
   createdAt: string;
   updatedAt: string;
   template?: TemplateId | string;
