@@ -3,14 +3,18 @@ import assert from 'node:assert/strict';
 import {
   EXECUTIVE_ROLE_PROMPTS,
   EXECUTIVE_SECTION_FLOW,
+  RESEARCH_DISCIPLINE_PROMPTS,
+  RESEARCH_SCHOLAR_SECTION_FLOW,
   accumulateStagedUpdates,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
   buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
+  buildAdaptiveResearchScholarFallback,
   detectCreativeProfessionFromText,
   detectEngineeringBranchFromText,
   detectExecutiveRoleFromText,
+  detectResearchDisciplineFromText,
   mergeResumeUpdates,
 } from './aiInterviewHelpers.ts';
 import {
@@ -18,8 +22,15 @@ import {
   SAMPLE_ENGINEERING_RESUME_CV,
   SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
+  SAMPLE_RESEARCH_SCHOLAR_CV,
 } from '../data/sampleResumes.ts';
-import type { CreativeProfession, EngineeringBranch, ExecutiveRoleType, Resume } from '../types/resume';
+import type {
+  CreativeProfession,
+  EngineeringBranch,
+  ExecutiveRoleType,
+  ResearchDiscipline,
+  Resume,
+} from '../types/resume';
 
 const baseInternshipResume: Resume = {
   ...SAMPLE_INTERNSHIP_RESUME_CV,
@@ -436,5 +447,145 @@ test('mergeResumeUpdates merges executive fields and percentage dailyActivities 
   );
   assert.equal(rejectedOver100.dailyActivities?.length, 3);
 });
+
+const baseResearchScholarResume: Resume = {
+  ...SAMPLE_RESEARCH_SCHOLAR_CV,
+  id: 'res-test-scholar',
+  userId: 'user-test',
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+};
+
+test('detectResearchDisciplineFromText accurately classifies all 8 research disciplines', () => {
+  assert.equal(
+    detectResearchDisciplineFromText('Computer Science PhD in machine learning and NLP'),
+    'computer-science'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Cybersecurity researcher focusing on cryptography and binary analysis'),
+    'cybersecurity'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Electronics VLSI semiconductor and signal processing lab'),
+    'electronics'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Mechanical engineering robotics and fluid mechanics'),
+    'mechanical-engineering'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Biotechnology genomics and computational molecular biology'),
+    'biotechnology'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Theoretical physics and applied mathematics quantum models'),
+    'physics-mathematics'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Social sciences economics and quantitative public policy'),
+    'social-sciences'
+  );
+  assert.equal(
+    detectResearchDisciplineFromText('Interdisciplinary research scholar track'),
+    'other'
+  );
+  assert.equal(detectResearchDisciplineFromText('Hello please start interview'), null);
+});
+
+test('RESEARCH_DISCIPLINE_PROMPTS & buildAdaptiveResearchScholarFallback guide all 8 disciplines across 13 steps cleanly', () => {
+  const disciplines: ResearchDiscipline[] = [
+    'computer-science',
+    'cybersecurity',
+    'electronics',
+    'mechanical-engineering',
+    'biotechnology',
+    'physics-mathematics',
+    'social-sciences',
+    'other',
+  ];
+
+  assert.equal(RESEARCH_SCHOLAR_SECTION_FLOW.length, 13);
+  for (const discipline of disciplines) {
+    assert.ok(RESEARCH_DISCIPLINE_PROMPTS[discipline]['research-interests']);
+    const res = buildAdaptiveResearchScholarFallback(
+      'Skip to Presentations',
+      { ...baseResearchScholarResume, researchDiscipline: discipline },
+      'achievements',
+      RESEARCH_SCHOLAR_SECTION_FLOW
+    );
+    assert.equal(res.nextSection, 'presentations');
+    assert.equal(res.isSectionCompleted, true);
+    assert.ok(res.reply.length > 20);
+  }
+
+  const autoDetectBio = buildAdaptiveResearchScholarFallback(
+    'I conduct genomics and bioinformatics research in a biotechnology lab',
+    baseResearchScholarResume,
+    'personalInfo',
+    RESEARCH_SCHOLAR_SECTION_FLOW
+  );
+  assert.equal(autoDetectBio.structuredUpdates.researchDiscipline, 'biotechnology');
+
+  const jumpCommittees = buildAdaptiveResearchScholarFallback(
+    'Move to Program Committees',
+    baseResearchScholarResume,
+    'publications',
+    RESEARCH_SCHOLAR_SECTION_FLOW
+  );
+  assert.equal(jumpCommittees.nextSection, 'program-committees');
+});
+
+test('mergeResumeUpdates merges and deduplicates all 9 Template 14 Research Scholar fields cleanly', () => {
+  const patch: Partial<Resume> = {
+    researchDiscipline: 'computer-science',
+    customResearchDiscipline: 'Computational Cognitive Science',
+    researchFocusSummary: 'Formal verification for distributed consensus algorithms.',
+    yearsOfResearchExperience: '6 years',
+    researchInterestsList: ['Formal Verification', 'Distributed Systems Security'],
+    researchQuestions: 'How can static model checking bound tail-latency anomalies?',
+    researchMethodologies: 'TLA+ specification paired with eBPF fault injection.',
+    presentations: [
+      {
+        id: 'p-new',
+        title: 'Deterministic Verification of Edge Orchestrators',
+        eventOrConference: 'USENIX ATC',
+        role: 'Presenter',
+        location: 'Boston, MA',
+        date: 'Jul. 2025',
+        highlights: ['Demonstrated 100% invariant coverage on testbed clusters.'],
+      },
+    ],
+    programCommittees: [
+      {
+        id: 'pc-new',
+        role: 'Artifact Evaluation Committee',
+        conferenceOrOrganization: 'ACM SOSP',
+        year: '2025',
+        location: 'Seoul, S. Korea',
+      },
+    ],
+  };
+
+  const mergedOnce = mergeResumeUpdates(baseResearchScholarResume, patch, false);
+  const mergedTwice = mergeResumeUpdates(mergedOnce, patch, false);
+
+  assert.equal(mergedTwice.researchDiscipline, 'computer-science');
+  assert.equal(mergedTwice.customResearchDiscipline, 'Computational Cognitive Science');
+  assert.equal(
+    mergedTwice.researchFocusSummary,
+    'Formal verification for distributed consensus algorithms.'
+  );
+  assert.equal(mergedTwice.yearsOfResearchExperience, '6 years');
+  assert.equal(mergedTwice.researchQuestions, 'How can static model checking bound tail-latency anomalies?');
+  assert.equal(mergedTwice.researchMethodologies, 'TLA+ specification paired with eBPF fault injection.');
+  assert.equal(
+    mergedTwice.researchInterestsList?.length,
+    mergedOnce.researchInterestsList?.length
+  );
+  assert.ok(mergedTwice.researchInterestsList?.includes('Formal Verification'));
+  assert.equal(mergedTwice.presentations?.length, mergedOnce.presentations?.length);
+  assert.equal(mergedTwice.programCommittees?.length, mergedOnce.programCommittees?.length);
+});
+
 
 

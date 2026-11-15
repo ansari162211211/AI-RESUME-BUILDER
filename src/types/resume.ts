@@ -103,6 +103,8 @@ export interface EducationItem {
   dissertationDetails?: string;
   coursework?: string[] | string; // Optional per-entry relevant coursework
   honors?: string; // Optional academic awards and honors
+  scholarships?: string; // Optional scholarships or funding received
+  supervisor?: string; // Optional thesis or academic advisor
   achievements?: string; // Thesis title, Advisor, Honors (legacy / combined)
   description?: string;
 }
@@ -218,6 +220,9 @@ export type PublicationType =
   | 'manuscript'
   | 'book_chapter'
   | 'thesis'
+  | 'preprint'
+  | 'technical_article'
+  | 'research_report'
   | 'other';
 
 export interface PublicationItem {
@@ -228,23 +233,38 @@ export interface PublicationItem {
   year: string;
   journalOrConference?: string;
   publisher?: string;
+  role?: string;
   volume?: string;
   issue?: string;
   pages?: string;
   doi?: string;
   url?: string;
   description?: string;
+  highlights?: string[];
   location?: string;
   patentNumber?: string;
   publicationDate?: string;
-  status?: string; // Published, Accepted, Under Review, Filed
+  status?: string; // Published, Accepted, Under Review, Filed, Ongoing
 }
+
+export type AwardCategory =
+  | 'international'
+  | 'national'
+  | 'institutional'
+  | 'academic'
+  | 'scholarship'
+  | 'fellowship'
+  | 'competition'
+  | 'domestic'
+  | 'other';
 
 export interface AwardItem {
   id: string;
   title: string;
   issuer: string;
   date: string;
+  location?: string;
+  awardCategory?: AwardCategory;
   category?: string;
   participationType?: string; // Competition, Hackathon, Club, Volunteer Event, Scholarship, Organization
   teamType?: 'Individual' | 'Team';
@@ -258,6 +278,28 @@ export interface AwardItem {
   challenge?: string;
   actionTaken?: string;
   icon?: 'trophy' | 'heart' | 'chart' | 'award' | 'star';
+}
+
+export interface PresentationItem {
+  id: string;
+  title: string; // Talk or presentation title
+  eventOrConference: string;
+  role?: string; // e.g., Presenter, Keynote Speaker, Invited Speaker, Panelist
+  location?: string;
+  date?: string;
+  url?: string;
+  highlights?: string[];
+  description?: string;
+}
+
+export interface ProgramCommitteeItem {
+  id: string;
+  role: string; // e.g., Problem Writer, Program Committee Member, Reviewer, Organizer
+  conferenceOrOrganization: string;
+  year: string;
+  location?: string;
+  url?: string;
+  description?: string;
 }
 
 export type LearningActivityType =
@@ -318,6 +360,16 @@ export type ExecutiveRoleType =
   | 'hr-director'
   | 'marketing-director'
   | 'founder'
+  | 'other';
+
+export type ResearchDiscipline =
+  | 'computer-science'
+  | 'cybersecurity'
+  | 'electronics'
+  | 'mechanical-engineering'
+  | 'biotechnology'
+  | 'physics-mathematics'
+  | 'social-sciences'
   | 'other';
 
 export interface CreativeSkillDetailItem {
@@ -467,7 +519,8 @@ export type TemplateHeadingStyle =
   | 'italic-serif'
   | 'internship-rule'
   | 'creative-blue-rule'
-  | 'executive-purple-rule';
+  | 'executive-purple-rule'
+  | 'awesome-cv-rule';
 
 export interface TemplateCustomization {
   fontFamily: CvFontFamily;
@@ -541,6 +594,15 @@ export interface Resume {
   managementStyle?: string;
   strategicDomains?: string[];
   dailyActivityMode?: 'hours' | 'percentage';
+  researchDiscipline?: ResearchDiscipline;
+  customResearchDiscipline?: string;
+  researchFocusSummary?: string;
+  yearsOfResearchExperience?: string;
+  researchInterestsList?: string[];
+  researchQuestions?: string;
+  researchMethodologies?: string;
+  presentations?: PresentationItem[];
+  programCommittees?: ProgramCommitteeItem[];
   volunteer?: VolunteerItem[];
   memberships?: MembershipItem[];
   certifications: CertificationItem[];

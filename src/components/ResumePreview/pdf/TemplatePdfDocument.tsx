@@ -41,11 +41,14 @@ import {
   buildJakesAddressString,
   buildLocationString,
   buildModernCorporateContactItems,
+  buildResearchScholarAddressLine,
+  buildResearchScholarContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkPairs,
   chunkRows,
   cleanHighlights,
+  formatAwesomeCvFooterDate,
   getCourseworkItems,
   getCreativeCategorizedSkills,
   getCreativeCertificatesAndGrants,
@@ -68,6 +71,11 @@ import {
   getInternshipSkillRows,
   getOrderedVisibleSections,
   getPublicationParts,
+  getResearchScholarAwardsGrouped,
+  getResearchScholarExtracurricularEntries,
+  getResearchScholarPresentations,
+  getResearchScholarProgramCommittees,
+  getResearchScholarResearchInterests,
   getSectionDisplayTitle,
   getSkillMatrixLevelLabel,
   getSoftwareDevAdditionalSubsections,
@@ -75,12 +83,15 @@ import {
   groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
+  splitAwesomeCvHeading,
+  splitAwesomeCvName,
   splitCreativeName,
   type ContactLinkItem,
   type CreativeContactKind,
   type ElegantSerifContactKind,
   type InternshipContactKind,
   type ModernCorporateContactKind,
+  type ResearchScholarContactKind,
   type TwoColumnContactKind,
   type TwoColumnPubCategoryKey,
 } from '../../../utils/resumePresentation';
@@ -138,6 +149,8 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
   const isCreativeProfessional =
     template.id === 'creative-professional' || template.layout === 'two-column-creative';
   const isExecutiveResume = template.id === 'executive-resume';
+  const isResearchScholar =
+    template.id === 'research-scholar' || template.headerVariant === 'awesome-cv-centered';
 
   const isSerif = custom.fontFamily === 'serif';
   const fontRegular = isSerif ? 'Times-Roman' : 'Helvetica';
@@ -176,7 +189,19 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       paddingTop: scale.marginTopPt,
       paddingBottom:
         scale.marginBottomPt +
-        (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isInternshipResume ? 16 : isExecutiveResume ? 10 : isCreativeProfessional ? 4 : 0),
+        (isEditorialTwoColumn
+          ? 24
+          : isResearchScholar
+          ? 24
+          : isModernCorporate
+          ? 14
+          : isInternshipResume
+          ? 16
+          : isExecutiveResume
+          ? 10
+          : isCreativeProfessional
+          ? 4
+          : 0),
       paddingLeft: isTwoColumnSidebar ? 0 : scale.marginHorizPt,
       paddingRight: scale.marginHorizPt,
       fontFamily: fontRegular,
@@ -519,6 +544,41 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
             <View style={{ flex: 1, height: 0.75, backgroundColor: '#111827' }} />
           </View>
         );
+      case 'awesome-cv-rule': {
+        const { accentPrefix, restTitle } = splitAwesomeCvHeading(title);
+        return (
+          <View
+            minPresenceAhead={opts?.disableMinAhead ? undefined : minAhead ?? 45}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              marginBottom: 5.5,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: scale.headingPt + 1.75,
+                fontFamily: fontBold,
+                letterSpacing: 0.15,
+                lineHeight: 1.15,
+                color: textCol || '#333333',
+              }}
+            >
+              <Text style={{ color: hColor }}>{accentPrefix}</Text>
+              <Text style={{ color: textCol || '#333333' }}>{restTitle}</Text>
+            </Text>
+            <View
+              style={{
+                flex: 1,
+                height: 0.65,
+                backgroundColor: '#555555',
+                marginLeft: 6,
+                marginBottom: 2.2,
+              }}
+            />
+          </View>
+        );
+      }
       case 'uppercase-rule':
       default:
         return (
@@ -1388,10 +1448,192 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
   };
 
+  const renderAwesomeCvContactIcon = (kind: ResearchScholarContactKind, color: string) => {
+    const iconStyle = { marginRight: 3, marginTop: 0.5 };
+    switch (kind) {
+      case 'phone':
+        return (
+          <Svg width={7.2} height={7.2} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z"
+            />
+          </Svg>
+        );
+      case 'email':
+        return (
+          <Svg width={7.2} height={7.2} viewBox="0 0 24 24" style={iconStyle}>
+            <Rect x="2" y="4" width="20" height="16" rx="2" stroke={color} strokeWidth={2} fill="none" />
+            <Path stroke={color} strokeWidth={2} fill="none" d="M22 6l-10 7L2 6" />
+          </Svg>
+        );
+      case 'linkedin':
+        return (
+          <Svg width={7.2} height={7.2} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"
+            />
+          </Svg>
+        );
+      case 'github':
+        return (
+          <Svg width={7.2} height={7.2} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"
+            />
+          </Svg>
+        );
+      case 'website':
+        return (
+          <Svg width={7.2} height={7.2} viewBox="0 0 24 24" style={iconStyle}>
+            <Path fill={color} d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+          </Svg>
+        );
+      case 'orcid':
+      case 'custom':
+      default:
+        return (
+          <Svg width={7.2} height={7.2} viewBox="0 0 24 24" style={iconStyle}>
+            <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={2} fill="none" />
+            <Line x1="2" y1="12" x2="22" y2="12" stroke={color} strokeWidth={2} />
+            <Path
+              stroke={color}
+              strokeWidth={2}
+              fill="none"
+              d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
+            />
+          </Svg>
+        );
+    }
+  };
+
   const renderHeader = () => {
     const nameText = personalInfo.fullName || 'FULL NAME';
 
     switch (template.headerVariant) {
+      case 'awesome-cv-centered': {
+        const { firstPart, lastPart } = splitAwesomeCvName(nameText);
+        const items = buildResearchScholarContactItems(personalInfo);
+        const addressLine = buildResearchScholarAddressLine(personalInfo);
+        const titleParts = [
+          personalInfo.jobTitle?.trim(),
+          personalInfo.specialization?.trim() &&
+          !personalInfo.jobTitle?.trim().toLowerCase().includes(personalInfo.specialization.trim().toLowerCase())
+            ? personalInfo.specialization.trim()
+            : '',
+        ].filter(Boolean);
+        const quoteText = effectiveResume.personalQuote?.trim();
+
+        return (
+          <View style={{ marginBottom: 7, alignItems: 'center' }}>
+            <Text
+              style={{
+                fontSize: scale.namePt + 5,
+                letterSpacing: 0.25,
+                lineHeight: 1.1,
+                textAlign: 'center',
+                marginBottom: 3,
+              }}
+            >
+              {firstPart ? (
+                <Text style={{ fontFamily: fontRegular, color: '#555555' }}>{firstPart} </Text>
+              ) : null}
+              <Text style={{ fontFamily: fontBold, color: '#222222' }}>{lastPart || nameText}</Text>
+            </Text>
+
+            {titleParts.length > 0 ? (
+              <Text
+                style={{
+                  fontSize: scale.metaPt,
+                  fontFamily: fontRegular,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                  color: accent,
+                  textAlign: 'center',
+                  lineHeight: 1.25,
+                  marginBottom: 2,
+                }}
+              >
+                {titleParts.join(' · ')}
+              </Text>
+            ) : null}
+
+            {addressLine ? (
+              <Text
+                style={{
+                  fontSize: scale.metaPt - 0.15,
+                  fontFamily: fontItalic,
+                  color: '#6b7280',
+                  textAlign: 'center',
+                  lineHeight: 1.3,
+                  marginBottom: 2.5,
+                }}
+              >
+                {addressLine}
+              </Text>
+            ) : null}
+
+            {items.length > 0 ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                {items.map((item, idx) => (
+                  <View
+                    key={`${item.kind}-${idx}`}
+                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 1.5 }}
+                  >
+                    {idx > 0 ? (
+                      <Text style={{ fontSize: Math.max(6.4, scale.metaPt - 0.4), color: '#9ca3af', marginHorizontal: 2.8 }}>
+                        |
+                      </Text>
+                    ) : null}
+                    {renderAwesomeCvContactIcon(item.kind, '#333333')}
+                    {item.url ? (
+                      <Link
+                        src={item.url}
+                        style={{
+                          fontSize: Math.max(6.4, scale.metaPt - 0.4),
+                          color: '#333333',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <Text style={{ fontSize: Math.max(6.4, scale.metaPt - 0.4), color: '#333333' }}>
+                        {item.label}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {quoteText ? (
+              <Text
+                style={{
+                  fontSize: scale.metaPt + 0.25,
+                  fontFamily: fontItalic,
+                  color: accent,
+                  textAlign: 'center',
+                  marginTop: 6,
+                  lineHeight: 1.35,
+                }}
+              >
+                &ldquo;{quoteText.replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '')}&rdquo;
+              </Text>
+            ) : null}
+          </View>
+        );
+      }
+
       case 'creative-centered': {
         const { firstPart, lastPart } = splitCreativeName(nameText);
         const items = buildCreativeContactItems(personalInfo);
@@ -3181,11 +3423,14 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     const sectionMinAheadMap: Record<ResumeSectionKey, number> = {
       objective: 36,
       education: 50,
+      'research-interests': 36,
       thesis: 45,
       coursework: 36,
       experience: 55,
       research: 45,
+      presentations: 45,
       publications: 45,
+      'program-committees': 42,
       projects: 50,
       'daily-life': 85,
       philosophy: 36,
@@ -3510,6 +3755,69 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           );
         }
 
+        if (isResearchScholar) {
+          const paragraphs = (effectiveResume.objective || '')
+            .split(/\n\s*\n/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+          const extraScholarMeta = [
+            effectiveResume.yearsOfResearchExperience?.trim()
+              ? `Experience: ${effectiveResume.yearsOfResearchExperience.trim()}`
+              : '',
+            effectiveResume.researchFocusSummary?.trim() &&
+            !paragraphs.some((p) =>
+              p.toLowerCase().includes(effectiveResume.researchFocusSummary!.trim().toLowerCase())
+            )
+              ? `Focus: ${effectiveResume.researchFocusSummary.trim()}`
+              : '',
+          ].filter(Boolean);
+          if (paragraphs.length === 0 && extraScholarMeta.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              <View wrap={false}>
+                {headingIfNormal}
+                {paragraphs[0] ? (
+                  <Text
+                    style={{
+                      fontSize: scale.baseFontPt - 0.25,
+                      textAlign: 'justify',
+                      lineHeight: scale.lineHeight,
+                      color: col,
+                      marginBottom: paragraphs.length > 1 ? 3 : 0,
+                    }}
+                  >
+                    {paragraphs[0]}
+                  </Text>
+                ) : (
+                  <Text
+                    style={{
+                      fontSize: scale.baseFontPt - 0.25,
+                      lineHeight: scale.lineHeight,
+                      color: col,
+                    }}
+                  >
+                    {extraScholarMeta.join(' · ')}
+                  </Text>
+                )}
+              </View>
+              {paragraphs.slice(1).map((para, pIdx) => (
+                <Text
+                  key={`rs-obj-${pIdx}`}
+                  style={{
+                    fontSize: scale.baseFontPt - 0.25,
+                    textAlign: 'justify',
+                    lineHeight: scale.lineHeight,
+                    color: col,
+                    marginBottom: pIdx + 1 < paragraphs.length - 1 ? 3 : 0,
+                  }}
+                >
+                  {para}
+                </Text>
+              ))}
+            </View>
+          );
+        }
+
         return (
           <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
             {headingIfNormal}
@@ -3526,6 +3834,66 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
               </Text>,
               true
             )}
+          </View>
+        );
+      }
+
+      case 'research-interests': {
+        const keywords = getResearchScholarResearchInterests(effectiveResume);
+        const questions = effectiveResume.researchQuestions?.trim() || '';
+        const methodologies = effectiveResume.researchMethodologies?.trim() || '';
+        const focusSummary = effectiveResume.researchFocusSummary?.trim() || '';
+        const hasRows =
+          keywords.length > 0 || Boolean(questions) || Boolean(methodologies) || Boolean(focusSummary);
+        if (!hasRows) return null;
+        return (
+          <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }} wrap={false}>
+            {headingIfNormal}
+            {keywords.length > 0 ? (
+              <Text
+                style={{
+                  fontSize: scale.bodyPt,
+                  lineHeight: scale.lineHeight,
+                  color: subCol,
+                  marginBottom: questions || methodologies || focusSummary ? 2.5 : 0,
+                }}
+              >
+                <Text style={{ fontFamily: fontBold, color: '#222222' }}>Core Areas: </Text>
+                <Text>{keywords.join(' · ')}</Text>
+              </Text>
+            ) : null}
+            {focusSummary ? (
+              <Text
+                style={{
+                  fontSize: scale.bodyPt,
+                  lineHeight: scale.lineHeight,
+                  color: '#4b5563',
+                  marginBottom: questions || methodologies ? 2 : 0,
+                }}
+              >
+                <Text style={{ fontFamily: fontBold, color: '#222222' }}>Research Focus: </Text>
+                <Text>{focusSummary}</Text>
+              </Text>
+            ) : null}
+            {questions ? (
+              <Text
+                style={{
+                  fontSize: scale.bodyPt,
+                  lineHeight: scale.lineHeight,
+                  color: '#4b5563',
+                  marginBottom: methodologies ? 2 : 0,
+                }}
+              >
+                <Text style={{ fontFamily: fontBold, color: '#222222' }}>Research Questions: </Text>
+                <Text>{questions}</Text>
+              </Text>
+            ) : null}
+            {methodologies ? (
+              <Text style={{ fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                <Text style={{ fontFamily: fontBold, color: '#222222' }}>Methodologies & Tools: </Text>
+                <Text>{methodologies}</Text>
+              </Text>
+            ) : null}
           </View>
         );
       }
@@ -4350,6 +4718,99 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                         ) : null}
                       </>
                     )
+                  ) : isResearchScholar ? (
+                    <View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                        <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#222222', flex: 1, marginRight: 8 }}>
+                          {edu.institution}
+                          {edu.board?.trim() ? ` (${edu.board.trim()})` : ''}
+                        </Text>
+                        {edu.location ? (
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                            {edu.location}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                        <Text
+                          style={{
+                            fontFamily: fontRegular,
+                            fontSize: scale.metaPt - 0.15,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.25,
+                            color: '#4b5563',
+                            flex: 1,
+                            marginRight: 8,
+                          }}
+                        >
+                          {edu.degree}
+                          {edu.specialization ? ` IN ${edu.specialization}` : ''}
+                        </Text>
+                        {edu.startDate || edu.endDate || edu.current ? (
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                            {edu.startDate ? `${edu.startDate} – ` : ''}
+                            {edu.current ? 'Present' : edu.endDate}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {edu.grade?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            GPA: {edu.grade.trim()}
+                            {edu.gradingScale?.trim() && !edu.grade.includes('/') ? ` / ${edu.gradingScale.trim()}` : ''}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {edu.thesisTitle?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            Thesis: <Text style={{ fontFamily: fontItalic, color: '#222222' }}>{edu.thesisTitle.trim()}</Text>
+                            {edu.supervisor?.trim() ? ` (Advisor: ${edu.supervisor.trim()})` : ''}
+                          </Text>
+                        </View>
+                      ) : edu.supervisor?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            Supervisor: {edu.supervisor.trim()}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {edu.scholarships?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            Scholarships: {edu.scholarships.trim()}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {(edu.honors?.trim() || edu.achievements?.trim()) ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            {edu.honors?.trim() || edu.achievements?.trim()}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {edu.coursework && edu.coursework.length > 0 ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            Relevant Coursework: {Array.isArray(edu.coursework) ? edu.coursework.join(', ') : edu.coursework}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {edu.description?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            {edu.description.trim()}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   ) : (
                     <>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -5027,6 +5488,53 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                                   </Text>
                                 </View>
                               </>
+                            ) : isResearchScholar ? (
+                              <>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                                  <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#222222', flex: 1, marginRight: 8 }}>
+                                    {exp.company}
+                                    {exp.department?.trim() ? `, ${exp.department.trim()}` : ''}
+                                  </Text>
+                                  {exp.location ? (
+                                    <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                                      {exp.location}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                                  <Text
+                                    style={{
+                                      fontFamily: fontRegular,
+                                      fontSize: scale.metaPt - 0.15,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 0.25,
+                                      color: '#4b5563',
+                                      flex: 1,
+                                      marginRight: 8,
+                                    }}
+                                  >
+                                    {exp.position}
+                                    {exp.employmentType?.trim() ? ` (${exp.employmentType.trim()})` : ''}
+                                  </Text>
+                                  {expDateRange ? (
+                                    <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                                      {expDateRange}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                {exp.results?.trim() ? (
+                                  <Text style={{ fontSize: scale.bodyPt - 0.1, color: '#4b5563', lineHeight: scale.lineHeight, marginBottom: 1.5 }}>
+                                    <Text style={{ fontFamily: fontBold, color: '#222222' }}>Outcomes: </Text>
+                                    <Text>{exp.results.trim()}</Text>
+                                  </Text>
+                                ) : null}
+                                {exp.technologies && exp.technologies.length > 0 ? (
+                                  <Text style={{ fontSize: scale.metaPt - 0.2, color: '#6b7280', marginBottom: 1.5 }}>
+                                    <Text style={{ fontFamily: fontBold, color: '#4b5563' }}>Tools & Methods: </Text>
+                                    <Text>{exp.technologies.join(', ')}</Text>
+                                  </Text>
+                                ) : null}
+                              </>
                             ) : (
                               <>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -5065,24 +5573,24 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                               </>
                             )}
                             {exp.description ? (
-                              <Text style={{ fontSize: scale.bodyPt, color: subCol, lineHeight: scale.lineHeight, marginTop: 1.5 }}>
+                              <Text style={{ fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, color: isResearchScholar ? '#4b5563' : subCol, lineHeight: scale.lineHeight, marginTop: 1.5 }}>
                                 {exp.description}
                               </Text>
                             ) : null}
                             {firstBullet ? (
                               <View>
-                                <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : 8 }}>
-                                  <Text style={{ width: 10, fontSize: scale.entrySubtitlePt, color: col }}>
+                                <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isResearchScholar ? 6 : 8 }}>
+                                  <Text style={{ width: isResearchScholar ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isResearchScholar ? '#4b5563' : col }}>
                                     {bulletChar}
                                   </Text>
-                                  <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                                  <Text style={{ flex: 1, fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : col }}>
                                     {firstBullet}
                                   </Text>
                                 </View>
                                 {(subMap.get(0) || []).map((subItem, sIdx) => (
-                                  <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 22 }}>
-                                    <Text style={{ width: 9, fontSize: scale.bodyPt, color: subCol }}>–</Text>
-                                    <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: subCol }}>
+                                  <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: isResearchScholar ? 16 : 22 }}>
+                                    <Text style={{ width: isResearchScholar ? 8 : 9, fontSize: scale.bodyPt, color: isResearchScholar ? '#4b5563' : subCol }}>–</Text>
+                                    <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : subCol }}>
                                       {subItem}
                                     </Text>
                                   </View>
@@ -5167,18 +5675,18 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                             </View>
                           ) : (
                             <View key={bIdx} wrap={false}>
-                              <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isTwoColumnPro || isExecutiveResume ? 2 : 8 }}>
-                                <Text style={{ width: isTwoColumnPro || isExecutiveResume ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isTwoColumnPro || isExecutiveResume ? '#4b5563' : col }}>
+                              <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 1.5, paddingLeft: isJakes ? 10 : isResearchScholar ? 6 : isTwoColumnPro || isExecutiveResume ? 2 : 8 }}>
+                                <Text style={{ width: isTwoColumnPro || isExecutiveResume || isResearchScholar ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isTwoColumnPro || isExecutiveResume || isResearchScholar ? '#4b5563' : col }}>
                                   {bulletChar}
                                 </Text>
-                                <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                                <Text style={{ flex: 1, fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : col }}>
                                   {hl}
                                 </Text>
                               </View>
                               {nestedSubs.map((subItem, sIdx) => (
-                                <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 22 }}>
-                                  <Text style={{ width: 9, fontSize: scale.bodyPt, color: subCol }}>–</Text>
-                                  <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: subCol }}>
+                                <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: isResearchScholar ? 16 : 22 }}>
+                                  <Text style={{ width: 9, fontSize: scale.bodyPt, color: isResearchScholar ? '#4b5563' : subCol }}>–</Text>
+                                  <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : subCol }}>
                                     {subItem}
                                   </Text>
                                 </View>
@@ -5392,6 +5900,97 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                         </View>,
                         showEditorialHeading && idx === 0 ? headingIfNormal : undefined
                       )
+                    ) : isResearchScholar ? (
+                      <View wrap={false}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                          <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#222222', flex: 1, marginRight: 8 }}>
+                            {res.institution?.trim() || res.title}
+                          </Text>
+                          {res.location ? (
+                            <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                              {res.location}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                          <Text
+                            style={{
+                              fontFamily: fontRegular,
+                              fontSize: scale.metaPt - 0.15,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.25,
+                              color: '#4b5563',
+                              flex: 1,
+                              marginRight: 8,
+                            }}
+                          >
+                            {[res.role?.trim(), res.institution?.trim() ? res.title?.trim() : '', res.domain?.trim()]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </Text>
+                          {dateRange ? (
+                            <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                              {dateRange}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {res.supervisor?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              Supervisor: {res.supervisor.trim()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {res.objectives?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              {res.objectives.trim()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {res.methodology?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              Methodology: {res.methodology.trim()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {res.findings?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              Findings: {res.findings.trim()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {res.outcomes?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              Outcomes: {res.outcomes.trim()}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {res.technologies && res.technologies.length > 0 ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              Tools & Methods: {res.technologies.join(', ')}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {res.publications?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              Output: <Text style={{ fontFamily: fontItalic }}>{res.publications.trim()}</Text>
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     ) : (
                       <View wrap={false}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -5692,6 +6291,108 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                         </Link>
                       </View>
                     ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
+
+        if (isResearchScholar) {
+          const pubs = effectiveResume.publications || [];
+          if (pubs.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {pubs.map((pub) => {
+                const { doiUrl, venue } = getPublicationParts(pub);
+                const extUrl = pub.url?.trim()
+                  ? pub.url.trim().startsWith('http')
+                    ? pub.url.trim()
+                    : `https://${pub.url.trim()}`
+                  : doiUrl;
+                const rightTopLabel =
+                  pub.location?.trim() || (pub.status && pub.status !== 'Published' ? pub.status : '');
+                const subtitleLeft = [
+                  pub.role?.trim(),
+                  venue,
+                  pub.type && !venue ? pub.type.replace(/_/g, ' ') : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                const dateRight = pub.publicationDate?.trim() || pub.year?.trim() || '';
+                const pubBullets = cleanHighlights(pub.highlights);
+
+                return (
+                  <View key={pub.id} style={{ marginBottom: scale.entryGapPt }} wrap={false}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                      <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#222222', flex: 1, marginRight: 8 }}>
+                        {pub.title}
+                      </Text>
+                      {rightTopLabel ? (
+                        <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                          {rightTopLabel}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {subtitleLeft || dateRight ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                        <Text
+                          style={{
+                            fontFamily: fontRegular,
+                            fontSize: scale.metaPt - 0.15,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.25,
+                            color: '#4b5563',
+                            flex: 1,
+                            marginRight: 8,
+                          }}
+                        >
+                          {subtitleLeft}
+                        </Text>
+                        {dateRight ? (
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                            {dateRight}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                    {pub.authors?.trim() || pub.volume || pub.issue || pub.pages || pub.doi || extUrl ? (
+                      <Text style={{ fontSize: scale.bodyPt - 0.1, color: '#4b5563', lineHeight: scale.lineHeight, paddingLeft: 6, marginTop: 1 }}>
+                        {pub.authors?.trim() || ''}
+                        {pub.volume ? `${pub.authors?.trim() ? ', ' : ''}Vol. ${pub.volume}` : ''}
+                        {pub.issue ? ` (${pub.issue})` : ''}
+                        {pub.pages ? `, ${pub.pages}` : ''}
+                        {pub.doi || extUrl ? (
+                          <Text>
+                            {pub.authors?.trim() || pub.volume || pub.pages ? ' · ' : ''}
+                            {extUrl ? (
+                              <Link src={extUrl} style={{ color: accent, textDecoration: 'none' }}>
+                                {pub.doi ? `DOI: ${pub.doi}` : pub.url?.replace(/^https?:\/\//, '')}
+                              </Link>
+                            ) : (
+                              `DOI: ${pub.doi}`
+                            )}
+                          </Text>
+                        ) : null}
+                      </Text>
+                    ) : null}
+                    {pub.description?.trim() ? (
+                      <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                        <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                        <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                          {pub.description.trim()}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {pubBullets.map((b, bIdx) => (
+                      <View key={bIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }}>
+                        <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                        <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                          {b}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 );
               })}
@@ -6254,6 +6955,79 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           </View>
                         ) : null}
                       </View>
+                    ) : isResearchScholar ? (
+                      <View wrap={false}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                          <Text style={{ flex: 1, marginRight: 8, fontSize: scale.entryTitlePt, color: '#222222' }}>
+                            <Text style={{ fontFamily: fontBold }}>{proj.title}</Text>
+                            {cleanGithubUrl ? (
+                              <Text style={{ fontSize: scale.metaPt - 0.15 }}>
+                                {' '}
+                                <Link src={cleanGithubUrl} style={{ color: accent, textDecoration: 'none' }}>
+                                  [Code]
+                                </Link>
+                              </Text>
+                            ) : null}
+                            {cleanProjUrl ? (
+                              <Text style={{ fontSize: scale.metaPt - 0.15 }}>
+                                {' '}
+                                <Link src={cleanProjUrl} style={{ color: accent, textDecoration: 'none' }}>
+                                  [Link]
+                                </Link>
+                              </Text>
+                            ) : null}
+                          </Text>
+                          {proj.institution?.trim() || proj.domain?.trim() ? (
+                            <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                              {proj.institution?.trim() || proj.domain?.trim()}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {proj.projectType?.trim() ||
+                        (proj.technologies && proj.technologies.length > 0) ||
+                        proj.startDate ||
+                        proj.endDate ? (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                            <Text
+                              style={{
+                                fontFamily: fontRegular,
+                                fontSize: scale.metaPt - 0.15,
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.25,
+                                color: '#4b5563',
+                                flex: 1,
+                                marginRight: 8,
+                              }}
+                            >
+                              {[
+                                proj.projectType?.trim(),
+                                proj.technologies && proj.technologies.length > 0 ? proj.technologies.join(', ') : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </Text>
+                            {proj.startDate || proj.endDate || proj.current ? (
+                              <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                                {proj.startDate ? `${proj.startDate} – ` : ''}
+                                {proj.current ? 'Present' : proj.endDate || ''}
+                              </Text>
+                            ) : null}
+                          </View>
+                        ) : null}
+                        {proj.description?.trim() ? (
+                          <Text style={{ fontSize: scale.bodyPt - 0.1, color: '#4b5563', lineHeight: scale.lineHeight, marginBottom: 1.5 }}>
+                            {proj.description.trim()}
+                          </Text>
+                        ) : null}
+                        {firstBullet ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 6 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                              {firstBullet}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     ) : (
                       <View wrap={false}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -6347,11 +7121,11 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           )}
                         </View>
                       ) : (
-                        <View key={bIdx} style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isTwoColumnPro ? 2 : 8 }} wrap={false}>
-                          <Text style={{ width: isTwoColumnPro ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isTwoColumnPro ? '#4b5563' : col }}>
+                        <View key={bIdx} style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 1.5, paddingLeft: isJakes ? 10 : isResearchScholar ? 6 : isTwoColumnPro ? 2 : 8 }} wrap={false}>
+                          <Text style={{ width: isTwoColumnPro || isResearchScholar ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isTwoColumnPro || isResearchScholar ? '#4b5563' : col }}>
                             {bulletChar}
                           </Text>
-                          <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
+                          <Text style={{ flex: 1, fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : col }}>
                             {hl}
                           </Text>
                         </View>
@@ -6901,6 +7675,85 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       }
 
       case 'achievements':
+        if (isResearchScholar) {
+          const awardGroups = getResearchScholarAwardsGrouped(effectiveResume.achievements);
+          if (awardGroups.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {awardGroups.map((group, gIdx) => (
+                <View key={group.categoryKey} wrap={group.items.length > 4} style={{ marginTop: gIdx > 0 ? 4 : 0 }}>
+                  {group.items.map((ach, aIdx) => {
+                    const boldParts = [ach.rank?.trim(), ach.title?.trim()].filter(Boolean).join(', ');
+                    const extraDetail = [
+                      ach.issuer?.trim() ? `(${ach.issuer.trim()})` : '',
+                      ach.description?.trim() || '',
+                    ]
+                      .filter(Boolean)
+                      .join(' — ');
+                    const cleanAwardUrl = ach.url?.trim()
+                      ? ach.url.trim().startsWith('http')
+                        ? ach.url.trim()
+                        : `https://${ach.url.trim()}`
+                      : null;
+                    return (
+                      <View
+                        key={ach.id}
+                        style={{ marginBottom: 2 }}
+                        wrap={false}
+                      >
+                        {aIdx === 0 && group.heading ? (
+                          <Text
+                            style={{
+                              fontFamily: fontBold,
+                              fontSize: scale.metaPt,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.4,
+                              color: '#4b5563',
+                              marginBottom: 2,
+                            }}
+                          >
+                            {group.heading}
+                          </Text>
+                        ) : null}
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                          <Text style={{ width: 36, fontSize: scale.metaPt - 0.1, color: '#4b5563' }}>
+                            {ach.date?.trim() || ''}
+                          </Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#333333', marginRight: 6 }}>
+                            <Text style={{ fontFamily: fontBold, color: '#222222' }}>
+                              {boldParts || ach.title}
+                            </Text>
+                            {extraDetail ? (
+                              <Text style={{ color: '#4b5563' }}>
+                                {boldParts ? ', ' : ''}
+                                {extraDetail}
+                              </Text>
+                            ) : null}
+                            {cleanAwardUrl ? (
+                              <Text style={{ fontSize: scale.metaPt - 0.2 }}>
+                                {' '}
+                                <Link src={cleanAwardUrl} style={{ color: accent, textDecoration: 'none' }}>
+                                  [Link]
+                                </Link>
+                              </Text>
+                            ) : null}
+                          </Text>
+                          {ach.location?.trim() ? (
+                            <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.1, color: accent, textAlign: 'right' }}>
+                              {ach.location.trim()}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          );
+        }
+
         if (isEngineeringResume) {
           const engExtras = getEngineeringExtracurricularEntries(effectiveResume);
           if (engExtras.length === 0) return null;
@@ -7211,7 +8064,201 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           </View>
         );
 
+      case 'presentations': {
+        const presentations = getResearchScholarPresentations(effectiveResume);
+        if (presentations.length === 0) return null;
+        return (
+          <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+            {headingIfNormal}
+            {presentations.map((pres) => {
+              const roleTitleLine =
+                pres.role?.trim() && pres.title?.trim()
+                  ? `${pres.role.trim().toUpperCase()} FOR <${pres.title.trim().toUpperCase()}>`
+                  : (pres.title?.trim() || pres.role?.trim() || '').toUpperCase();
+              const bullets = cleanHighlights(pres.highlights);
+              const firstBullet = bullets[0];
+              const remainingBullets = bullets.slice(1);
+              const cleanUrl = pres.url?.trim()
+                ? pres.url.trim().startsWith('http')
+                  ? pres.url.trim()
+                  : `https://${pres.url.trim()}`
+                : null;
+              return (
+                <View key={pres.id} style={{ marginBottom: scale.entryGapPt }}>
+                  <View wrap={false}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                      <Text style={{ flex: 1, marginRight: 8, fontSize: scale.entryTitlePt, color: '#222222' }}>
+                        <Text style={{ fontFamily: fontBold }}>
+                          {pres.eventOrConference?.trim() || pres.title}
+                        </Text>
+                        {cleanUrl ? (
+                          <Text style={{ fontSize: scale.metaPt - 0.2 }}>
+                            {' '}
+                            <Link src={cleanUrl} style={{ color: accent, textDecoration: 'none' }}>
+                              [Slides/Link]
+                            </Link>
+                          </Text>
+                        ) : null}
+                      </Text>
+                      {pres.location?.trim() ? (
+                        <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                          {pres.location.trim()}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {roleTitleLine || pres.date?.trim() ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                        <Text
+                          style={{
+                            fontFamily: fontRegular,
+                            fontSize: scale.metaPt - 0.15,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.25,
+                            color: '#4b5563',
+                            flex: 1,
+                            marginRight: 8,
+                          }}
+                        >
+                          {roleTitleLine}
+                        </Text>
+                        {pres.date?.trim() ? (
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                            {pres.date.trim()}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                    {pres.description?.trim() ? (
+                      <Text style={{ fontSize: scale.bodyPt - 0.1, color: '#4b5563', lineHeight: scale.lineHeight, marginBottom: 1.5 }}>
+                        {pres.description.trim()}
+                      </Text>
+                    ) : null}
+                    {firstBullet ? (
+                      <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 6 }}>
+                        <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                        <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                          {firstBullet}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {remainingBullets.map((hl, bIdx) => (
+                    <View key={bIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }} wrap={false}>
+                      <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                      <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                        {hl}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </View>
+        );
+      }
+
+      case 'program-committees': {
+        const pcs = getResearchScholarProgramCommittees(effectiveResume);
+        if (pcs.length === 0) return null;
+        return (
+          <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+            {headingIfNormal}
+            {pcs.map((pc) => (
+              <View key={pc.id} style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 2 }} wrap={false}>
+                <Text style={{ width: 36, fontSize: scale.metaPt - 0.1, color: '#4b5563' }}>
+                  {pc.year?.trim() || ''}
+                </Text>
+                <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#333333', marginRight: 6 }}>
+                  {pc.role?.trim() ? (
+                    <Text style={{ fontFamily: fontBold, color: '#222222' }}>
+                      {pc.role.trim()}
+                      {pc.conferenceOrOrganization?.trim() ? ', ' : ''}
+                    </Text>
+                  ) : null}
+                  {pc.conferenceOrOrganization?.trim() ? (
+                    <Text style={{ color: '#4b5563' }}>{pc.conferenceOrOrganization.trim()}</Text>
+                  ) : null}
+                </Text>
+                {pc.location?.trim() ? (
+                  <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.1, color: accent, textAlign: 'right' }}>
+                    {pc.location.trim()}
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+          </View>
+        );
+      }
+
       case 'leadership':
+        if (isResearchScholar) {
+          const extraEntries = getResearchScholarExtracurricularEntries(effectiveResume);
+          if (extraEntries.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {extraEntries.map((entry) => {
+                const firstBullet = entry.highlights[0];
+                const remainingBullets = entry.highlights.slice(1);
+                return (
+                  <View key={entry.id} style={{ marginBottom: scale.entryGapPt }}>
+                    <View wrap={false}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                        <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#222222', flex: 1, marginRight: 8 }}>
+                          {entry.organization}
+                        </Text>
+                        {entry.location ? (
+                          <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt, color: accent, textAlign: 'right' }}>
+                            {entry.location}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {entry.role || entry.dateRange ? (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+                          <Text
+                            style={{
+                              fontFamily: fontRegular,
+                              fontSize: scale.metaPt - 0.15,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.25,
+                              color: '#4b5563',
+                              flex: 1,
+                              marginRight: 8,
+                            }}
+                          >
+                            {entry.role}
+                          </Text>
+                          {entry.dateRange ? (
+                            <Text style={{ fontFamily: fontItalic, fontSize: scale.metaPt - 0.15, color: '#6b7280', textAlign: 'right' }}>
+                              {entry.dateRange}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {firstBullet ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 6 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                            {firstBullet}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    {remainingBullets.map((hl, bIdx) => (
+                      <View key={bIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 6 }} wrap={false}>
+                        <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#4b5563' }}>{bulletChar}</Text>
+                        <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.1, lineHeight: scale.lineHeight, color: '#4b5563' }}>
+                          {hl}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </View>
+          );
+        }
+
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 1 : 4 }}>
             {!isElegantSerif && !(isCreativeProfessional && !showEditorialHeading)
@@ -9884,17 +10931,43 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           </>
         )}
 
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) =>
-            isModernCorporate
-              ? `${pageNumber} / ${totalPages}`
-              : totalPages > 1
-              ? `Page ${pageNumber} of ${totalPages}`
-              : ''
-          }
-          fixed
-        />
+        {isResearchScholar ? (
+          <View
+            fixed
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              left: scale.marginHorizPt,
+              right: scale.marginHorizPt,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 7.5, color: '#737373', letterSpacing: 0.4 }}>
+              {formatAwesomeCvFooterDate(effectiveResume.updatedAt)}
+            </Text>
+            <Text style={{ fontSize: 7.5, color: '#737373', letterSpacing: 0.4, textAlign: 'center' }}>
+              {(personalInfo.fullName || 'CURRICULUM VITAE').trim().toUpperCase()} · CURRICULUM VITAE
+            </Text>
+            <Text
+              style={{ fontSize: 7.5, color: '#737373', letterSpacing: 0.4, textAlign: 'right' }}
+              render={({ pageNumber }) => String(pageNumber)}
+            />
+          </View>
+        ) : (
+          <Text
+            style={styles.pageNumber}
+            render={({ pageNumber, totalPages }) =>
+              isModernCorporate
+                ? `${pageNumber} / ${totalPages}`
+                : totalPages > 1
+                ? `Page ${pageNumber} of ${totalPages}`
+                : ''
+            }
+            fixed
+          />
+        )}
       </Page>
     </Document>
   );

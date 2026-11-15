@@ -767,6 +767,88 @@ export function calculateResumeCompleteness(resume: Partial<Resume>): number {
     return Math.min(100, score);
   }
 
+  if (resume.template === 'research-scholar') {
+    let score = 0;
+    const pi = resume.personalInfo;
+    if (pi) {
+      if (pi.fullName?.trim()) score += 10;
+      if (pi.email?.trim()) score += 6;
+      if (pi.jobTitle?.trim() || pi.specialization?.trim()) score += 4;
+      if (
+        pi.phone?.trim() ||
+        pi.city?.trim() ||
+        pi.country?.trim() ||
+        pi.location?.trim() ||
+        pi.website?.trim() ||
+        pi.github?.trim() ||
+        pi.linkedin?.trim() ||
+        pi.orcid?.trim()
+      ) {
+        score += 4;
+      }
+    }
+
+    if ((resume.objective || '').trim() || (resume.researchFocusSummary || '').trim()) {
+      score += 10;
+    }
+
+    const expCount = (resume.experience || []).filter(
+      (e) => e.company?.trim() || e.position?.trim()
+    ).length;
+    const resCount = (resume.researchExperience || []).filter(
+      (r) => r.title?.trim() || r.institution?.trim()
+    ).length;
+    const projCount = (resume.projects || []).filter((p) => p.title?.trim()).length;
+    if (expCount >= 2 || (expCount >= 1 && (resCount > 0 || projCount > 0))) {
+      score += 24;
+    } else if (expCount === 1 || resCount >= 1 || projCount >= 1) {
+      score += 16;
+    }
+
+    const edu = resume.education || [];
+    const validEdu = edu.filter((e) => e.institution?.trim() && e.degree?.trim()).length;
+    if (validEdu >= 1) score += 20;
+    else if (edu.length >= 1) score += 12;
+
+    // Optional scholarly enrichment bonuses (never penalizes skipped optional sections)
+    let bonus = 0;
+    if ((resume.achievements || []).some((a) => a.title?.trim())) bonus += 4;
+    if ((resume.presentations || []).some((p) => p.title?.trim())) bonus += 4;
+    if ((resume.publications || []).some((p) => p.title?.trim())) bonus += 5;
+    if (
+      (resume.programCommittees || []).some(
+        (pc) => pc.conferenceOrOrganization?.trim() || pc.role?.trim()
+      )
+    ) {
+      bonus += 4;
+    }
+    if (
+      (resume.researchInterestsList || []).some((s) => s.trim()) ||
+      resume.researchQuestions?.trim() ||
+      resume.researchMethodologies?.trim()
+    ) {
+      bonus += 3;
+    }
+    if (
+      (resume.leadership || []).some((l) => l.role?.trim() || l.organization?.trim()) ||
+      (resume.volunteer || []).some((v) => v.role?.trim() || v.organization?.trim()) ||
+      (resume.skills || []).some((s) => s.skills?.some((sk) => sk.trim()))
+    ) {
+      bonus += 4;
+    }
+    if (resume.personalQuote?.trim()) bonus += 2;
+    if (
+      (resume.certifications || []).some((c) => c.name?.trim()) ||
+      (resume.languages || []).some((l) => l.language?.trim()) ||
+      (resume.customSections || []).some((cs) => cs.title?.trim())
+    ) {
+      bonus += 2;
+    }
+    score += Math.min(22, bonus);
+
+    return Math.min(100, score);
+  }
+
   let score = 0;
   const totalWeight = 100;
 
@@ -4546,7 +4628,266 @@ function analyzeExecutiveResumeSections(
   };
 }
 
+function analyzeResearchScholarSections(
+  resume: Partial<Resume>
+): import('../types/resume').CvCompletenessReport {
+  const sections: import('../types/resume').SectionAnalysis[] = [];
+  const recs: string[] = [];
+
+  // 1. Header & Contacts
+  const pi = resume.personalInfo;
+  const piIssues: string[] = [];
+  const piSuggestions: string[] = [];
+  let piScore = 0;
+  if (pi?.fullName?.trim()) piScore += 40;
+  else piIssues.push('Full name is missing.');
+  if (pi?.email?.trim()) piScore += 30;
+  else piIssues.push('Email address is missing.');
+  if (pi?.jobTitle?.trim() || pi?.specialization?.trim()) piScore += 20;
+  else piSuggestions.push('Add your scholarly title or research specialization (e.g., Security Researcher).');
+  if (
+    pi?.phone?.trim() ||
+    pi?.website?.trim() ||
+    pi?.github?.trim() ||
+    pi?.linkedin?.trim() ||
+    pi?.orcid?.trim()
+  ) {
+    piScore += 10;
+  } else {
+    piSuggestions.push('Optional: Add phone, GitHub, LinkedIn, ORCID, or personal homepage.');
+  }
+  sections.push({
+    sectionId: 'header',
+    name: '1. Header & Personal Philosophy',
+    status: piScore >= 85 ? 'complete' : 'needs_details',
+    statusLabel: piScore >= 85 ? 'Completed' : piScore > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: piScore,
+    issues: piIssues,
+    suggestions: piSuggestions,
+  });
+  if (piScore < 70) recs.push('Complete your full name and email under Header & Personal Info.');
+
+  // 2. Research Summary
+  const summaryText = (resume.objective || resume.researchFocusSummary || '').trim();
+  const summaryWords = summaryText.split(/\s+/).filter(Boolean).length;
+  const sumStatus: import('../types/resume').SectionStatus =
+    summaryWords >= 12 ? 'complete' : summaryWords > 0 ? 'needs_details' : 'optional_empty';
+  sections.push({
+    sectionId: 'objective',
+    name: '2. Research Summary',
+    status: sumStatus,
+    statusLabel:
+      sumStatus === 'complete'
+        ? 'Completed'
+        : sumStatus === 'needs_details'
+        ? 'In Progress'
+        : 'Optional / Skipped',
+    isOptional: true,
+    score: sumStatus === 'complete' ? 100 : sumStatus === 'needs_details' ? 60 : 0,
+    issues: [],
+    suggestions:
+      sumStatus === 'optional_empty'
+        ? ['Optional: Add a concise Research Summary highlighting your focus and specialization.']
+        : [],
+  });
+
+  // 3. Research Interests & Methodologies (Optional)
+  const hasResearchInterests =
+    (resume.researchInterestsList || []).some((item) => item.trim().length > 0) ||
+    Boolean(resume.researchQuestions?.trim()) ||
+    Boolean(resume.researchMethodologies?.trim()) ||
+    Boolean(resume.academicInterests?.trim());
+  sections.push({
+    sectionId: 'research-interests',
+    name: '3. Research Interests & Methods',
+    status: hasResearchInterests ? 'complete' : 'optional_empty',
+    statusLabel: hasResearchInterests ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasResearchInterests ? 100 : 0,
+    issues: [],
+    suggestions: !hasResearchInterests
+      ? ['Optional: Add targeted research topics, questions, or methodologies.']
+      : [],
+  });
+
+  // 4. Work & Research Experience
+  const exp = resume.experience || [];
+  const completeExp = exp.filter(
+    (e) =>
+      (e.company?.trim() || e.position?.trim()) &&
+      ((e.highlights || []).some((h) => h.trim().length > 0) || Boolean(e.description?.trim()))
+  );
+  let expStatus: import('../types/resume').SectionStatus = 'needs_details';
+  let expScore = 0;
+  const expIssues: string[] = [];
+  if (exp.length === 0) {
+    expStatus = 'needs_details';
+    expIssues.push('No work or research experience entries added yet.');
+    recs.push('Add your work, lab, or industrial research experience.');
+  } else if (completeExp.length === exp.length) {
+    expStatus = 'complete';
+    expScore = 100;
+  } else {
+    expStatus = 'needs_details';
+    expScore = 65;
+    expIssues.push('Some experience entries are missing bullet descriptions.');
+  }
+  sections.push({
+    sectionId: 'experience',
+    name: '4. Work & Research Experience',
+    status: expStatus,
+    statusLabel:
+      expStatus === 'complete'
+        ? 'Completed'
+        : expScore > 0
+        ? 'In Progress'
+        : 'Not Started',
+    isOptional: false,
+    score: expScore,
+    issues: expIssues,
+    suggestions: [],
+  });
+
+  // 5. Academic Research Projects (Optional)
+  const resExp = (resume.researchExperience || []).filter(
+    (r) => r.title?.trim() || r.institution?.trim()
+  );
+  sections.push({
+    sectionId: 'research',
+    name: '5. Lab & Academic Research',
+    status: resExp.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: resExp.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: resExp.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      resExp.length === 0
+        ? ['Optional: Add dedicated thesis labs, grant projects, or faculty research appointments.']
+        : [],
+  });
+
+  // 6. Honors & Awards (Optional, Categorized)
+  const awards = (resume.achievements || []).filter((a) => a.title?.trim());
+  sections.push({
+    sectionId: 'awards',
+    name: '6. Honors & Awards',
+    status: awards.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: awards.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: awards.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      awards.length === 0
+        ? ['Optional: Add international, national, or institutional awards, scholarships, or fellowships.']
+        : [],
+  });
+
+  // 7. Presentations (Optional)
+  const pres = (resume.presentations || []).filter((p) => p.title?.trim());
+  sections.push({
+    sectionId: 'presentations',
+    name: '7. Presentations',
+    status: pres.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: pres.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: pres.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      pres.length === 0
+        ? ['Optional: Add conference talks, invited lectures, or workshop presentations.']
+        : [],
+  });
+
+  // 8. Writing & Publications (Optional)
+  const pubs = (resume.publications || []).filter((p) => p.title?.trim());
+  sections.push({
+    sectionId: 'publications',
+    name: '8. Writing & Publications',
+    status: pubs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: pubs.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: pubs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      pubs.length === 0
+        ? ['Optional: Add journal articles, conference papers, preprints, or technical reports.']
+        : [],
+  });
+
+  // 9. Program Committees (Optional)
+  const committees = (resume.programCommittees || []).filter(
+    (pc) => pc.conferenceOrOrganization?.trim() || pc.role?.trim()
+  );
+  sections.push({
+    sectionId: 'program-committees',
+    name: '9. Program Committees',
+    status: committees.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: committees.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: committees.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      committees.length === 0
+        ? ['Optional: Add peer-review, program committee, or organizer service roles.']
+        : [],
+  });
+
+  // 10. Education
+  const edu = resume.education || [];
+  const validEdu = edu.filter((e) => e.institution?.trim() && e.degree?.trim());
+  sections.push({
+    sectionId: 'education',
+    name: '10. Education',
+    status: validEdu.length > 0 ? 'complete' : 'needs_details',
+    statusLabel:
+      validEdu.length > 0 ? 'Completed' : edu.length > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: validEdu.length > 0 ? 100 : edu.length > 0 ? 50 : 0,
+    issues: validEdu.length === 0 ? ['Add at least one degree with institution name.'] : [],
+    suggestions: [],
+  });
+  if (validEdu.length === 0) recs.push('Add your academic degree(s) under Education.');
+
+  // 11. Extracurricular, Volunteering & Skills (Optional)
+  const hasExtra =
+    (resume.leadership || []).some((l) => l.role?.trim() || l.organization?.trim()) ||
+    (resume.volunteer || []).some((v) => v.role?.trim() || v.organization?.trim()) ||
+    (resume.skills || []).some((s) => s.skills?.some((sk) => sk.trim()));
+  sections.push({
+    sectionId: 'leadership',
+    name: '11. Extracurricular & Skills',
+    status: hasExtra ? 'complete' : 'optional_empty',
+    statusLabel: hasExtra ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasExtra ? 100 : 0,
+    issues: [],
+    suggestions: !hasExtra
+      ? ['Optional: Add extracurricular leadership, volunteering, or research skill groups.']
+      : [],
+  });
+
+  const overallScore = calculateResumeCompleteness(resume);
+  let overallStatus: 'excellent' | 'good' | 'in_progress' | 'needs_work' = 'needs_work';
+  if (overallScore >= 85) overallStatus = 'excellent';
+  else if (overallScore >= 65) overallStatus = 'good';
+  else if (overallScore >= 40) overallStatus = 'in_progress';
+
+  return {
+    overallScore,
+    overallStatus,
+    sections,
+    topRecommendations:
+      recs.length > 0
+        ? recs
+        : ['Your Research Scholar CV is structured cleanly and ready for scholarly PDF export.'],
+  };
+}
+
 export function analyzeResumeSections(resume: Partial<Resume>): import('../types/resume').CvCompletenessReport {
+  if (resume?.template === 'research-scholar') {
+    return analyzeResearchScholarSections(resume);
+  }
   if (resume?.template === 'executive-resume') {
     return analyzeExecutiveResumeSections(resume);
   }

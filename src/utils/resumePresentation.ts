@@ -1,4 +1,5 @@
 import type {
+  AwardCategory,
   AwardItem,
   CertificationItem,
   CreativeCircularProficiencyItem,
@@ -12,6 +13,8 @@ import type {
   LeadershipItem,
   LearningActivityItem,
   PersonalInfo,
+  PresentationItem,
+  ProgramCommitteeItem,
   ProjectItem,
   PublicationItem,
   PublicationType,
@@ -2376,6 +2379,341 @@ export function getCreativeTalksAndPublications(
   );
 }
 
+// ============================================================================
+// TEMPLATE 14 – RESEARCH SCHOLAR CV (AWESOME CV) HELPERS
+// ============================================================================
+
+export function splitAwesomeCvName(fullName?: string): {
+  firstPart: string;
+  lastPart: string;
+} {
+  return splitCreativeName(fullName);
+}
+
+export function splitAwesomeCvHeading(title: string): {
+  accentPrefix: string;
+  restTitle: string;
+} {
+  const clean = (title || '').trim();
+  if (!clean) return { accentPrefix: '', restTitle: '' };
+  return {
+    accentPrefix: clean.slice(0, 3),
+    restTitle: clean.slice(3),
+  };
+}
+
+export type ResearchScholarContactKind =
+  | 'phone'
+  | 'email'
+  | 'website'
+  | 'github'
+  | 'linkedin'
+  | 'orcid'
+  | 'other'
+  | 'custom';
+
+export interface ResearchScholarContactItem {
+  kind: ResearchScholarContactKind;
+  label: string;
+  url: string | null;
+}
+
+export function buildResearchScholarAddressLine(personalInfo: PersonalInfo): string {
+  const parts: string[] = [];
+  if (personalInfo.streetAddress?.trim()) parts.push(personalInfo.streetAddress.trim());
+  if (personalInfo.city?.trim()) parts.push(personalInfo.city.trim());
+  const stateZip = [personalInfo.state?.trim(), personalInfo.postalCode?.trim()]
+    .filter(Boolean)
+    .join(' ');
+  if (stateZip) parts.push(stateZip);
+  if (personalInfo.country?.trim()) parts.push(personalInfo.country.trim());
+  return parts.length > 0 ? parts.join(', ') : (personalInfo.location || '').trim();
+}
+
+export function buildResearchScholarContactItems(
+  personalInfo: PersonalInfo
+): ResearchScholarContactItem[] {
+  const items: ResearchScholarContactItem[] = [];
+
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      kind: 'phone',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+    });
+  }
+
+  if (personalInfo.email?.trim()) {
+    items.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+    });
+  }
+
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    items.push({
+      kind: 'website',
+      label: raw.replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+      url: sanitizePdfUrl(raw),
+    });
+  }
+
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const handle = raw.replace(/^https?:\/\/(www\.)?github\.com\//i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com') ? raw : `https://github.com/${handle}`;
+    items.push({
+      kind: 'github',
+      label: handle,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const handle = raw.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com') ? raw : `https://linkedin.com/in/${handle}`;
+    items.push({
+      kind: 'linkedin',
+      label: handle,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.orcid?.trim()) {
+    const raw = personalInfo.orcid.trim();
+    const clean = raw.replace(/^https?:\/\/orcid\.org\//i, '').replace(/\/$/, '');
+    const fullUrl = raw.includes('orcid.org') ? raw : `https://orcid.org/${clean}`;
+    items.push({
+      kind: 'orcid',
+      label: clean,
+      url: sanitizePdfUrl(fullUrl),
+    });
+  }
+
+  if (personalInfo.otherProfiles?.trim()) {
+    items.push({
+      kind: 'other',
+      label: personalInfo.otherProfiles.trim(),
+      url: null,
+    });
+  }
+
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (link.label?.trim() || link.url?.trim()) {
+        items.push({
+          kind: 'custom',
+          label:
+            link.label?.trim() ||
+            link.url.trim().replace(/^https?:\/\//i, '').replace(/\/$/, ''),
+          url: link.url?.trim() ? sanitizePdfUrl(link.url.trim()) : null,
+        });
+      }
+    }
+  }
+
+  return items;
+}
+
+const RESEARCH_SCHOLAR_AWARD_CATEGORY_ORDER: Array<{
+  key: AwardCategory;
+  label: string;
+}> = [
+  { key: 'international', label: 'INTERNATIONAL' },
+  { key: 'national', label: 'NATIONAL' },
+  { key: 'domestic', label: 'DOMESTIC' },
+  { key: 'institutional', label: 'INSTITUTIONAL' },
+  { key: 'academic', label: 'ACADEMIC DISTINCTIONS' },
+  { key: 'scholarship', label: 'SCHOLARSHIPS' },
+  { key: 'fellowship', label: 'RESEARCH FELLOWSHIPS' },
+  { key: 'competition', label: 'COMPETITION ACHIEVEMENTS' },
+  { key: 'other', label: 'HONORS & RECOGNITION' },
+];
+
+export function normalizeAwardCategoryForResearchScholar(
+  award: AwardItem
+): AwardCategory {
+  if (award.awardCategory) return award.awardCategory;
+  const raw = `${award.category || ''} ${award.participationType || ''}`
+    .trim()
+    .toLowerCase();
+  if (!raw) return 'other';
+  if (raw.includes('international')) return 'international';
+  if (raw.includes('national') && !raw.includes('international')) return 'national';
+  if (raw.includes('domestic')) return 'domestic';
+  if (raw.includes('institutional') || raw.includes('university') || raw.includes('department')) {
+    return 'institutional';
+  }
+  if (raw.includes('fellow')) return 'fellowship';
+  if (raw.includes('scholar')) return 'scholarship';
+  if (raw.includes('academic') || raw.includes('dean') || raw.includes('merit')) {
+    return 'academic';
+  }
+  if (raw.includes('compet') || raw.includes('hack') || raw.includes('ctf')) {
+    return 'competition';
+  }
+  return 'other';
+}
+
+export interface ResearchScholarAwardGroup {
+  categoryKey: AwardCategory;
+  heading: string | null;
+  items: AwardItem[];
+}
+
+export function getResearchScholarAwardsGrouped(
+  achievements?: AwardItem[]
+): ResearchScholarAwardGroup[] {
+  const valid = (achievements || []).filter(
+    (a) =>
+      Boolean(a.title?.trim()) ||
+      Boolean(a.description?.trim()) ||
+      Boolean(a.achievementDetails?.trim())
+  );
+  if (valid.length === 0) return [];
+
+  const hasAnyCategorized = valid.some(
+    (a) => Boolean(a.awardCategory) || Boolean(a.category?.trim())
+  );
+  if (!hasAnyCategorized) {
+    return [{ categoryKey: 'other', heading: null, items: valid }];
+  }
+
+  const buckets = new Map<AwardCategory, AwardItem[]>();
+  for (const item of valid) {
+    const key = normalizeAwardCategoryForResearchScholar(item);
+    const list = buckets.get(key) || [];
+    list.push(item);
+    buckets.set(key, list);
+  }
+
+  const out: ResearchScholarAwardGroup[] = [];
+  for (const def of RESEARCH_SCHOLAR_AWARD_CATEGORY_ORDER) {
+    const items = buckets.get(def.key);
+    if (items && items.length > 0) {
+      out.push({
+        categoryKey: def.key,
+        heading: def.label,
+        items,
+      });
+    }
+  }
+  return out;
+}
+
+export function getResearchScholarResearchInterests(resume: Resume): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of resume.researchInterestsList || []) {
+    const clean = typeof item === 'string' ? item.trim() : '';
+    if (clean && !seen.has(clean.toLowerCase())) {
+      seen.add(clean.toLowerCase());
+      out.push(clean);
+    }
+  }
+  if (out.length === 0 && resume.academicInterests?.trim()) {
+    for (const part of resume.academicInterests.split(/[,;\n]+/)) {
+      const clean = part.trim();
+      if (clean && !seen.has(clean.toLowerCase())) {
+        seen.add(clean.toLowerCase());
+        out.push(clean);
+      }
+    }
+  }
+  return out;
+}
+
+export function hasResearchScholarInterestsContent(resume: Resume): boolean {
+  return (
+    getResearchScholarResearchInterests(resume).length > 0 ||
+    Boolean(resume.researchQuestions?.trim()) ||
+    Boolean(resume.researchMethodologies?.trim()) ||
+    Boolean(resume.researchFocusSummary?.trim())
+  );
+}
+
+export function getResearchScholarPresentations(resume: Resume): PresentationItem[] {
+  return (resume.presentations || []).filter(
+    (p) => Boolean(p.title?.trim()) || Boolean(p.eventOrConference?.trim())
+  );
+}
+
+export function getResearchScholarProgramCommittees(
+  resume: Resume
+): ProgramCommitteeItem[] {
+  return (resume.programCommittees || []).filter(
+    (pc) => Boolean(pc.role?.trim()) || Boolean(pc.conferenceOrOrganization?.trim())
+  );
+}
+
+export interface ResearchScholarExtracurricularItem {
+  id: string;
+  organization: string;
+  role: string;
+  location: string;
+  dateRange: string;
+  highlights: string[];
+}
+
+export function getResearchScholarExtracurricularEntries(
+  resume: Resume
+): ResearchScholarExtracurricularItem[] {
+  const out: ResearchScholarExtracurricularItem[] = [];
+  const seen = new Set<string>();
+
+  for (const lead of resume.leadership || []) {
+    if (!lead.organization?.trim() && !lead.role?.trim()) continue;
+    const key = `${(lead.organization || '').trim().toLowerCase()}|${(lead.role || '').trim().toLowerCase()}`;
+    seen.add(key);
+    const dateRange = lead.current
+      ? [lead.startDate?.trim(), 'Present'].filter(Boolean).join(' – ')
+      : [lead.startDate?.trim(), lead.endDate?.trim()].filter(Boolean).join(' – ');
+    out.push({
+      id: lead.id,
+      organization: lead.organization?.trim() || 'Organization',
+      role: lead.role?.trim() || '',
+      location: lead.location?.trim() || '',
+      dateRange,
+      highlights: cleanHighlights(lead.highlights),
+    });
+  }
+
+  for (const vol of resume.volunteer || []) {
+    if (!vol.organization?.trim() && !vol.role?.trim()) continue;
+    const key = `${(vol.organization || '').trim().toLowerCase()}|${(vol.role || '').trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const dateRange = vol.current
+      ? [vol.startDate?.trim(), 'Present'].filter(Boolean).join(' – ')
+      : [vol.startDate?.trim(), vol.endDate?.trim()].filter(Boolean).join(' – ');
+    out.push({
+      id: vol.id,
+      organization: vol.organization?.trim() || 'Organization',
+      role: vol.role?.trim() || '',
+      location: vol.location?.trim() || '',
+      dateRange,
+      highlights: cleanHighlights(vol.highlights),
+    });
+  }
+
+  return out;
+}
+
+export function formatAwesomeCvFooterDate(isoOrDate?: string): string {
+  const dateObj = isoOrDate ? new Date(isoOrDate) : new Date();
+  const safe = Number.isNaN(dateObj.getTime()) ? new Date() : dateObj;
+  return safe
+    .toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    })
+    .toUpperCase();
+}
+
 export function isSectionVisibleAndPopulated(
   resume: Resume,
   sectionKey: ResumeSectionKey,
@@ -2397,6 +2735,12 @@ export function isSectionVisibleAndPopulated(
           (effectiveTplId === 'elegant-serif' &&
             (resume.academicInterests?.trim() || resume.careerGoals?.trim()))
       );
+    case 'research-interests':
+      return hasResearchScholarInterestsContent(resume);
+    case 'presentations':
+      return getResearchScholarPresentations(resume).length > 0;
+    case 'program-committees':
+      return getResearchScholarProgramCommittees(resume).length > 0;
     case 'philosophy':
       return Boolean(
         (resume.personalQuote && resume.personalQuote.trim().length > 0) ||
@@ -2546,6 +2890,9 @@ export function isSectionVisibleAndPopulated(
       }
       return Boolean(resume.achievements && resume.achievements.length > 0);
     case 'leadership':
+      if (effectiveTplId === 'research-scholar') {
+        return getResearchScholarExtracurricularEntries(resume).length > 0;
+      }
       return Boolean(resume.leadership && resume.leadership.length > 0);
     case 'volunteer':
       return Boolean(resume.volunteer && resume.volunteer.length > 0);
@@ -2592,7 +2939,8 @@ export function getOrderedVisibleSections(
       template.id === 'internship-resume' ||
       template.id === 'engineering-resume' ||
       template.id === 'creative-professional' ||
-      template.id === 'executive-resume') &&
+      template.id === 'executive-resume' ||
+      template.id === 'research-scholar') &&
     Array.isArray(resume.sectionOrderOverride) &&
     resume.sectionOrderOverride.length > 0
   ) {
@@ -2907,6 +3255,45 @@ export function getSectionDisplayTitle(
     }
   }
 
+  if (templateId === 'research-scholar') {
+    switch (key) {
+      case 'objective':
+        return 'Summary';
+      case 'research-interests':
+        return 'Research Interests';
+      case 'experience':
+        return 'Work Experience';
+      case 'research':
+        return 'Research Experience';
+      case 'projects':
+        return 'Projects';
+      case 'achievements':
+        return 'Honors & Awards';
+      case 'presentations':
+        return 'Presentation';
+      case 'publications':
+        return 'Writing & Publications';
+      case 'program-committees':
+        return 'Program Committees';
+      case 'education':
+        return 'Education';
+      case 'leadership':
+        return 'Extracurricular Activity';
+      case 'skills':
+        return 'Technical Skills';
+      case 'certifications':
+        return 'Certifications';
+      case 'languages':
+        return 'Languages';
+      case 'custom-sections':
+        return 'Additional Information';
+      case 'references':
+        return 'Referees';
+      default:
+        break;
+    }
+  }
+
   switch (key) {
     case 'objective':
       if (templateId === 'executive-resume') return 'EXECUTIVE SUMMARY';
@@ -2919,8 +3306,10 @@ export function getSectionDisplayTitle(
       ) {
         return 'PROFESSIONAL SUMMARY';
       }
-      if (templateId === 'research-scholar') return 'RESEARCH PROFILE';
+      if (templateId === 'research-scholar') return 'Summary';
       return 'OBJECTIVE';
+    case 'research-interests':
+      return 'Research Interests';
     case 'education':
       return 'EDUCATION';
     case 'thesis':
@@ -2928,10 +3317,14 @@ export function getSectionDisplayTitle(
     case 'coursework':
       return 'RELEVANT COURSEWORK';
     case 'experience':
-      if (templateId === 'research-scholar') return 'RESEARCH & ACADEMIC APPOINTMENTS';
+      if (templateId === 'research-scholar') return 'Work Experience';
       return 'EXPERIENCE';
     case 'research':
       return 'RESEARCH EXPERIENCE';
+    case 'presentations':
+      return 'Presentation';
+    case 'program-committees':
+      return 'Program Committees';
     case 'daily-life':
       return 'A DAY OF MY LIFE';
     case 'philosophy':
@@ -2941,7 +3334,7 @@ export function getSectionDisplayTitle(
     case 'publications':
       return 'PATENTS & PUBLICATIONS';
     case 'projects':
-      if (templateId === 'research-scholar') return 'FUNDED PROJECTS & SOFTWARE';
+      if (templateId === 'research-scholar') return 'Projects';
       return 'PROJECTS';
     case 'languages':
       return 'LANGUAGES';

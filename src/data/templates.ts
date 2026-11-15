@@ -7,12 +7,15 @@ import type {
 
 export type ResumeSectionKey =
   | 'objective'
+  | 'research-interests'
   | 'education'
   | 'thesis'
   | 'coursework'
   | 'experience'
   | 'research'
+  | 'presentations'
   | 'publications'
+  | 'program-committees'
   | 'projects'
   | 'daily-life'
   | 'philosophy'
@@ -65,7 +68,8 @@ export type TemplateHeaderVariant =
   | 'fresher-overleaf' // 3-column Overleaf fresher header: phone/email left, name/target role center, links right
   | 'internship-kunal' // Left-aligned uppercase name + headline + compact horizontal icon contact row (Template 10)
   | 'engineering-centered' // Centered bold monochrome black name + compact horizontal contact row (Template 11)
-  | 'creative-centered'; // Centered regular-first + bold-last name, role/specialization, tagline, compact contact bar, optional quote (Template 12)
+  | 'creative-centered' // Centered regular-first + bold-last name, role/specialization, tagline, compact contact bar, optional quote (Template 12)
+  | 'awesome-cv-centered'; // Centered light-first + heavy-last name, uppercase coral title, muted address, icon | contact bar, optional italic quote (Template 14)
 
 export interface TemplateDefinition {
   id: TemplateId;
@@ -401,19 +405,24 @@ export const STUDENT_ORDER: ResumeSectionKey[] = [
 
 export const RESEARCH_ORDER: ResumeSectionKey[] = [
   'objective',
-  'education',
+  'research-interests',
   'experience',
-  'publications',
-  'achievements',
+  'research',
   'projects',
+  'achievements',
+  'presentations',
+  'publications',
+  'program-committees',
+  'education',
   'leadership',
-  'volunteer',
   'skills',
-  'memberships',
   'certifications',
-  'additional',
+  'languages',
+  'custom-sections',
   'references',
 ];
+
+export const RESEARCH_SCHOLAR_ORDER: ResumeSectionKey[] = RESEARCH_ORDER;
 
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   {
@@ -733,15 +742,41 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       headingStyle: 'executive-purple-rule',
     },
   },
+  {
+    id: 'research-scholar',
+    name: 'Research Scholar CV',
+    shortTag: 'Awesome CV Research',
+    description:
+      'Clean Awesome CV-inspired research and scholarly CV featuring a split-weight centered name header, coral-red 3-character accented headings with extending rules, italicized right-aligned locations, categorized Honors & Awards year-rail, Presentations, Writing & Publications, Program Committees, and per-page CV footer.',
+    categories: ['Academic CV', 'Research', 'Professional', 'ATS-Friendly'],
+    layout: 'single-column',
+    headerVariant: 'awesome-cv-centered',
+    sectionOrder: RESEARCH_SCHOLAR_ORDER,
+    bulletSymbol: '•',
+    citationStyle: 'numbered',
+    centeredHeadings: false,
+    skillsLayout: 'rows',
+    defaultCustomization: {
+      fontFamily: 'sans',
+      fontSize: 'standard',
+      textColor: '#333333',
+      accentColor: '#dc3522',
+      sectionSpacing: 'balanced',
+      pageMargins: 'standard',
+      headingStyle: 'awesome-cv-rule',
+    },
+  },
 ];
 
 export const TEXT_COLOR_SWATCHES = [
   { label: 'Pure Black', value: '#000000' },
   { label: 'Ink Charcoal', value: '#111827' },
+  { label: 'Awesome Charcoal', value: '#333333' },
   { label: 'Deep Slate', value: '#1e293b' },
 ];
 
 export const ACCENT_COLOR_SWATCHES = [
+  { label: 'Awesome Coral Red', value: '#dc3522' },
   { label: 'Executive Purple', value: '#4c1d95' },
   { label: 'Creative Blue', value: '#1d4ed8' },
   { label: 'Crimson Burgundy', value: '#8f131b' },
@@ -811,6 +846,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
   const isEngineeringResume = templateId === 'engineering-resume';
   const isCreativeProfessional = templateId === 'creative-professional';
   const isExecutiveResume = templateId === 'executive-resume';
+  const isResearchScholar = templateId === 'research-scholar';
   const baseFontPt =
     custom.fontSize === 'compact'
       ? 8.75
@@ -818,7 +854,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 10.25
       : isTwoColumn || isExecutiveResume || isElegantSerif || isInternshipResume || isCreativeProfessional
       ? 9.0
-      : isModernCorporate || isFresherResume || isEngineeringResume
+      : isModernCorporate || isFresherResume || isEngineeringResume || isResearchScholar
       ? 9.25
       : 9.5;
   const delta = baseFontPt - 9.5;
@@ -835,6 +871,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 48
       : 36
+    : isResearchScholar
+    ? custom.pageMargins === 'narrow'
+      ? 24
+      : custom.pageMargins === 'wide'
+      ? 44
+      : 32
     : isElegantSerif
     ? custom.pageMargins === 'narrow'
       ? 28
@@ -906,6 +948,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 54
       : 42
+    : isResearchScholar
+    ? custom.pageMargins === 'narrow'
+      ? 30
+      : custom.pageMargins === 'wide'
+      ? 52
+      : 38
     : isElegantSerif
     ? custom.pageMargins === 'narrow'
       ? 30
@@ -972,6 +1020,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 10.5
       : 7.5
+    : isResearchScholar
+    ? custom.sectionSpacing === 'tight'
+      ? 5.5
+      : custom.sectionSpacing === 'relaxed'
+      ? 11
+      : 8
     : isElegantSerif
     ? custom.sectionSpacing === 'tight'
       ? 6
@@ -1040,6 +1094,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
     : isHarvard
     ? custom.sectionSpacing === 'tight'
       ? 3.5
+      : custom.sectionSpacing === 'relaxed'
+      ? 8
+      : 5.5
+    : isResearchScholar
+    ? custom.sectionSpacing === 'tight'
+      ? 3.75
       : custom.sectionSpacing === 'relaxed'
       ? 8
       : 5.5
@@ -1114,6 +1174,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 1.35
       : 1.26
+    : isResearchScholar
+    ? custom.sectionSpacing === 'tight'
+      ? 1.2
+      : custom.sectionSpacing === 'relaxed'
+      ? 1.36
+      : 1.26
     : isElegantSerif
     ? custom.sectionSpacing === 'tight'
       ? 1.22
@@ -1180,6 +1246,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 22 + delta * 1.5
       : isHarvard
       ? 18 + delta * 1.4
+      : isResearchScholar
+      ? 26 + delta * 1.4
       : isElegantSerif
       ? 20 + delta * 1.4
       : isInternshipResume
@@ -1199,6 +1267,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 20 + delta * 1.5,
     jobTitlePt: isModernCorporate
       ? 11.5 + delta * 0.6
+      : isResearchScholar
+      ? 8.0 + delta * 0.5
       : isTwoColumn || isExecutiveResume
       ? 11.25 + delta * 0.6
       : isInternshipResume || isEngineeringResume || isCreativeProfessional
@@ -1210,6 +1280,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 11 + delta * 0.5
       : isHarvard
       ? 10.5 + delta * 0.5
+      : isResearchScholar
+      ? 13.5 + delta * 0.5
       : isElegantSerif
       ? 11.5 + delta * 0.5
       : isInternshipResume
@@ -1229,6 +1301,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 10 + delta * 0.5,
     entryTitlePt: isTwoColumn || isExecutiveResume
       ? 9.75 + delta
+      : isResearchScholar
+      ? 9.5 + delta
       : isElegantSerif
       ? 9.25 + delta
       : isInternshipResume || isCreativeProfessional
@@ -1240,6 +1314,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 9.5 + delta,
     entrySubtitlePt: isTwoColumn || isExecutiveResume
       ? 9 + delta
+      : isResearchScholar
+      ? 8.0 + delta
       : isElegantSerif
       ? 8.75 + delta
       : isInternshipResume || isCreativeProfessional
@@ -1251,6 +1327,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 9 + delta,
     bodyPt: isElegantSerif
       ? 8.5 + delta
+      : isResearchScholar
+      ? 8.6 + delta
       : isInternshipResume || isCreativeProfessional
       ? 8.5 + delta
       : isEngineeringResume
@@ -1259,8 +1337,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 8.6 + delta
       : 8.75 + delta,
     metaPt:
-      isElegantSerif || isModernCorporate || isInternshipResume || isCreativeProfessional
-        ? 8.15 + delta * 0.5
+      isElegantSerif || isModernCorporate || isInternshipResume || isCreativeProfessional || isResearchScholar
+        ? 8.0 + delta * 0.5
         : isFresherResume || isEngineeringResume
         ? 8.35 + delta * 0.5
         : 8.5 + delta * 0.5,

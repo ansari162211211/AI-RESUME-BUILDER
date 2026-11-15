@@ -199,6 +199,8 @@ export default function App() {
             ? 'creative-professional'
             : template.id === 'executive-resume'
             ? 'executive-resume'
+            : template.id === 'research-scholar'
+            ? 'research-scholar'
             : template.categories.includes('Student & Fresher')
             ? 'fresher'
             : template.categories.includes('Technical & Developer')
@@ -230,6 +232,8 @@ export default function App() {
             ? 'Creative Professional Resume'
             : template.id === 'executive-resume'
             ? 'Executive Resume'
+            : template.id === 'research-scholar'
+            ? 'Research Scholar CV'
             : `${template.name} CV`,
           seedType,
           user.displayName || undefined,

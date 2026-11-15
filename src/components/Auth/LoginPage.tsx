@@ -67,7 +67,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       onSuccess();
     } catch (err: any) {
       console.error('Google sign-in error:', err);
-      if (err.code !== 'auth/popup-closed-by-user') {
+      if (err.code === 'auth/unauthorized-domain') {
+        const host = typeof window !== 'undefined' ? window.location.hostname : '';
+        setAuthError(
+          `This domain (${host}) is not authorized in Firebase Authentication. Add it to Authorized domains in Firebase Console or use the Demo Account below.`
+        );
+      } else if (err.code === 'auth/popup-blocked') {
+        setAuthError('Sign-in popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else if (err.code !== 'auth/popup-closed-by-user') {
         setAuthError(err.message || 'Google Sign-In was cancelled or failed.');
       }
     } finally {

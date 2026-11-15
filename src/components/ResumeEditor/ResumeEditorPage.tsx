@@ -75,6 +75,10 @@ import type {
   PublicationItem,
   PublicationType,
   AwardItem,
+  AwardCategory,
+  PresentationItem,
+  ProgramCommitteeItem,
+  ResearchDiscipline,
   LearningActivityItem,
   LearningActivityType,
   CreativeProfession,
@@ -124,6 +128,7 @@ import {
   SAMPLE_CREATIVE_CYBERSECURITY_CV,
   SAMPLE_CREATIVE_MARKETING_CV,
   SAMPLE_EXECUTIVE_RESUME_CV,
+  SAMPLE_RESEARCH_SCHOLAR_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
   SAMPLE_STUDENT_CV,
@@ -219,6 +224,7 @@ interface ResumeEditorPageProps {
 type EditorSectionId =
   | 'header'
   | 'objective'
+  | 'research-interests'
   | 'experience'
   | 'research'
   | 'education'
@@ -228,7 +234,9 @@ type EditorSectionId =
   | 'coursework'
   | 'projects'
   | 'daily-life'
+  | 'presentations'
   | 'publications'
+  | 'program-committees'
   | 'philosophy'
   | 'languages'
   | 'skills'
@@ -612,6 +620,22 @@ const EXECUTIVE_RESUME_SECTIONS: SectionConfig[] = [
   { id: 'custom-sections', label: '11. Projects & Additional', icon: Layers },
 ];
 
+const RESEARCH_SCHOLAR_SECTIONS: SectionConfig[] = [
+  { id: 'header', label: '1. Header & Quote', icon: User },
+  { id: 'objective', label: '2. Summary', icon: FileText },
+  { id: 'research-interests', label: '3. Research Interests', icon: Compass },
+  { id: 'experience', label: '4. Work Experience', icon: Briefcase },
+  { id: 'research', label: '5. Research Experience', icon: FlaskConical },
+  { id: 'projects', label: '6. Projects', icon: FolderGit2 },
+  { id: 'awards', label: '7. Honors & Awards', icon: Trophy },
+  { id: 'presentations', label: '8. Presentation', icon: MessageSquare },
+  { id: 'publications', label: '9. Writing & Publications', icon: BookOpen },
+  { id: 'program-committees', label: '10. Program Committees', icon: Users },
+  { id: 'education', label: '11. Education', icon: GraduationCap },
+  { id: 'leadership', label: '12. Extracurricular & Skills', icon: HeartHandshake },
+  { id: 'custom-sections', label: '13. Additional Info & Certs', icon: Layers },
+];
+
 const EXECUTIVE_STRENGTH_SUGGESTIONS: string[] = [
   'Strategic Planning',
   'P&L Ownership',
@@ -710,6 +734,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const isEngineeringResumeTemplate = activeTemplateId === 'engineering-resume';
   const isCreativeProfessionalTemplate = activeTemplateId === 'creative-professional';
   const isExecutiveTemplate = activeTemplateId === 'executive-resume';
+  const isResearchScholarTemplate = activeTemplateId === 'research-scholar';
   const ELEGANT_SERIF_SECTIONS = getElegantSerifSections(resume.sectionOrderOverride);
   const MODERN_CORPORATE_SECTIONS = getModernCorporateSections(resume.sectionOrderOverride);
   const FRESHER_RESUME_SECTIONS = getFresherResumeSections(resume.sectionOrderOverride);
@@ -735,6 +760,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? CREATIVE_PROFESSIONAL_SECTIONS
     : isExecutiveTemplate
     ? EXECUTIVE_RESUME_SECTIONS
+    : isResearchScholarTemplate
+    ? RESEARCH_SCHOLAR_SECTIONS
     : SECTIONS;
   const navSections = isTwoColumnTemplate
     ? TWO_COLUMN_SECTIONS
@@ -758,6 +785,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? CREATIVE_PROFESSIONAL_SECTIONS
     : isExecutiveTemplate
     ? EXECUTIVE_RESUME_SECTIONS
+    : isResearchScholarTemplate
+    ? RESEARCH_SCHOLAR_SECTIONS
     : isJakesTemplate
     ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
     : SECTIONS;
@@ -781,7 +810,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isInternshipResumeTemplate ||
       isEngineeringResumeTemplate ||
       isCreativeProfessionalTemplate ||
-      isExecutiveTemplate
+      isExecutiveTemplate ||
+      isResearchScholarTemplate
     ) {
       if (sectionId === 'personalInfo' || sectionId === 'header') return 'header';
       if (sectionId === 'achievements') return 'awards';
@@ -806,6 +836,38 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   };
 
   const getEditorSectionStatus = (editorId: EditorSectionId) => {
+    if (isResearchScholarTemplate && editorId === 'projects') {
+      const hasProj = Boolean(
+        resume.projects && resume.projects.some((p) => p.title?.trim() || p.description?.trim())
+      );
+      return {
+        sectionId: 'projects',
+        name: '6. Projects',
+        status: hasProj ? ('complete' as const) : ('optional_empty' as const),
+        statusLabel: hasProj ? 'Completed' : 'Optional / Skipped',
+        isOptional: true,
+        score: hasProj ? 100 : 0,
+        issues: [],
+        suggestions: [],
+      };
+    }
+    if (isResearchScholarTemplate && editorId === 'custom-sections') {
+      const hasExtraInfo =
+        (resume.certifications || []).some((c) => c.name?.trim()) ||
+        (resume.languages || []).some((l) => l.language?.trim()) ||
+        (resume.customSections || []).some((cs) => cs.title?.trim()) ||
+        (resume.references || []).some((r) => r.fullName?.trim());
+      return {
+        sectionId: 'custom-sections',
+        name: '13. Additional Info & Certs',
+        status: hasExtraInfo ? ('complete' as const) : ('optional_empty' as const),
+        statusLabel: hasExtraInfo ? 'Completed' : 'Optional / Skipped',
+        isOptional: true,
+        score: hasExtraInfo ? 100 : 0,
+        issues: [],
+        suggestions: [],
+      };
+    }
     if (isCreativeProfessionalTemplate && editorId === 'proficiency-circles') {
       const hasCircles = Boolean(
         resume.circularProficiencies && resume.circularProficiencies.some((c) => c.name?.trim())
@@ -861,7 +923,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isInternshipResumeTemplate ||
       isEngineeringResumeTemplate ||
       isCreativeProfessionalTemplate ||
-      isExecutiveTemplate
+      isExecutiveTemplate ||
+      isResearchScholarTemplate
     ) {
       const mapped = editorId === 'awards' ? 'achievements' : editorId;
       return completenessReport.sections.find(
@@ -1100,6 +1163,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         ? CREATIVE_PROFESSIONAL_SECTIONS
         : nextTemplate.id === 'executive-resume'
         ? EXECUTIVE_RESUME_SECTIONS
+        : nextTemplate.id === 'research-scholar'
+        ? RESEARCH_SCHOLAR_SECTIONS
         : nextTemplate.id === 'jakes-resume'
         ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
         : SECTIONS;
@@ -1130,6 +1195,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'creative-cybersecurity'
       | 'creative-marketing'
       | 'executive-resume'
+      | 'research-scholar'
       | 'experienced'
       | 'fresher'
       | 'student'
@@ -1194,6 +1260,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       case 'executive-resume':
         sampleBase = SAMPLE_EXECUTIVE_RESUME_CV;
         break;
+      case 'research-scholar':
+        sampleBase = SAMPLE_RESEARCH_SCHOLAR_CV;
+        break;
       case 'experienced':
         sampleBase = SAMPLE_EXPERIENCED_CV;
         break;
@@ -1227,7 +1296,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     isFresherResumeTemplate ||
     isInternshipResumeTemplate ||
     isEngineeringResumeTemplate ||
-    isExecutiveTemplate;
+    isExecutiveTemplate ||
+    isResearchScholarTemplate;
 
   const toCanonicalSectionKey = (sectionId: string): string =>
     isManagedAwardsAliasTemplate && sectionId === 'awards' ? 'achievements' : sectionId;
@@ -1302,6 +1372,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'leadership'
       | 'certifications'
       | 'achievements'
+      | 'presentations'
+      | 'programCommittees'
       | 'creativeSkillItems'
       | 'circularProficiencies'
       | 'creativeSkillBars'
@@ -1845,6 +1917,59 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     updateField(
       'achievements',
       (resume.achievements || []).filter((a) => a.id !== id)
+    );
+  };
+
+  // Presentations (Template 14 — Research Scholar CV)
+  const addPresentation = () => {
+    const item: PresentationItem = {
+      id: `pres_${Date.now()}`,
+      title: '',
+      eventOrConference: '',
+      role: '',
+      location: '',
+      date: '',
+      url: '',
+      highlights: [''],
+    };
+    updateField('presentations', [...(resume.presentations || []), item]);
+  };
+  const updatePresentation = (id: string, updates: Partial<PresentationItem>) => {
+    updateField(
+      'presentations',
+      (resume.presentations || []).map((p) => (p.id === id ? { ...p, ...updates } : p))
+    );
+  };
+  const deletePresentation = (id: string) => {
+    updateField(
+      'presentations',
+      (resume.presentations || []).filter((p) => p.id !== id)
+    );
+  };
+
+  // Program Committees (Template 14 — Research Scholar CV)
+  const addProgramCommittee = () => {
+    const item: ProgramCommitteeItem = {
+      id: `pc_${Date.now()}`,
+      role: '',
+      conferenceOrOrganization: '',
+      year: new Date().getFullYear().toString(),
+      location: '',
+      url: '',
+      description: '',
+    };
+    updateField('programCommittees', [...(resume.programCommittees || []), item]);
+  };
+  const updateProgramCommittee = (id: string, updates: Partial<ProgramCommitteeItem>) => {
+    updateField(
+      'programCommittees',
+      (resume.programCommittees || []).map((pc) => (pc.id === id ? { ...pc, ...updates } : pc))
+    );
+  };
+  const deleteProgramCommittee = (id: string) => {
+    updateField(
+      'programCommittees',
+      (resume.programCommittees || []).filter((pc) => pc.id !== id)
     );
   };
 
@@ -3741,6 +3866,141 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         </div>
       )}
 
+      {isResearchScholarTemplate && (
+        <div className="mb-5 p-4 rounded-xl border border-red-200/80 bg-red-50/35 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-[#dc3522]" />
+                <span className="text-xs font-bold text-[#333333]">
+                  Research Scholar CV (Awesome CV) — Clean Scholarly Layout &amp; Category Rails
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                3-character accent headings with crisp horizontal rules, categorized Honors &amp; Awards, Presentations, Writing &amp; Publications, Program Committees, and dynamic empty-section omission.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { value: 'computer-science', label: 'CS / AI' },
+                  { value: 'cybersecurity', label: 'Cybersecurity' },
+                  { value: 'electronics', label: 'Electronics' },
+                  { value: 'mechanical-engineering', label: 'Mechanical' },
+                  { value: 'biotechnology', label: 'Biotech' },
+                  { value: 'physics-mathematics', label: 'Physics / Math' },
+                  { value: 'social-sciences', label: 'Social Sciences' },
+                  { value: 'other', label: 'Other' },
+                ] as { value: ResearchDiscipline; label: string }[]
+              ).map((opt) => {
+                const active = (resume.researchDiscipline || 'computer-science') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('researchDiscipline', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-[#dc3522] text-white border-[#dc3522]'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-red-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('research-scholar')}
+                className="px-2.5 py-1 rounded border border-red-300 bg-white hover:bg-red-50 text-[11px] font-semibold text-[#dc3522] cursor-pointer"
+              >
+                Load Research Scholar Sample
+              </button>
+            </div>
+          </div>
+
+          {(resume.researchDiscipline === 'other' || Boolean(resume.customResearchDiscipline)) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-red-200/80">
+              <label
+                htmlFor="custom-research-discipline"
+                className="text-[11px] font-semibold text-slate-700 shrink-0"
+              >
+                Custom Research Discipline:
+              </label>
+              <input
+                id="custom-research-discipline"
+                type="text"
+                value={resume.customResearchDiscipline || ''}
+                onChange={(e) => updateField('customResearchDiscipline', e.target.value)}
+                placeholder="e.g. Quantum Information Science, Computational Linguistics, Urban Policy"
+                className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded bg-white"
+              />
+            </div>
+          )}
+
+          {/* 13-Step Research Scholar Guided Completion Tracker */}
+          <div className="pt-2.5 border-t border-red-200/80">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                Research Scholar Progress ({completenessReport.overallScore}% Ready)
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Click any step to edit · Optional sections hide cleanly when empty
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+              {RESEARCH_SCHOLAR_SECTIONS.map((step) => {
+                const statusInfo = getEditorSectionStatus(step.id);
+                const statusLabel = statusInfo?.statusLabel || 'Optional / Skipped';
+                const isCurrent = activeSection === step.id;
+                const badgeStyle =
+                  statusLabel === 'Completed'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : statusLabel === 'In Progress'
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : statusLabel === 'Not Started'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                    : 'text-slate-500 bg-slate-100 border-slate-200';
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setActiveSection(step.id)}
+                    className={`flex flex-col items-start justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-[#333333] text-white border-[#333333] shadow-xs'
+                        : 'bg-white text-slate-800 border-slate-200 hover:border-red-300'
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold leading-tight w-full">
+                      {step.label}
+                    </span>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                        isCurrent
+                          ? 'bg-white/15 text-white border-white/25'
+                          : badgeStyle
+                      }`}
+                    >
+                      {statusLabel === 'Completed' ? (
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'In Progress' ? (
+                        <Clock className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'Not Started' ? (
+                        <AlertCircle className="w-2.5 h-2.5" />
+                      ) : (
+                        <MinusCircle className="w-2.5 h-2.5" />
+                      )}
+                      <span>{statusLabel}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Editor Body: Sidebar + Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
@@ -3770,6 +4030,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 ? 'Creative Prof. Sections'
                 : isExecutiveTemplate
                 ? 'Executive Resume (11 Steps)'
+                : isResearchScholarTemplate
+                ? 'Research Scholar CV'
                 : isJakesTemplate
                 ? "Resume Sections (Jake's)"
                 : isClassicTemplate
@@ -3803,6 +4065,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               isEngineeringResumeTemplate ||
               isCreativeProfessionalTemplate ||
               isExecutiveTemplate ||
+              isResearchScholarTemplate ||
               !isJakesTemplate ||
               JAKES_EDITOR_SECTIONS.has(sec.id);
 
@@ -3933,6 +4196,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     ? 'Centered Creative Professional editorial header: bold surname split name, blue professional headline + specialization, tagline, horizontal contact icons, and optional personal quote.'
                     : isExecutiveTemplate
                     ? 'Executive identity header: bold uppercase name, royal purple designation and tagline, purple-icon contact links, and an optional unframed right-aligned portrait.'
+                    : isResearchScholarTemplate
+                    ? 'Awesome CV centered scholar header: two-tone thin + bold name, uppercase coral-red specialization, address, compact icon contact row, and optional philosophy quote (no photo).'
                     : isClassicTemplate
                     ? 'Structured Classic Professional header with contact details, multiple phones, and an optional framed portrait photo.'
                     : isTwoColumnTemplate
@@ -4417,7 +4682,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   isFresherResumeTemplate ||
                   isInternshipResumeTemplate ||
                   isEngineeringResumeTemplate ||
-                  isCreativeProfessionalTemplate) &&
+                  isCreativeProfessionalTemplate ||
+                  isResearchScholarTemplate) &&
                   !isTwoColumnTemplate &&
                   !isExecutiveTemplate && (
                   <div className="sm:col-span-2 pt-3 border-t border-slate-200">
@@ -4681,6 +4947,83 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     </div>
                   </>
                 )}
+
+                {isResearchScholarTemplate && (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="scholar-specialization-input"
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        Research Specialization / Subtitle (Optional)
+                      </label>
+                      <input
+                        id="scholar-specialization-input"
+                        type="text"
+                        value={resume.personalInfo.specialization || ''}
+                        onChange={(e) => updatePersonalInfo('specialization', e.target.value)}
+                        placeholder="e.g. Security Researcher · Systems Software Engineer"
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="scholar-orcid-input"
+                        className="block text-xs font-semibold text-slate-700 mb-1"
+                      >
+                        ORCID iD (Optional)
+                      </label>
+                      <input
+                        id="scholar-orcid-input"
+                        type="text"
+                        value={resume.personalInfo.orcid || ''}
+                        onChange={(e) => updatePersonalInfo('orcid', e.target.value)}
+                        placeholder="e.g. 0000-0002-8412-9017"
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label
+                          htmlFor="scholar-quote-input"
+                          className="block text-xs font-semibold text-slate-700"
+                        >
+                          Personal Statement / Research Philosophy Quote (Optional — leave empty to omit)
+                        </label>
+                        {resume.personalQuote?.trim() && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleOpenImprove(
+                                resume.personalQuote || '',
+                                'quote',
+                                `Personal research philosophy statement for ${resume.personalInfo.jobTitle || 'researcher'} (never attribute to other authors)`,
+                                (improved) => updateField('personalQuote', improved)
+                              )
+                            }
+                            className="inline-flex items-center text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                          >
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            <span>AI Improve</span>
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        id="scholar-quote-input"
+                        type="text"
+                        value={resume.personalQuote || ''}
+                        onChange={(e) => updateField('personalQuote', e.target.value)}
+                        placeholder='e.g. "Rigorous empirical inquiry turns complex systems into verifiable knowledge."'
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm italic focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Write only your own research motto or personal statement; never attribute quotes to external authors without verification.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </section>
           )}
@@ -4701,6 +5044,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Career Highlights & Impact Summary'
                       : isEngineeringResumeTemplate
                       ? 'Career Objective'
+                      : isResearchScholarTemplate
+                      ? 'Research Summary'
                       : 'Career Objective / Professional Summary'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -4714,6 +5059,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Centered keyword highlights (separated by •) and concise 1–2 line Impact statement below the Overleaf 3-column header. Leave blank to hide.'
                       : isEngineeringResumeTemplate
                       ? 'Concise 1–3 line engineering career objective naming your branch, core tools, and target roles. Leave blank to omit.'
+                      : isResearchScholarTemplate
+                      ? 'Awesome CV Summary section: concise overview of research specialization, years of experience, technical expertise, major contributions, and career objectives. Leave empty to omit.'
                       : 'Displayed underneath the OBJECTIVE section heading as a clean paragraph.'}
                   </p>
                 </div>
@@ -4727,6 +5074,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           ? 'Professional Summary'
                           : isExecutiveTemplate
                           ? 'Executive Summary'
+                          : isResearchScholarTemplate
+                          ? 'Research Summary'
                           : isElegantSerifTemplate
                           ? 'Professional Profile'
                           : isFresherResumeTemplate
@@ -4823,12 +5172,43 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   </div>
                 )}
 
+                {isResearchScholarTemplate && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-lg border border-red-200/80 bg-red-50/30">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Years of Research / Industry Experience (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.yearsOfResearchExperience || ''}
+                        onChange={(e) => updateField('yearsOfResearchExperience', e.target.value)}
+                        placeholder="e.g. 5+ years in Systems & Security Research"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Short Research Focus Headline (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.researchFocusSummary || ''}
+                        onChange={(e) => updateField('researchFocusSummary', e.target.value)}
+                        placeholder="e.g. Automated Vulnerability Discovery & Binary Analysis"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     {isClassicTemplate || isModernCorporateTemplate
                       ? 'Professional Summary'
                       : isExecutiveTemplate
                       ? 'Executive Summary (Optional — leave empty to lead Page 1 with Experience)'
+                      : isResearchScholarTemplate
+                      ? 'Research Summary (Optional — specialization, background, technical expertise, career goals)'
                       : isElegantSerifTemplate
                       ? 'Profile Summary'
                       : isFresherResumeTemplate
@@ -4842,7 +5222,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     value={resume.objective || ''}
                     onChange={(e) => updateField('objective', e.target.value)}
                     placeholder={
-                      isFresherResumeTemplate
+                      isResearchScholarTemplate
+                        ? 'Summarize your verified research background, technical specialization, major contributions, and career objectives...'
+                        : isFresherResumeTemplate
                         ? 'e.g. Final-year Computer Science undergraduate experienced in shipping backend APIs and open-source developer tools.'
                         : isEngineeringResumeTemplate
                         ? 'e.g. Final-year Mechanical Engineering undergraduate proficient in SolidWorks, ANSYS FEA, and GD&T, seeking a Design or Manufacturing Engineer role.'
@@ -4948,6 +5330,110 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+            </section>
+          )}
+
+          {/* 2b. Research Interests & Methodologies (Template 14 — Research Scholar CV) */}
+          {activeSection === 'research-interests' && (
+            <section aria-labelledby="section-research-interests-title">
+              <div className="border-b border-slate-200 pb-3 mb-5">
+                <h2 id="section-research-interests-title" className="text-lg font-bold text-slate-900">
+                  Research Interests &amp; Methodologies (Optional)
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Rendered cleanly when populated (or omitted automatically if left blank). Never invents unstated topics or techniques.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="scholar-research-topics"
+                    className="block text-xs font-semibold text-slate-700 mb-1"
+                  >
+                    Specific Research Topics (comma-separated)
+                  </label>
+                  <CommaArrayInput
+                    ariaLabel="Specific Research Topics"
+                    value={resume.researchInterestsList}
+                    onChange={(items) => updateField('researchInterestsList', items)}
+                    placeholder="e.g. Binary Program Analysis, Symbolic Execution, Fuzzing, Kernel Security"
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="scholar-research-questions"
+                      className="block text-xs font-semibold text-slate-700"
+                    >
+                      Key Research Questions / Problem Statements (Optional)
+                    </label>
+                    {resume.researchQuestions?.trim() && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenImprove(
+                            resume.researchQuestions || '',
+                            'Research Questions',
+                            `Research domain: ${resume.researchDiscipline || 'computer-science'}`,
+                            (improved) => updateField('researchQuestions', improved)
+                          )
+                        }
+                        className="inline-flex items-center text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        <span>AI Improve</span>
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    id="scholar-research-questions"
+                    rows={3}
+                    value={resume.researchQuestions || ''}
+                    onChange={(e) => updateField('researchQuestions', e.target.value)}
+                    placeholder="e.g. How can hybrid static-dynamic analysis uncover memory corruption bugs in stripped embedded firmware at scale?"
+                    className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="scholar-research-methods"
+                      className="block text-xs font-semibold text-slate-700"
+                    >
+                      Research Methodologies &amp; Tools (Optional)
+                    </label>
+                    {resume.researchMethodologies?.trim() && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenImprove(
+                            resume.researchMethodologies || '',
+                            'Research Methodologies',
+                            `Research domain: ${resume.researchDiscipline || 'computer-science'}`,
+                            (improved) => updateField('researchMethodologies', improved)
+                          )
+                        }
+                        className="inline-flex items-center text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3 mr-1" />
+                        <span>AI Improve</span>
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    id="scholar-research-methods"
+                    rows={3}
+                    value={resume.researchMethodologies || ''}
+                    onChange={(e) => updateField('researchMethodologies', e.target.value)}
+                    placeholder="e.g. LLVM IR instrumentation, AFL++ coverage-guided fuzzing, SMT solving with Z3, empirical benchmark evaluation"
+                    className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white leading-relaxed focus:outline-none focus:ring-2 focus:ring-[#dc3522]"
+                  />
+                </div>
               </div>
             </section>
           )}
@@ -5158,7 +5644,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           isFresherResumeTemplate ||
                           isInternshipResumeTemplate ||
                           isEngineeringResumeTemplate ||
-                          isExecutiveTemplate) && (
+                          isExecutiveTemplate ||
+                          isResearchScholarTemplate) && (
                           <>
                             <div>
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -5249,7 +5736,40 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </>
                         )}
 
-                        {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isFresherResumeTemplate) && (
+                        {isResearchScholarTemplate && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Thesis Advisor / Supervisor (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={edu.supervisor || ''}
+                                onChange={(e) =>
+                                  updateEducation(edu.id, { supervisor: e.target.value })
+                                }
+                                placeholder="e.g. Prof. Yongdae Kim"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                Scholarships / Fellowships Funded (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={edu.scholarships || ''}
+                                onChange={(e) =>
+                                  updateEducation(edu.id, { scholarships: e.target.value })
+                                }
+                                placeholder="e.g. National Science Scholarship (Full Tuition + Stipend)"
+                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isFresherResumeTemplate || isResearchScholarTemplate) && (
                           <div className="sm:col-span-2">
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-xs font-semibold text-slate-700">
@@ -7033,11 +7553,15 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <h2 id="section-pub-title" className="text-lg font-bold text-slate-900">
                     {isCreativeProfessionalTemplate
                       ? 'Talks & Publications'
+                      : isResearchScholarTemplate
+                      ? 'Writing & Publications'
                       : 'Patents & Publications'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {isCreativeProfessionalTemplate
                       ? 'Conference talks, invited panels, technical articles, journal papers, and research publications.'
+                      : isResearchScholarTemplate
+                      ? 'Journal articles, conference papers, preprints, technical articles, theses, and research reports.'
                       : 'Peer-reviewed journals, conference papers, patents, manuscripts, and theses.'}
                   </p>
                 </div>
@@ -7086,6 +7610,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             <option value="journal">Journal Article</option>
                             <option value="conference">Conference Proceeding</option>
                             <option value="research_paper">Research Paper</option>
+                            <option value="preprint">Preprint (arXiv / bioRxiv)</option>
+                            <option value="technical_article">Technical Article / Blog</option>
+                            <option value="research_report">Research Report / Whitepaper</option>
                             <option value="patent">Granted Patent / Filing</option>
                             <option value="manuscript">Submitted Manuscript</option>
                             <option value="thesis">Thesis / Dissertation</option>
@@ -7273,7 +7800,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               />
                             </div>
 
-                            {(isTwoColumnTemplate || isElegantSerifTemplate || isExecutiveTemplate) && (
+                            {(isTwoColumnTemplate || isElegantSerifTemplate || isExecutiveTemplate || isResearchScholarTemplate) && (
                               <>
                                 <div>
                                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -7301,6 +7828,76 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                     }
                                     placeholder="https://..."
                                     className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                                  />
+                                </div>
+                              </>
+                            )}
+                            {isResearchScholarTemplate && (
+                              <>
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Role / Authorship Position (Optional)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={pub.role || ''}
+                                    onChange={(e) =>
+                                      updatePublication(pub.id, { role: e.target.value })
+                                    }
+                                    placeholder="e.g. First Author, Technical Writer, Co-Author"
+                                    className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                    Publication Date (Optional)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={pub.publicationDate || ''}
+                                    onChange={(e) =>
+                                      updatePublication(pub.id, { publicationDate: e.target.value })
+                                    }
+                                    placeholder="e.g. Jun. 2015 – Present"
+                                    className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-semibold text-slate-700">
+                                      Publication Highlights / Key Contributions (One bullet per line, optional)
+                                    </label>
+                                    {(pub.highlights || []).some((h) => h.trim()) && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleOpenImprove(
+                                            (pub.highlights || []).join('\n'),
+                                            'Publication Highlights',
+                                            `Publication: ${pub.title}`,
+                                            (improved) =>
+                                              updatePublication(pub.id, {
+                                                highlights: improved.split('\n').filter(Boolean),
+                                              })
+                                          )
+                                        }
+                                        className="inline-flex items-center text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                                      >
+                                        <Sparkles className="w-3 h-3 mr-1" />
+                                        <span>AI Improve</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                  <textarea
+                                    rows={2}
+                                    value={(pub.highlights || []).join('\n')}
+                                    onChange={(e) =>
+                                      updatePublication(pub.id, {
+                                        highlights: e.target.value.split('\n'),
+                                      })
+                                    }
+                                    placeholder="• Proposed automated taint-tracking pipeline reducing false positives..."
+                                    className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white leading-relaxed"
                                   />
                                 </div>
                               </>
@@ -7339,6 +7936,360 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             )}
                           </>
                         )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 5b. Presentations & Invited Talks (Template 14 — Research Scholar CV) */}
+          {activeSection === 'presentations' && (
+            <section aria-labelledby="section-presentations-title">
+              <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
+                <div>
+                  <h2 id="section-presentations-title" className="text-lg font-bold text-slate-900">
+                    Presentation (Talks, Lectures &amp; Posters)
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Conference presentations, invited lectures, seminars, and workshop talks. Leave empty to hide cleanly.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addPresentation}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Add Presentation</span>
+                </button>
+              </div>
+
+              {(!resume.presentations || resume.presentations.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg">
+                  <p className="text-xs text-slate-500">No presentations added yet.</p>
+                  <button
+                    type="button"
+                    onClick={addPresentation}
+                    className="mt-2 text-xs font-bold text-slate-900 hover:underline cursor-pointer"
+                  >
+                    + Add a conference talk, workshop, or lecture
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {resume.presentations.map((pres, idx) => (
+                    <div
+                      key={pres.id}
+                      className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-3"
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                        <span className="text-xs font-bold uppercase text-slate-600">
+                          Presentation #{idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveArrayItem('presentations', idx, -1)}
+                            disabled={idx === 0}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                            title="Move up"
+                            aria-label={`Move presentation ${idx + 1} up`}
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveArrayItem('presentations', idx, 1)}
+                            disabled={idx === (resume.presentations?.length || 1) - 1}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                            title="Move down"
+                            aria-label={`Move presentation ${idx + 1} down`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deletePresentation(pres.id)}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                            title="Delete presentation"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Talk / Presentation Title *
+                          </label>
+                          <input
+                            type="text"
+                            value={pres.title}
+                            onChange={(e) => updatePresentation(pres.id, { title: e.target.value })}
+                            placeholder="e.g. OWASP & Modern Automated Binary Instrumentation"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Conference / Venue / Event
+                          </label>
+                          <input
+                            type="text"
+                            value={pres.eventOrConference || ''}
+                            onChange={(e) =>
+                              updatePresentation(pres.id, { eventOrConference: e.target.value })
+                            }
+                            placeholder="e.g. OWASP Korea Chapter Seminar"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Role (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={pres.role || ''}
+                            onChange={(e) => updatePresentation(pres.id, { role: e.target.value })}
+                            placeholder="e.g. Invited Speaker, Presenter"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Location (Right-Aligned Italic)
+                          </label>
+                          <input
+                            type="text"
+                            value={pres.location || ''}
+                            onChange={(e) => updatePresentation(pres.id, { location: e.target.value })}
+                            placeholder="e.g. Seoul, S.Korea"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Date
+                          </label>
+                          <input
+                            type="text"
+                            value={pres.date || ''}
+                            onChange={(e) => updatePresentation(pres.id, { date: e.target.value })}
+                            placeholder="e.g. Nov. 2013"
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Slides / Video / Event URL (Optional)
+                          </label>
+                          <input
+                            type="url"
+                            value={pres.url || ''}
+                            onChange={(e) => updatePresentation(pres.id, { url: e.target.value })}
+                            placeholder="https://..."
+                            className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-semibold text-slate-700">
+                              Key Points / Takeaways (One bullet per line, optional)
+                            </label>
+                            {(pres.highlights || []).some((h) => h.trim()) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenImprove(
+                                    (pres.highlights || []).join('\n'),
+                                    'Presentation Highlights',
+                                    `Presentation: ${pres.title}`,
+                                    (improved) =>
+                                      updatePresentation(pres.id, {
+                                        highlights: improved.split('\n').filter(Boolean),
+                                      })
+                                  )
+                                }
+                                className="inline-flex items-center text-[11px] font-semibold text-indigo-700 hover:underline cursor-pointer"
+                              >
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                <span>AI Improve</span>
+                              </button>
+                            )}
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={(pres.highlights || []).join('\n')}
+                            onChange={(e) =>
+                              updatePresentation(pres.id, { highlights: e.target.value.split('\n') })
+                            }
+                            placeholder="• Introduced practical vulnerability discovery workflow..."
+                            className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white leading-relaxed"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* 5c. Program Committees & Service (Template 14 — Research Scholar CV) */}
+          {activeSection === 'program-committees' && (
+            <section aria-labelledby="section-committees-title">
+              <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
+                <div>
+                  <h2 id="section-committees-title" className="text-lg font-bold text-slate-900">
+                    Program Committees &amp; Service
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Peer review, technical program committees, competition problem-writing panels, and conference organizing service.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addProgramCommittee}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>Add Committee Role</span>
+                </button>
+              </div>
+
+              {(!resume.programCommittees || resume.programCommittees.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg">
+                  <p className="text-xs text-slate-500">No program committee roles added yet.</p>
+                  <button
+                    type="button"
+                    onClick={addProgramCommittee}
+                    className="mt-2 text-xs font-bold text-slate-900 hover:underline cursor-pointer"
+                  >
+                    + Add a reviewer or committee role
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {resume.programCommittees.map((pc, idx) => (
+                    <div
+                      key={pc.id}
+                      className="p-3.5 border border-slate-200 rounded-lg bg-slate-50/50 space-y-2.5"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-slate-700">
+                          Committee Role #{idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveArrayItem('programCommittees', idx, -1)}
+                            disabled={idx === 0}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                            title="Move up"
+                            aria-label={`Move committee ${idx + 1} up`}
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveArrayItem('programCommittees', idx, 1)}
+                            disabled={idx === (resume.programCommittees?.length || 1) - 1}
+                            className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 rounded cursor-pointer"
+                            title="Move down"
+                            aria-label={`Move committee ${idx + 1} down`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteProgramCommittee(pc.id)}
+                            className="p-1 text-slate-400 hover:text-red-600 rounded cursor-pointer"
+                            title="Delete committee role"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                        <div className="sm:col-span-3">
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            Year / Date
+                          </label>
+                          <input
+                            type="text"
+                            value={pc.year}
+                            onChange={(e) => updateProgramCommittee(pc.id, { year: e.target.value })}
+                            placeholder="e.g. 2015"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                        <div className="sm:col-span-4">
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            Role *
+                          </label>
+                          <input
+                            type="text"
+                            value={pc.role}
+                            onChange={(e) => updateProgramCommittee(pc.id, { role: e.target.value })}
+                            placeholder="e.g. Organizer, Reviewer"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white font-semibold"
+                          />
+                        </div>
+                        <div className="sm:col-span-5">
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            Conference / Organization *
+                          </label>
+                          <input
+                            type="text"
+                            value={pc.conferenceOrOrganization}
+                            onChange={(e) =>
+                              updateProgramCommittee(pc.id, {
+                                conferenceOrOrganization: e.target.value,
+                              })
+                            }
+                            placeholder="e.g. HolyShield Hacking Festival"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                        <div className="sm:col-span-4">
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            Location (Right-Aligned Italic)
+                          </label>
+                          <input
+                            type="text"
+                            value={pc.location || ''}
+                            onChange={(e) =>
+                              updateProgramCommittee(pc.id, { location: e.target.value })
+                            }
+                            placeholder="e.g. Seoul, S.Korea"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                        <div className="sm:col-span-8">
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                            URL or Short Note (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={pc.description || pc.url || ''}
+                            onChange={(e) =>
+                              updateProgramCommittee(pc.id, { description: e.target.value })
+                            }
+                            placeholder="e.g. Reviewed 14 systems security submissions"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -10387,38 +11338,50 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </button>
               </div>
 
-              {(isCreativeProfessionalTemplate || isExecutiveTemplate) && (
-                <div
-                  className={`mb-5 p-3.5 rounded-lg border flex flex-wrap items-center gap-2 text-xs ${
-                    isExecutiveTemplate
-                      ? 'border-purple-200 bg-purple-50/40'
-                      : 'border-blue-200 bg-blue-50/40'
-                  }`}
-                >
-                  <span className="font-semibold text-slate-700">Optional Overflow Sections:</span>
-                  {(
-                    [
-                      { id: 'projects', label: 'Projects', count: resume.projects?.length || 0 },
-                      { id: 'leadership', label: 'Leadership', count: resume.leadership?.length || 0 },
-                      { id: 'volunteer', label: 'Volunteer', count: resume.volunteer?.length || 0 },
-                      { id: 'memberships', label: 'Memberships', count: resume.memberships?.length || 0 },
-                    ] as { id: EditorSectionId; label: string; count: number }[]
-                  ).map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setActiveSection(item.id)}
-                      className={`px-2.5 py-1 rounded border bg-white font-semibold cursor-pointer ${
-                        isExecutiveTemplate
-                          ? 'border-purple-200 hover:bg-purple-50 text-[#4c1d95]'
-                          : 'border-blue-200 hover:bg-blue-50 text-blue-800'
-                      }`}
-                    >
-                      Edit {item.label} ({item.count})
-                    </button>
-                  ))}
-                </div>
-              )}
+                {(isCreativeProfessionalTemplate || isExecutiveTemplate || isResearchScholarTemplate) && (
+                  <div
+                    className={`mb-5 p-3.5 rounded-lg border flex flex-wrap items-center gap-2 text-xs ${
+                      isExecutiveTemplate
+                        ? 'border-purple-200 bg-purple-50/40'
+                        : isResearchScholarTemplate
+                        ? 'border-red-200 bg-red-50/40'
+                        : 'border-blue-200 bg-blue-50/40'
+                    }`}
+                  >
+                    <span className="font-semibold text-slate-700">Optional Scholar / Overflow Sections:</span>
+                    {(isResearchScholarTemplate
+                      ? ([
+                          { id: 'certifications', label: 'Certifications', count: resume.certifications?.length || 0 },
+                          { id: 'additional', label: 'Languages & Interests', count: resume.languages?.length || 0 },
+                          { id: 'skills', label: 'Technical Skills', count: resume.skills?.length || 0 },
+                          { id: 'volunteer', label: 'Volunteer', count: resume.volunteer?.length || 0 },
+                          { id: 'memberships', label: 'Memberships', count: resume.memberships?.length || 0 },
+                          { id: 'references', label: 'Referees', count: resume.references?.length || 0 },
+                        ] as { id: EditorSectionId; label: string; count: number }[])
+                      : ([
+                          { id: 'projects', label: 'Projects', count: resume.projects?.length || 0 },
+                          { id: 'leadership', label: 'Leadership', count: resume.leadership?.length || 0 },
+                          { id: 'volunteer', label: 'Volunteer', count: resume.volunteer?.length || 0 },
+                          { id: 'memberships', label: 'Memberships', count: resume.memberships?.length || 0 },
+                        ] as { id: EditorSectionId; label: string; count: number }[])
+                    ).map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveSection(item.id)}
+                        className={`px-2.5 py-1 rounded border bg-white font-semibold cursor-pointer ${
+                          isExecutiveTemplate
+                            ? 'border-purple-200 hover:bg-purple-50 text-[#4c1d95]'
+                            : isResearchScholarTemplate
+                            ? 'border-red-200 hover:bg-red-50 text-[#dc3522]'
+                            : 'border-blue-200 hover:bg-blue-50 text-blue-800'
+                        }`}
+                      >
+                        Edit {item.label} ({item.count})
+                      </button>
+                    ))}
+                  </div>
+                )}
 
               <div className="flex flex-wrap items-center gap-1.5 mb-4 text-xs">
                 <span className="text-slate-500 font-medium mr-1">Quick Presets:</span>
@@ -10688,6 +11651,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Co-Curricular & Events (Optional)'
                       : isEngineeringResumeTemplate
                       ? 'Extra-Curricular Activities (Optional)'
+                      : isResearchScholarTemplate
+                      ? 'Honors & Awards (Categorized Year-Rail)'
                       : 'Honors & Awards'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -10701,6 +11666,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Hackathons, competitions, clubs, student chapters, volunteer events, or scholarships shown under CO-CURRICULAR/ EVENTS.'
                       : isEngineeringResumeTemplate
                       ? 'Technical symposiums, competitions, hackathons, volunteer outreach (NSS), and engineering certifications shown under EXTRA-CURRICULAR ACTIVITIES.'
+                      : isResearchScholarTemplate
+                      ? 'Grouped into International, National, Institutional, Academic, Scholarships, Fellowships, and Competitions with left year rail & right-aligned location.'
                       : 'Fellowships, best paper awards, teaching recognition, and academic honors.'}
                   </p>
                 </div>
@@ -10841,6 +11808,46 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               })}
                             </div>
                           </div>
+                        )}
+
+                        {isResearchScholarTemplate && (
+                          <>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Award Category (Awesome CV Group)
+                              </label>
+                              <select
+                                value={ach.awardCategory || 'international'}
+                                onChange={(e) =>
+                                  updateAward(ach.id, {
+                                    awardCategory: e.target.value as AwardCategory,
+                                  })
+                                }
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white font-medium"
+                              >
+                                <option value="international">International</option>
+                                <option value="national">Domestic / National</option>
+                                <option value="institutional">Institutional</option>
+                                <option value="academic">Academic Distinction</option>
+                                <option value="scholarship">Scholarship</option>
+                                <option value="fellowship">Research Fellowship</option>
+                                <option value="competition">Competition</option>
+                                <option value="other">Other Honors</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Award Location (Right-Aligned Italic)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.location || ''}
+                                onChange={(e) => updateAward(ach.id, { location: e.target.value })}
+                                placeholder="e.g. Daejeon, S.Korea or Las Vegas, NV"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </>
                         )}
 
                         {isExecutiveTemplate && (
@@ -11232,6 +12239,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Leadership and Activities'
                       : isEngineeringResumeTemplate
                       ? 'Position of Responsibility (Optional)'
+                      : isResearchScholarTemplate
+                      ? 'Extracurricular Activity, Volunteering & Skills'
                       : 'Leadership Experience'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -11241,6 +12250,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Student organizations, volunteer leadership, varsity athletics, and community committees.'
                       : isEngineeringResumeTemplate
                       ? 'Student club coordinator, SAE/IEEE student chapter lead, placement representative, or fest organizer roles.'
+                      : isResearchScholarTemplate
+                      ? 'Student clubs, community mentoring, and voluntary service merged under Awesome CV EXTRACURRICULAR ACTIVITY alongside your Technical Skills.'
                       : 'Conference organization, lab management, student association presidencies.'}
                   </p>
                 </div>
@@ -11253,6 +12264,30 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <span>{isEngineeringResumeTemplate ? 'Add Role' : 'Add Leadership'}</span>
                 </button>
               </div>
+
+              {isResearchScholarTemplate && (
+                <div className="mb-4 p-3.5 rounded-lg border border-red-200/80 bg-red-50/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="text-slate-700 font-medium">
+                    Volunteer roles &amp; Leadership entries merge cleanly under <strong>EXTRACURRICULAR ACTIVITY</strong>. Jump to edit Volunteer or Technical Skills:
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection('volunteer')}
+                      className="px-2.5 py-1 rounded border border-red-200 bg-white hover:bg-red-50 text-[#dc3522] font-semibold cursor-pointer"
+                    >
+                      Edit Volunteer ({resume.volunteer?.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection('skills')}
+                      className="px-2.5 py-1 rounded border border-red-200 bg-white hover:bg-red-50 text-[#dc3522] font-semibold cursor-pointer"
+                    >
+                      Edit Technical Skills ({resume.skills?.length || 0})
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {isHarvardTemplate && (
                 <div className="mb-4 p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
@@ -12167,9 +13202,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
           {(() => {
             const navIdx = navSections.findIndex((s) => s.id === activeSection);
             const fallbackParentId: EditorSectionId | null =
-              (isCreativeProfessionalTemplate || isExecutiveTemplate) && navIdx === -1
+              (isCreativeProfessionalTemplate || isExecutiveTemplate || isResearchScholarTemplate) && navIdx === -1
                 ? isCreativeProfessionalTemplate && activeSection === 'awards'
                   ? 'certifications'
+                  : isResearchScholarTemplate && (activeSection === 'volunteer' || activeSection === 'skills')
+                  ? 'leadership'
                   : 'custom-sections'
                 : null;
             const parentIdx = fallbackParentId
@@ -12203,8 +13240,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <span>
                     {fallbackParentId === 'certifications'
                       ? 'Back to Certificates & Grants'
+                      : fallbackParentId === 'leadership'
+                      ? 'Back to Extracurricular & Skills'
                       : fallbackParentId === 'custom-sections'
-                      ? 'Back to Projects & Additional'
+                      ? isResearchScholarTemplate
+                        ? 'Back to Additional Info & Certs'
+                        : 'Back to Projects & Additional'
                       : 'Previous Section'}
                   </span>
                 </button>

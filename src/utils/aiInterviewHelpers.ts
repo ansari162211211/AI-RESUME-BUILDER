@@ -4,6 +4,7 @@ import type {
   ExecutiveRoleType,
   InterviewChatMessage,
   InternshipTrack,
+  ResearchDiscipline,
   Resume,
   SkillCategory,
 } from '../types/resume';
@@ -189,6 +190,39 @@ export function mergeResumeUpdates(
   }
   if (u.dailyActivityMode === 'hours' || u.dailyActivityMode === 'percentage') {
     updated.dailyActivityMode = u.dailyActivityMode;
+  }
+  if (
+    u.researchDiscipline === 'computer-science' ||
+    u.researchDiscipline === 'cybersecurity' ||
+    u.researchDiscipline === 'electronics' ||
+    u.researchDiscipline === 'mechanical-engineering' ||
+    u.researchDiscipline === 'biotechnology' ||
+    u.researchDiscipline === 'physics-mathematics' ||
+    u.researchDiscipline === 'social-sciences' ||
+    u.researchDiscipline === 'other'
+  ) {
+    updated.researchDiscipline = u.researchDiscipline;
+  }
+  if (typeof u.customResearchDiscipline === 'string' && u.customResearchDiscipline.trim()) {
+    updated.customResearchDiscipline = u.customResearchDiscipline.trim();
+  }
+  if (typeof u.researchFocusSummary === 'string' && u.researchFocusSummary.trim()) {
+    updated.researchFocusSummary = u.researchFocusSummary.trim();
+  }
+  if (typeof u.yearsOfResearchExperience === 'string' && u.yearsOfResearchExperience.trim()) {
+    updated.yearsOfResearchExperience = u.yearsOfResearchExperience.trim();
+  }
+  if (Array.isArray(u.researchInterestsList) && u.researchInterestsList.length > 0) {
+    updated.researchInterestsList = dedupeStrings(
+      base.researchInterestsList,
+      u.researchInterestsList
+    );
+  }
+  if (typeof u.researchQuestions === 'string' && u.researchQuestions.trim()) {
+    updated.researchQuestions = u.researchQuestions.trim();
+  }
+  if (typeof u.researchMethodologies === 'string' && u.researchMethodologies.trim()) {
+    updated.researchMethodologies = u.researchMethodologies.trim();
   }
 
   if (Array.isArray(u.learningActivities) && u.learningActivities.length > 0) {
@@ -547,6 +581,58 @@ export function mergeResumeUpdates(
   }
   if (u.referencesDisplayMode) {
     updated.referencesDisplayMode = u.referencesDisplayMode;
+  }
+  if (Array.isArray(u.presentations) && u.presentations.length > 0) {
+    const sanitizedPresentations = u.presentations
+      .filter((p) => p && typeof p.title === 'string' && p.title.trim())
+      .map((p, idx) => ({
+        id: p.id || `pres_${Date.now()}_${idx}`,
+        title: p.title.trim(),
+        eventOrConference:
+          typeof p.eventOrConference === 'string' ? p.eventOrConference.trim() : '',
+        role: typeof p.role === 'string' ? p.role.trim() : '',
+        location: typeof p.location === 'string' ? p.location.trim() : '',
+        date: typeof p.date === 'string' ? p.date.trim() : '',
+        url: typeof p.url === 'string' ? p.url.trim() : '',
+        highlights: Array.isArray(p.highlights) ? dedupeStrings([], p.highlights) : [],
+        description: typeof p.description === 'string' ? p.description.trim() : '',
+      }));
+    if (sanitizedPresentations.length > 0) {
+      updated.presentations = dedupeByKey(
+        base.presentations || [],
+        sanitizedPresentations,
+        (p) => `${norm(p.title)}|${norm(p.eventOrConference)}|${norm(p.date)}`
+      );
+    }
+  }
+  if (Array.isArray(u.programCommittees) && u.programCommittees.length > 0) {
+    const sanitizedCommittees = u.programCommittees
+      .filter(
+        (pc) =>
+          pc &&
+          ((typeof pc.conferenceOrOrganization === 'string' &&
+            pc.conferenceOrOrganization.trim()) ||
+            (typeof pc.role === 'string' && pc.role.trim()))
+      )
+      .map((pc, idx) => ({
+        id: pc.id || `pc_${Date.now()}_${idx}`,
+        role: typeof pc.role === 'string' ? pc.role.trim() : 'Committee Member',
+        conferenceOrOrganization:
+          typeof pc.conferenceOrOrganization === 'string'
+            ? pc.conferenceOrOrganization.trim()
+            : '',
+        year: typeof pc.year === 'string' ? pc.year.trim() : '',
+        location: typeof pc.location === 'string' ? pc.location.trim() : '',
+        url: typeof pc.url === 'string' ? pc.url.trim() : '',
+        description: typeof pc.description === 'string' ? pc.description.trim() : '',
+      }));
+    if (sanitizedCommittees.length > 0) {
+      updated.programCommittees = dedupeByKey(
+        base.programCommittees || [],
+        sanitizedCommittees,
+        (pc) => `${norm(pc.role)}|${norm(pc.conferenceOrOrganization)}|${norm(pc.year)}`
+      );
+    }
   }
 
   return updated;
@@ -2435,6 +2521,250 @@ export function buildAdaptiveExecutiveFallback(
   const spec =
     EXECUTIVE_ROLE_PROMPTS[role][nextSection] ||
     EXECUTIVE_ROLE_PROMPTS[role].personalInfo;
+
+  return {
+    reply: spec.reply,
+    structuredUpdates,
+    isSectionCompleted: wantsSkip,
+    nextSection,
+    suggestedChips: spec.chips,
+  };
+}
+
+export const RESEARCH_SCHOLAR_SECTION_FLOW = [
+  'personalInfo',
+  'objective',
+  'research-interests',
+  'experience',
+  'research',
+  'projects',
+  'achievements',
+  'presentations',
+  'publications',
+  'program-committees',
+  'education',
+  'leadership',
+  'custom-sections',
+];
+
+export function detectResearchDisciplineFromText(text: string): ResearchDiscipline | null {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return null;
+  if (
+    /\b(cyber\s*security|cybersecurity|infosec|cryptography|network security|exploitation|vulnerability|malware|binary analysis|penetration)\b/.test(
+      lower
+    )
+  ) {
+    return 'cybersecurity';
+  }
+  if (
+    /\b(computer science|machine learning|deep learning|artificial intelligence|\bai\b|nlp|computer vision|distributed systems|algorithms|systems research)\b/.test(
+      lower
+    )
+  ) {
+    return 'computer-science';
+  }
+  if (
+    /\b(electronics|electrical|ece|\beee\b|vlsi|semiconductor|photonics|signal processing|embedded|rf|hardware)\b/.test(
+      lower
+    )
+  ) {
+    return 'electronics';
+  }
+  if (
+    /\b(mechanical|robotics|aerospace|thermodynamics|fluid mechanics|mechatronics|solid mechanics|manufacturing)\b/.test(
+      lower
+    )
+  ) {
+    return 'mechanical-engineering';
+  }
+  if (
+    /\b(biotech|biotechnology|bioinformatics|genomics|molecular biology|biomedical|neuroscience|life sciences|chemistry)\b/.test(
+      lower
+    )
+  ) {
+    return 'biotechnology';
+  }
+  if (
+    /\b(physics|mathematics|applied math|theoretical physics|quantum|statistics|astrophysics|pure math)\b/.test(
+      lower
+    )
+  ) {
+    return 'physics-mathematics';
+  }
+  if (
+    /\b(social science|economics|psychology|sociology|political science|humanities|linguistics|education research|public policy)\b/.test(
+      lower
+    )
+  ) {
+    return 'social-sciences';
+  }
+  if (/\b(other discipline|interdisciplinary|custom discipline)\b/.test(lower)) {
+    return 'other';
+  }
+  return null;
+}
+
+const buildScholarPromptsForDiscipline = (
+  label: string,
+  domainHint: string
+): Record<string, { reply: string; chips: string[] }> => ({
+  personalInfo: {
+    reply: `${label} Research Scholar profile selected. Share your full name, research title/specialization, location/address, email, phone, and website, GitHub, LinkedIn, or ORCID—plus an optional personal philosophy statement if you have one.`,
+    chips: ['Share researcher contacts & links', 'Add optional philosophy quote', 'Next: Research Summary'],
+  },
+  objective: {
+    reply: `Let's draft your Research Summary. Share your years of research or industry experience, specialization in ${domainHint}, core technical expertise, and career objectives (I will refine only the facts you provide).`,
+    chips: ['Share summary & years of experience', 'Add career objectives', 'Next: Research Interests'],
+  },
+  'research-interests': {
+    reply: `Optional: List your specific research topics, research questions, and experimental or analytical methodologies in ${domainHint} (or skip cleanly if covered in Summary).`,
+    chips: [`Topics in ${domainHint}`, 'Add research methodologies', 'Next: Work & Research Experience'],
+  },
+  experience: {
+    reply: `Let's add your Work & Research Experience (reverse chronological). Share an institution or company, your role/position, location, start/end dates, and factual contributions, tools, and outcomes.`,
+    chips: ['Add Research Engineer / Assistant role', 'Add Industry / Lab role', 'Next: Research Experience'],
+  },
+  research: {
+    reply: `Optional: Share dedicated Academic Research Projects or Lab Appointments—research title, institution, supervisor/mentor, methodology, tools, and verified findings or publications.`,
+    chips: ['Add Thesis / Lab Research', 'Skip to Projects', 'Next: Honors & Awards'],
+  },
+  projects: {
+    reply: `Optional: Share key Research or Technical Projects—title, type (Research/Open Source/Academic), institution, dates, tools, and factual contributions.`,
+    chips: ['Add Open-Source / Lab Project', 'Skip Projects', 'Next: Honors & Awards'],
+  },
+  achievements: {
+    reply: `Optional: Under HONORS & AWARDS, share any International, National, or Institutional awards, academic distinctions, scholarships, fellowships, or competitions (year, title, issuer, location, ranking).`,
+    chips: ['Add International / National Award', 'Add Fellowship or Scholarship', 'Next: Presentations'],
+  },
+  presentations: {
+    reply: `Optional: Under PRESENTATIONS, list conference talks, invited lectures, poster sessions, or workshops—talk title, conference/venue, role, location, date, and key highlights.`,
+    chips: ['Add Conference Talk / Poster', 'Skip Presentations', 'Next: Writing & Publications'],
+  },
+  publications: {
+    reply: `Optional: Under WRITING & PUBLICATIONS, share journal articles, conference papers, preprints, theses, or technical reports (title, authors, venue/publisher, year, DOI/URL, your role).`,
+    chips: ['Add Journal / Conference Paper', 'Add Technical Article / Preprint', 'Next: Program Committees'],
+  },
+  'program-committees': {
+    reply: `Optional: Under PROGRAM COMMITTEES, list any peer-review service, conference organizing roles, problem-writing committees, or workshop leadership (role, conference/org, year, location).`,
+    chips: ['Add Reviewer / PC Role', 'Skip Program Committees', 'Next: Education'],
+  },
+  education: {
+    reply: `Let's record your EDUCATION—degree, specialization/major, institution, location, dates, GPA/grade, optional thesis title, supervisor, and scholarships or honors.`,
+    chips: ['Add Ph.D. / M.S. Degree', 'Add B.S. Degree', 'Next: Extracurricular & Skills'],
+  },
+  leadership: {
+    reply: `Optional: Under EXTRACURRICULAR ACTIVITY & SKILLS, share leadership clubs, mentoring, community volunteering, or verified technical skill groups.`,
+    chips: ['Add Academic Club / Volunteering', 'Add Technical Skills', 'Next: Additional Info'],
+  },
+  'custom-sections': {
+    reply: `Final optional step: Add Certifications, Languages (with confirmed proficiency only), Referees, or Custom Sections—or review your Awesome CV Research Scholar PDF in the editor.`,
+    chips: ['Add Language or Reference', 'Ready to review in editor'],
+  },
+});
+
+export const RESEARCH_DISCIPLINE_PROMPTS: Record<
+  ResearchDiscipline,
+  Record<string, { reply: string; chips: string[] }>
+> = {
+  'computer-science': buildScholarPromptsForDiscipline(
+    'Computer Science & AI',
+    'machine learning, systems, algorithms, or NLP'
+  ),
+  cybersecurity: buildScholarPromptsForDiscipline(
+    'Cybersecurity & Systems Security',
+    'software security, cryptography, vulnerability analysis, or systems defense'
+  ),
+  electronics: buildScholarPromptsForDiscipline(
+    'Electrical & Electronics Engineering',
+    'VLSI, signal processing, embedded hardware, or photonics'
+  ),
+  'mechanical-engineering': buildScholarPromptsForDiscipline(
+    'Mechanical & Robotics Engineering',
+    'robotics, control systems, thermal/fluid simulation, or mechanics'
+  ),
+  biotechnology: buildScholarPromptsForDiscipline(
+    'Biotechnology & Life Sciences',
+    'computational biology, genomics, molecular assays, or biomedical engineering'
+  ),
+  'physics-mathematics': buildScholarPromptsForDiscipline(
+    'Physics & Mathematics',
+    'theoretical modeling, statistical analysis, quantum systems, or applied math'
+  ),
+  'social-sciences': buildScholarPromptsForDiscipline(
+    'Social Sciences & Humanities',
+    'empirical study design, policy analysis, econometrics, or qualitative fieldwork'
+  ),
+  other: buildScholarPromptsForDiscipline(
+    'Interdisciplinary Research Scholar',
+    'your research domain and methodology'
+  ),
+};
+
+export function buildAdaptiveResearchScholarFallback(
+  userMessage: string,
+  currentResume: Partial<Resume>,
+  activeSection: string,
+  sectionFlow: string[] = RESEARCH_SCHOLAR_SECTION_FLOW
+): {
+  reply: string;
+  structuredUpdates: Partial<Resume>;
+  isSectionCompleted: boolean;
+  nextSection: string;
+  suggestedChips: string[];
+} {
+  const detectedDiscipline = detectResearchDisciplineFromText(userMessage);
+  const discipline: ResearchDiscipline =
+    detectedDiscipline || currentResume.researchDiscipline || 'computer-science';
+  const structuredUpdates: Partial<Resume> = detectedDiscipline
+    ? { researchDiscipline: detectedDiscipline }
+    : {};
+
+  const trimmedLower = userMessage.trim().toLowerCase();
+  const wantsSkip =
+    /\b(skip|next section|move to|don't have|none|pass)\b/.test(trimmedLower);
+
+  const curIdx = Math.max(0, sectionFlow.indexOf(activeSection));
+  const jumpMatch = trimmedLower.match(/(?:skip\s+to|move\s+to|go\s+to|jump\s+to)\s+(.+)$/);
+  const jumpTarget = jumpMatch ? jumpMatch[1] : wantsSkip ? trimmedLower : '';
+  let resolvedIdx = curIdx;
+
+  if (/(custom[- ]?section|additional|language|reference|review|done)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('custom-sections'));
+  } else if (/(research interest|topic|methodolog|question)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('research-interests'));
+  } else if (/(summary|objective|focus)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('objective'));
+  } else if (/(program committee|committee|reviewer)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('program-committees'));
+  } else if (/(presentation|talk|seminar|lecture)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('presentations'));
+  } else if (/(publication|writing|paper|preprint|journal)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('publications'));
+  } else if (/(honor|award|fellowship|scholarship|achievement)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('achievements'));
+  } else if (/project/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('projects'));
+  } else if (/research/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('research'));
+  } else if (/experience/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('experience'));
+  } else if (/(education|degree)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('education'));
+  } else if (/(extracurricular|leadership|volunteer|skill)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('leadership'));
+  } else if (wantsSkip && curIdx < sectionFlow.length - 1) {
+    resolvedIdx = curIdx + 1;
+  }
+
+  if (wantsSkip && !jumpMatch && resolvedIdx === curIdx && curIdx < sectionFlow.length - 1) {
+    resolvedIdx = curIdx + 1;
+  }
+
+  const nextSection = sectionFlow[resolvedIdx] || activeSection;
+  const spec =
+    RESEARCH_DISCIPLINE_PROMPTS[discipline][nextSection] ||
+    RESEARCH_DISCIPLINE_PROMPTS[discipline].personalInfo;
 
   return {
     reply: spec.reply,

@@ -25,6 +25,7 @@ import {
   SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
+  SAMPLE_RESEARCH_SCHOLAR_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -179,6 +180,7 @@ export type TemplateProfileType =
   | 'engineering-resume'
   | 'creative-professional'
   | 'executive-resume'
+  | 'research-scholar'
   | 'experienced'
   | 'fresher'
   | 'student'
@@ -235,6 +237,9 @@ export async function createNewResume(
       break;
     case 'executive-resume':
       base = SAMPLE_EXECUTIVE_RESUME_CV;
+      break;
+    case 'research-scholar':
+      base = SAMPLE_RESEARCH_SCHOLAR_CV;
       break;
     case 'experienced':
       base = SAMPLE_EXPERIENCED_CV;

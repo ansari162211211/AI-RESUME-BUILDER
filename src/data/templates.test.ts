@@ -15,6 +15,7 @@ import {
   INTERNSHIP_RESUME_ORDER,
   INTERNSHIP_RIGHT_ORDER,
   MODERN_CORPORATE_ORDER,
+  RESEARCH_SCHOLAR_ORDER,
   TEMPLATE_CATEGORIES,
   TEMPLATE_DEFINITIONS,
   getTemplateById,
@@ -40,6 +41,7 @@ import {
   SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
+  SAMPLE_RESEARCH_SCHOLAR_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
 } from './sampleResumes';
@@ -55,9 +57,12 @@ import {
   buildInternshipContactItems,
   buildJakesAddressString,
   buildModernCorporateContactItems,
+  buildResearchScholarAddressLine,
+  buildResearchScholarContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkRows,
+  formatAwesomeCvFooterDate,
   getCourseworkItems,
   getCreativeCategorizedSkills,
   getCreativeCertificatesAndGrants,
@@ -79,6 +84,11 @@ import {
   getInternshipResearchAndProjectEntries,
   getInternshipSkillRows,
   getOrderedVisibleSections,
+  getResearchScholarAwardsGrouped,
+  getResearchScholarExtracurricularEntries,
+  getResearchScholarPresentations,
+  getResearchScholarProgramCommittees,
+  getResearchScholarResearchInterests,
   getSectionDisplayTitle,
   getSkillMatrixLevelLabel,
   getSoftwareDevAdditionalSubsections,
@@ -86,14 +96,18 @@ import {
   groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
+  hasResearchScholarInterestsContent,
   isSectionVisibleAndPopulated,
   matchSoftwareDevSkillBucket,
+  normalizeAwardCategoryForResearchScholar,
+  splitAwesomeCvHeading,
+  splitAwesomeCvName,
   splitCreativeName,
 } from '../utils/resumePresentation';
 import type { Resume } from '../types/resume';
 
-test('keeps Templates 1 through 13 active in TEMPLATE_DEFINITIONS', () => {
-  assert.equal(TEMPLATE_DEFINITIONS.length, 13);
+test('keeps Templates 1 through 14 active in TEMPLATE_DEFINITIONS', () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 14);
   assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
   assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
   assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
@@ -120,10 +134,11 @@ test('keeps Templates 1 through 13 active in TEMPLATE_DEFINITIONS', () => {
   assert.equal(TEMPLATE_DEFINITIONS[11].name, 'Creative Professional');
   assert.equal(TEMPLATE_DEFINITIONS[12].id, 'executive-resume');
   assert.equal(TEMPLATE_DEFINITIONS[12].name, 'Executive Resume');
+  assert.equal(TEMPLATE_DEFINITIONS[13].id, 'research-scholar');
+  assert.equal(TEMPLATE_DEFINITIONS[13].name, 'Research Scholar CV');
 
   const removedIds = [
     'modern-minimalist',
-    'research-scholar',
     'simple-one-page',
   ];
   for (const id of removedIds) {
@@ -170,6 +185,7 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(resolveTemplateId('engineering-resume'), 'engineering-resume');
   assert.equal(resolveTemplateId('creative-professional'), 'creative-professional');
   assert.equal(resolveTemplateId('executive-resume'), 'executive-resume');
+  assert.equal(resolveTemplateId('research-scholar'), 'research-scholar');
   assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
   assert.equal(getTemplateById('harvard-style').id, 'harvard-style');
   assert.equal(getTemplateById('harvard-style').name, 'Harvard Style');
@@ -187,6 +203,8 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(getTemplateById('creative-professional').name, 'Creative Professional');
   assert.equal(getTemplateById('executive-resume').id, 'executive-resume');
   assert.equal(getTemplateById('executive-resume').name, 'Executive Resume');
+  assert.equal(getTemplateById('research-scholar').id, 'research-scholar');
+  assert.equal(getTemplateById('research-scholar').name, 'Research Scholar CV');
   assert.equal(getTemplateById('academic-cv').name, 'Academic CV');
   assert.equal(getTemplateById('classic-professional').name, 'Classic Professional');
   assert.equal(getTemplateById('jakes-resume').name, "Jake's Resume");
@@ -1458,6 +1476,118 @@ test('Executive Resume (Template 13) configures Executive Purple styling, two-co
   const visibleMin = getOrderedVisibleSections(minimalExec, execTpl);
   assert.deepEqual(visibleMin, ['experience', 'education']);
 });
+
+test('Research Scholar CV (Template 14) configures Awesome CV styling, split typography, grouped awards, research helpers, footer date, and empty omission', () => {
+  const rsTpl = getTemplateById('research-scholar');
+  assert.equal(rsTpl.id, 'research-scholar');
+  assert.equal(rsTpl.name, 'Research Scholar CV');
+  assert.equal(rsTpl.layout, 'single-column');
+  assert.equal(rsTpl.headerVariant, 'awesome-cv-centered');
+  assert.equal(rsTpl.defaultCustomization.fontFamily, 'sans');
+  assert.equal(rsTpl.defaultCustomization.textColor, '#333333');
+  assert.equal(rsTpl.defaultCustomization.accentColor, '#dc3522');
+  assert.equal(rsTpl.defaultCustomization.headingStyle, 'awesome-cv-rule');
+  assert.deepEqual(rsTpl.sectionOrder, RESEARCH_SCHOLAR_ORDER);
+  assert.ok(rsTpl.categories.includes('Research'));
+  assert.ok(rsTpl.categories.includes('Academic CV'));
+  assert.ok(rsTpl.categories.includes('Professional'));
+  assert.ok(rsTpl.categories.includes('ATS-Friendly'));
+
+  assert.equal(getSectionDisplayTitle('objective', 'research-scholar'), 'Summary');
+  assert.equal(getSectionDisplayTitle('research-interests', 'research-scholar'), 'Research Interests');
+  assert.equal(getSectionDisplayTitle('experience', 'research-scholar'), 'Work Experience');
+  assert.equal(getSectionDisplayTitle('achievements', 'research-scholar'), 'Honors & Awards');
+  assert.equal(getSectionDisplayTitle('presentations', 'research-scholar'), 'Presentation');
+  assert.equal(getSectionDisplayTitle('publications', 'research-scholar'), 'Writing & Publications');
+  assert.equal(getSectionDisplayTitle('program-committees', 'research-scholar'), 'Program Committees');
+  assert.equal(getSectionDisplayTitle('education', 'research-scholar'), 'Education');
+  assert.equal(getSectionDisplayTitle('leadership', 'research-scholar'), 'Extracurricular Activity');
+
+  assert.deepEqual(splitAwesomeCvName('Minjun Kang'), { firstPart: 'Minjun', lastPart: 'Kang' });
+  assert.deepEqual(splitAwesomeCvHeading('Summary'), { accentPrefix: 'Sum', restTitle: 'mary' });
+  assert.deepEqual(splitAwesomeCvHeading('Program Committees'), {
+    accentPrefix: 'Pro',
+    restTitle: 'gram Committees',
+  });
+
+  const rsCv: Resume = {
+    ...SAMPLE_RESEARCH_SCHOLAR_CV,
+    id: 'rs_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-05-15T12:00:00Z',
+  };
+
+  assert.ok(buildResearchScholarAddressLine(rsCv.personalInfo).includes('Seoul'));
+  const contacts = buildResearchScholarContactItems(rsCv.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'website' && c.url?.includes('minjunkang.dev')));
+  assert.ok(contacts.some((c) => c.kind === 'github' && c.label === 'mkang-sec'));
+  assert.ok(contacts.some((c) => c.kind === 'linkedin' && c.label === 'minjunkang'));
+  assert.ok(contacts.some((c) => c.kind === 'orcid' && c.url?.includes('orcid.org/0000-0002-7194-8821')));
+
+  const groupedAwards = getResearchScholarAwardsGrouped(rsCv.achievements);
+  assert.deepEqual(
+    groupedAwards.map((g) => g.heading),
+    ['INTERNATIONAL', 'DOMESTIC', 'SCHOLARSHIPS']
+  );
+  assert.equal(
+    normalizeAwardCategoryForResearchScholar({
+      id: 'a',
+      title: 'Fellowship',
+      issuer: 'University',
+      date: '2024',
+      category: 'University',
+    }),
+    'institutional'
+  );
+
+  assert.equal(hasResearchScholarInterestsContent(rsCv), true);
+  assert.ok(getResearchScholarResearchInterests(rsCv).includes('Distributed Systems Security'));
+  assert.equal(getResearchScholarPresentations(rsCv).length, 2);
+  assert.equal(getResearchScholarProgramCommittees(rsCv).length, 2);
+  assert.equal(getResearchScholarExtracurricularEntries(rsCv).length, 2);
+  assert.equal(formatAwesomeCvFooterDate('2026-05-15T12:00:00Z'), 'MAY 15, 2026');
+
+  const visibleFull = getOrderedVisibleSections(rsCv, rsTpl);
+  assert.ok(visibleFull.includes('objective'));
+  assert.ok(visibleFull.includes('research-interests'));
+  assert.ok(visibleFull.includes('experience'));
+  assert.ok(visibleFull.includes('achievements'));
+  assert.ok(visibleFull.includes('presentations'));
+  assert.ok(visibleFull.includes('publications'));
+  assert.ok(visibleFull.includes('program-committees'));
+  assert.ok(visibleFull.includes('education'));
+  assert.ok(visibleFull.includes('leadership'));
+
+  // Empty optional sections omit automatically while required core sections remain
+  const minimalRs: Resume = {
+    ...rsCv,
+    objective: '',
+    researchInterestsList: [],
+    academicInterests: '',
+    researchQuestions: '',
+    researchMethodologies: '',
+    researchFocusSummary: '',
+    researchExperience: [],
+    projects: [],
+    achievements: [],
+    presentations: [],
+    publications: [],
+    programCommittees: [],
+    leadership: [],
+    volunteer: [],
+    skills: [],
+    certifications: [],
+    languages: [],
+    customSections: [],
+    references: [],
+    referencesDisplayMode: 'hidden',
+  };
+  assert.deepEqual(getOrderedVisibleSections(minimalRs, rsTpl), ['experience', 'education']);
+});
+
 
 
 

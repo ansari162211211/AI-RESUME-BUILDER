@@ -25,6 +25,7 @@ import {
   SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
+  SAMPLE_RESEARCH_SCHOLAR_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
 } from '../../data/sampleResumes';
@@ -82,6 +83,8 @@ export const TemplatesGalleryPage: React.FC<TemplatesGalleryPageProps> = ({
         ? SAMPLE_CREATIVE_PROFESSIONAL_CV
         : templateId === 'executive-resume'
         ? SAMPLE_EXECUTIVE_RESUME_CV
+        : templateId === 'research-scholar'
+        ? SAMPLE_RESEARCH_SCHOLAR_CV
         : SAMPLE_ACADEMIC_CV;
     return {
       ...sampleBase,

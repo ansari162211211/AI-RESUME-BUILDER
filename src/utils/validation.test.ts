@@ -26,6 +26,7 @@ import {
   SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
+  SAMPLE_RESEARCH_SCHOLAR_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -647,4 +648,68 @@ test('analyzeResumeSections & calculateResumeCompleteness evaluate Executive Res
   assert.equal(minimalReport.sections.find((s) => s.sectionId === 'references')?.status, 'complete');
   assert.ok(calculateResumeCompleteness(minimalExec) >= 75);
 });
+
+test('analyzeResumeSections & calculateResumeCompleteness evaluate Research Scholar CV (Template 14) across 11 sections without penalizing optional fields', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_RESEARCH_SCHOLAR_CV);
+  assert.equal(fullReport.sections.length, 11);
+  assert.equal(fullReport.overallStatus, 'excellent');
+  assert.ok(fullReport.overallScore >= 95);
+
+  const minimalScholar = {
+    template: 'research-scholar',
+    researchDiscipline: 'computer-science' as const,
+    personalInfo: SAMPLE_RESEARCH_SCHOLAR_CV.personalInfo,
+    experience: SAMPLE_RESEARCH_SCHOLAR_CV.experience,
+    education: SAMPLE_RESEARCH_SCHOLAR_CV.education,
+    personalQuote: '',
+    objective: '',
+    researchFocusSummary: '',
+    researchInterestsList: [],
+    researchQuestions: '',
+    researchMethodologies: '',
+    researchExperience: [],
+    projects: [],
+    achievements: [],
+    presentations: [],
+    publications: [],
+    programCommittees: [],
+    leadership: [],
+    volunteer: [],
+    skills: [],
+    certifications: [],
+    languages: [],
+    customSections: [],
+  };
+  const minimalReport = analyzeResumeSections(minimalScholar);
+  for (const optId of [
+    'objective',
+    'research-interests',
+    'research',
+    'awards',
+    'presentations',
+    'publications',
+    'program-committees',
+    'leadership',
+  ]) {
+    const sec = minimalReport.sections.find((s) => s.sectionId === optId);
+    assert.equal(sec?.isOptional, true);
+    assert.equal(sec?.status, 'optional_empty');
+  }
+  assert.equal(minimalReport.sections.find((s) => s.sectionId === 'header')?.status, 'complete');
+  assert.equal(minimalReport.sections.find((s) => s.sectionId === 'experience')?.status, 'complete');
+  assert.equal(minimalReport.sections.find((s) => s.sectionId === 'education')?.status, 'complete');
+
+  const incompleteScholarInput = {
+    template: 'research-scholar',
+    personalInfo: { fullName: 'Minjun', email: '', phone: '' },
+    experience: [],
+    education: [],
+  };
+  const incompleteScholar = analyzeResumeSections(incompleteScholarInput);
+  assert.equal(incompleteScholar.sections.find((s) => s.sectionId === 'header')?.status, 'needs_details');
+  assert.equal(incompleteScholar.sections.find((s) => s.sectionId === 'experience')?.status, 'needs_details');
+  assert.equal(incompleteScholar.sections.find((s) => s.sectionId === 'education')?.status, 'needs_details');
+  assert.ok(calculateResumeCompleteness(incompleteScholarInput) < 40);
+});
+
 

@@ -7,10 +7,12 @@ import type {
 import { resolveTemplateId } from '../data/templates';
 import {
   EXECUTIVE_SECTION_FLOW,
+  RESEARCH_SCHOLAR_SECTION_FLOW,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
   buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
+  buildAdaptiveResearchScholarFallback,
 } from '../utils/aiInterviewHelpers';
 import { analyzeResumeSections } from '../utils/validation';
 
@@ -215,6 +217,14 @@ export async function sendInterviewStepWithGemini(
         currentResume,
         activeSection,
         EXECUTIVE_SECTION_FLOW
+      );
+    }
+    if (tplId === 'research-scholar') {
+      return buildAdaptiveResearchScholarFallback(
+        lastUserMessage,
+        currentResume,
+        activeSection,
+        RESEARCH_SCHOLAR_SECTION_FLOW
       );
     }
     return {

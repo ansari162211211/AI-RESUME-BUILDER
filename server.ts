@@ -1,11 +1,12 @@
 import express, { type Request, type Response } from 'express';
+import http from 'http';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -160,6 +161,7 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
     const isEngineeringResumeTemplate = template === 'engineering-resume';
     const isCreativeProfessionalTemplate = template === 'creative-professional';
     const isExecutiveResumeTemplate = template === 'executive-resume';
+    const isResearchScholarTemplate = template === 'research-scholar';
     const roleLabel = isJakesTemplate
       ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
       : isSoftwareDevTemplate
@@ -180,6 +182,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'senior creative, editorial, and technical portfolio CV editor (modern two-column Creative Professional resume specialist)'
       : isExecutiveResumeTemplate
       ? 'senior C-suite executive and board resume editor (two-page Executive Resume AltaCV specialist)'
+      : isResearchScholarTemplate
+      ? 'distinguished academic and industrial research CV editor (Awesome CV Research Scholar specialist)'
       : isClassicTemplate
       ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
       : isTwoColumnTemplate
@@ -205,6 +209,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'Creative Professional Two-Column Editorial Resume'
       : isExecutiveResumeTemplate
       ? 'Executive Resume (Two-Page C-Suite & Leadership CV)'
+      : isResearchScholarTemplate
+      ? 'Research Scholar CV (Awesome CV Academic & R&D Curriculum Vitae)'
       : isClassicTemplate
       ? 'Classic Professional Multi-Page CV'
       : isTwoColumnTemplate
@@ -224,6 +230,8 @@ REQUIREMENTS:
 1. ${
       isJakesTemplate || isSoftwareDevTemplate
         ? 'Make each bullet crisp, high-impact, action-verb-led, and ATS-friendly (ideal 1-2 lines).'
+        : isResearchScholarTemplate
+        ? 'Elevate the language with rigorous scholarly, technical, and research-grade precision suitable for an Awesome CV Research Scholar CV—leading with concrete methodology/engineering verbs and highlighting real tools, experiments, publications, or committee roles while strictly NEVER fabricating quotes, citations, DOIs, rankings, fellowships, or metrics not present in the original text.'
         : isExecutiveResumeTemplate
         ? 'Elevate the language with authoritative C-suite executive gravitas, strategic ownership, board/organizational clarity, and concise two-column scannability—while strictly NEVER inventing financial figures, revenue/growth percentages, team sizes, quotes, or achievements not present in the original text.'
         : isCreativeProfessionalTemplate
@@ -324,6 +332,7 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
     const isEngineeringResumeTemplate = currentResume?.template === 'engineering-resume';
     const isCreativeProfessionalTemplate = currentResume?.template === 'creative-professional';
     const isExecutiveResumeTemplate = currentResume?.template === 'executive-resume';
+    const isResearchScholarTemplate = currentResume?.template === 'research-scholar';
     const advisorName = isJakesTemplate
       ? 'Technical Resume Advisor'
       : isSoftwareDevTemplate
@@ -344,6 +353,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Creative Professional CV Advisor'
       : isExecutiveResumeTemplate
       ? 'Executive Resume Advisor'
+      : isResearchScholarTemplate
+      ? 'Research Scholar CV Advisor'
       : isClassicTemplate
       ? 'Classic Professional CV Advisor'
       : isTwoColumnTemplate
@@ -369,6 +380,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Creative Professional Resume (Editorial Two-Column CV)'
       : isExecutiveResumeTemplate
       ? 'Executive Resume (Two-Page C-Suite & Leadership CV)'
+      : isResearchScholarTemplate
+      ? 'Research Scholar CV (Awesome CV Layout)'
       : isClassicTemplate
       ? 'Classic Professional CV'
       : isTwoColumnTemplate
@@ -394,6 +407,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'creative-professional'
       : isExecutiveResumeTemplate
       ? 'executive-resume'
+      : isResearchScholarTemplate
+      ? 'research-scholar'
       : isClassicTemplate
       ? 'classic-professional'
       : isTwoColumnTemplate
@@ -418,6 +433,12 @@ ${JSON.stringify({
   customExecutiveRole: currentResume.customExecutiveRole,
   executiveIndustry: currentResume.executiveIndustry,
   executiveYearsExperience: currentResume.executiveYearsExperience,
+  researchDiscipline: currentResume.researchDiscipline,
+  customResearchDiscipline: currentResume.customResearchDiscipline,
+  yearsOfResearchExperience: currentResume.yearsOfResearchExperience,
+  researchInterestsCount: currentResume.researchInterestsList?.length || 0,
+  presentationsCount: currentResume.presentations?.length || 0,
+  programCommitteesCount: currentResume.programCommittees?.length || 0,
   dailyActivityMode: currentResume.dailyActivityMode,
   harvardLeadershipFirst: currentResume.harvardLeadershipFirst,
   personalInfo: currentResume.personalInfo,
@@ -468,6 +489,7 @@ ${JSON.stringify({
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
 2. Probe for DEPTH and specificity matching the active template:
+   - For Research Scholar CV ("research-scholar"): Ask ONE focused question at a time across these 13 sections: \`personalInfo\` (header contacts + optional \`personalQuote\` without inventing/attributing quotes), \`objective\` (Research Summary with optional \`yearsOfResearchExperience\` and \`researchFocusSummary\`), \`research-interests\` (optional \`researchInterestsList\`, \`researchQuestions\`, \`researchMethodologies\`), \`experience\` (Work & Research Experience), \`research\` (optional dedicated Research Experience), \`projects\` (optional Research/Technical Projects), \`achievements\` (optional Categorized Honors & Awards with \`awardCategory\`: 'international'|'national'|'institutional'|'academic'|'scholarship'|'fellowship'|'competition'|'other' and \`location\`), \`presentations\` (optional \`presentations: [{ id, title, eventOrConference, role, location, date, url, highlights, description }]\`), \`publications\` (optional Writing & Publications including \`'preprint' | 'technical_article' | 'research_report'\`, \`role\`, \`highlights\`), \`program-committees\` (optional \`programCommittees: [{ id, role, conferenceOrOrganization, year, location, url, description }]\`), \`education\` (with optional \`thesisTitle\`, \`supervisor\`, \`scholarships\`, \`honors\`), \`leadership\` (optional Extracurricular Activity, Volunteering & Skills), \`custom-sections\` (optional Certifications, Languages, Referees, Custom Sections). Detect \`researchDiscipline\` early ('computer-science' | 'cybersecurity' | 'electronics' | 'mechanical-engineering' | 'biotechnology' | 'physics-mathematics' | 'social-sciences' | 'other'). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent quotes, DOIs, papers, rankings, fellowships, committee roles, dates, or unconfirmed language ratings. Accept skipping any optional section cleanly.
    - For Executive Resume ("executive-resume"): Ask ONE focused question at a time across these 11 sections: \`personalInfo\`, \`philosophy\` (MY LIFE PHILOSOPHY quote + \`philosophyExplanation\` + optional \`objective\`/\`managementStyle\`/\`strategicDomains\`), \`experience\` (EXPERIENCE with optional \`teamSize\` and \`results\`), \`achievements\` (MOST PROUD OF with \`icon\`: 'trophy'|'heart'|'chart'|'award'|'star', \`challenge\`, \`actionTaken\`, \`outcome\`), \`strengths\` (STRENGTHS outline tags), \`daily-life\` (A DAY OF MY LIFE optional percentage <= 100% or hours <= 24h), \`education\` (EDUCATION with optional \`honors\`), \`languages\` (LANGUAGES 5-dot scale), \`publications\` (PUBLICATIONS & SPEAKING), \`references\` (REFEREES with \`referencesDisplayMode\` 'detailed'|'on-request'|'hidden'), \`custom-sections\` (Board Roles, Projects, Leadership, Volunteer, Memberships & Custom Sections). Detect \`executiveRoleType\` early ('ceo' | 'cto' | 'cfo' | 'coo' | 'hr-director' | 'marketing-director' | 'founder' | 'other'). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent financial/revenue figures, percentages, team sizes, personal quotes, \`dailyActivities\` numbers, language dot scores, or referee contacts! Only save values explicitly stated by the user. Accept skipping any optional section cleanly.
    - For Creative Professional ("creative-professional"): Ask ONE focused question at a time across: \`personalInfo\`, \`experience\` (SHORT RESUME), \`education\` (DEGREES), \`skills\` (SKILLS), \`proficiency-circles\` (Dynamic Circular Proficiency Heading), \`skill-bars\` (SKILLS & PROFICIENCY), \`communication\` (COMMUNICATION SKILLS), \`certifications\` (CERTIFICATES & GRANTS), \`languages\` (LANGUAGES), \`publications\` (TALKS & PUBLICATIONS), \`custom-sections\`. Detect \`creativeProfession\` early ('developer' | 'designer' | 'cybersecurity' | 'marketing' | 'researcher' | 'engineer' | 'other') and extract factual fields (\`creativeSkillItems\`, \`circularProficiencies\`, \`creativeSkillBars\`, \`communicationSkills\`, \`personalInfo.specialization\`, \`personalInfo.tagline\`, \`personalQuote\`). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent percentages (0-100) for \`circularProficiencies\` or \`creativeSkillBars\`, never invent quotes, metrics, or unconfirmed language levels! Only include percentage ratings if the user explicitly stated a number.
    - For Engineering Resume ("engineering-resume"): Ask ONE focused question at a time across these 9 steps: \`personalInfo\`, \`objective\`, \`education\`, \`skills\`, \`projects\`, \`experience\`, \`leadership\`, \`achievements\`, \`custom-sections\`. Detect \`engineeringBranch\` early ('mechanical' | 'cse-it' | 'ece' | 'ee' | 'civil' | 'chemical' | 'other', plus optional \`customEngineeringBranch\`) and adapt terminology naturally (e.g., SolidWorks/ANSYS/GD&T for Mechanical, DSA/React/APIs for CSE/IT, Verilog/STM32/KiCad for ECE, MATLAB/ETAP/PLC for EE, AutoCAD/STAAD.Pro/ETABS for Civil, Aspen Plus/HYSYS for Chemical). Collect:
@@ -595,7 +617,43 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
     const isEngineeringResumeTemplate = resume?.template === 'engineering-resume';
     const isCreativeProfessionalTemplate = resume?.template === 'creative-professional';
     const isExecutiveResumeTemplate = resume?.template === 'executive-resume';
-    const auditPrompt = isExecutiveResumeTemplate
+    const isResearchScholarTemplate = resume?.template === 'research-scholar';
+    const auditPrompt = isResearchScholarTemplate
+      ? `You are a distinguished academic search committee chair and industrial R&D lead reviewing a Research Scholar CV (Awesome CV layout).
+Analyze this Research Scholar CV across its structured sections:
+(header, objective [Summary], research-interests [optional Research Interests & Methodologies], experience [Work & Research Experience], research [optional Academic Research Appointments], projects [optional Research & Technical Projects], achievements [optional Categorized Honors & Awards], presentations [optional Presentations], publications [optional Writing & Publications], program-committees [optional Program Committees], education [Education], leadership [optional Extracurricular Activity, Volunteering & Skills], custom-sections [optional Certifications, Languages, Referees & Custom Sections]).
+
+RESEARCH DISCIPLINE: ${resume.researchDiscipline || 'computer-science'}${resume.customResearchDiscipline ? ` (${resume.customResearchDiscipline})` : ''}
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'objective', 'research-interests', 'experience', 'research', 'projects', 'achievements', 'presentations', 'publications', 'program-committees', 'education', 'leadership', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty optional sections ('research-interests', 'research', 'projects', 'achievements', 'presentations', 'publications', 'program-committees', 'leadership', 'custom-sections') or omitted optional personal quote.
+4. NEVER suggest inventing quotes, DOIs, papers, rankings, awards, committee memberships, or unconfirmed language levels.
+5. Calculate overallScore (0 to 100) and top 3-4 concise, factual scholarly recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isExecutiveResumeTemplate
       ? `You are a senior executive search partner and board advisor reviewing an Executive Resume (Two-Column AltaCV Executive C-Suite CV).
 Analyze this Executive Resume across its 11 structured sections:
 (header, philosophy [optional My Life Philosophy & Executive Summary], experience [Executive Experience], achievements [optional Most Proud Of], strengths [optional Executive Strengths], daily-life [optional A Day of My Life in % or hours], education, languages [optional Languages], publications [optional Publications & Speaking], references [optional Referees], custom-sections [optional Board Advisory, Projects, Leadership & Custom Sections]).
@@ -1069,12 +1127,17 @@ Return a valid JSON object matching:
   }
 });
 
+const httpServer = http.createServer(app);
+
 /* ========================================================================== */
 /* VITE MIDDLEWARE & STATIC ASSET SERVING                                      */
 /* ========================================================================== */
 if (process.env.NODE_ENV !== 'production') {
   const vite = await createViteServer({
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+    },
     appType: 'spa',
   });
   app.use(vite.middlewares);
@@ -1085,6 +1148,10 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-app.listen(port, '0.0.0.0', () => {
+httpServer.on('error', (err) => {
+  console.error('Server error:', err);
+});
+
+httpServer.listen(port, '0.0.0.0', () => {
   console.log(`Server listening on port ${port}`);
 });

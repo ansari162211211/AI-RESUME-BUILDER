@@ -27,11 +27,14 @@ import {
   buildJakesAddressString,
   buildLocationString,
   buildModernCorporateContactItems,
+  buildResearchScholarAddressLine,
+  buildResearchScholarContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkPairs,
   chunkRows,
   cleanHighlights,
+  formatAwesomeCvFooterDate,
   getCourseworkItems,
   getCreativeCategorizedSkills,
   getCreativeCertificatesAndGrants,
@@ -54,6 +57,11 @@ import {
   getInternshipSkillRows,
   getOrderedVisibleSections,
   getPublicationParts,
+  getResearchScholarAwardsGrouped,
+  getResearchScholarExtracurricularEntries,
+  getResearchScholarPresentations,
+  getResearchScholarProgramCommittees,
+  getResearchScholarResearchInterests,
   getSectionDisplayTitle,
   getSkillMatrixLevelLabel,
   getSoftwareDevAdditionalSubsections,
@@ -61,12 +69,15 @@ import {
   groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
+  splitAwesomeCvHeading,
+  splitAwesomeCvName,
   splitCreativeName,
   type ContactLinkItem,
   type CreativeContactKind,
   type ElegantSerifContactKind,
   type InternshipContactKind,
   type ModernCorporateContactKind,
+  type ResearchScholarContactKind,
   type TwoColumnContactKind,
   type TwoColumnPubCategoryKey,
 } from '../../utils/resumePresentation';
@@ -187,6 +198,8 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   const isCreativeProfessional =
     template.id === 'creative-professional' || template.layout === 'two-column-creative';
   const isExecutiveResume = template.id === 'executive-resume';
+  const isResearchScholar =
+    template.id === 'research-scholar' || template.headerVariant === 'awesome-cv-centered';
   const fontClass = custom.fontFamily === 'serif' ? 'font-cv-serif' : 'font-cv-sans';
   const isTwoColumnSidebar =
     template.layout === 'sidebar-light' || template.layout === 'sidebar-dark';
@@ -700,6 +713,39 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             />
           </div>
         );
+      case 'awesome-cv-rule': {
+        const { accentPrefix, restTitle } = splitAwesomeCvHeading(title);
+        return (
+          <div
+            className="cv-heading flex items-end"
+            style={{
+              gap: '6pt',
+              marginBottom: '5.5pt',
+            }}
+          >
+            <h2
+              className="font-bold shrink-0"
+              style={{
+                fontSize: `${scale.headingPt + 1.75}pt`,
+                letterSpacing: '0.15pt',
+                lineHeight: 1.15,
+                color: custom.textColor || '#333333',
+              }}
+            >
+              <span style={{ color }}>{accentPrefix}</span>
+              <span style={{ color: custom.textColor || '#333333' }}>{restTitle}</span>
+            </h2>
+            <span
+              style={{
+                flex: 1,
+                height: '0.65pt',
+                backgroundColor: '#555555',
+                marginBottom: '2.2pt',
+              }}
+            />
+          </div>
+        );
+      }
       case 'uppercase-rule':
       default:
         return (
@@ -1291,6 +1337,68 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
   };
 
+  const renderAwesomeCvContactIcon = (kind: ResearchScholarContactKind, color = '#333333') => {
+    const size = '7.8pt';
+    const baseStyle: React.CSSProperties = {
+      marginRight: '2.5pt',
+      flexShrink: 0,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+    };
+    switch (kind) {
+      case 'phone':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z" />
+          </svg>
+        );
+      case 'email':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" style={baseStyle}>
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path d="M22 6l-10 7L2 6" />
+          </svg>
+        );
+      case 'website':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" style={baseStyle}>
+            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1v-9.5z" />
+          </svg>
+        );
+      case 'github':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+          </svg>
+        );
+      case 'linkedin':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+          </svg>
+        );
+      case 'orcid':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" style={baseStyle}>
+            <circle cx="12" cy="12" r="10.5" fill={color} />
+            <text x="12" y="15.5" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="#ffffff" fontFamily="sans-serif">
+              iD
+            </text>
+          </svg>
+        );
+      case 'other':
+      case 'custom':
+      default:
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+        );
+    }
+  };
+
   // Header renderer for the distinct header variants
   const renderHeader = (): React.ReactNode => {
     const nameText = personalInfo.fullName || 'FULL NAME';
@@ -1298,6 +1406,116 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     const textCol = custom.textColor;
 
     switch (template.headerVariant) {
+      case 'awesome-cv-centered': {
+        const { firstPart, lastPart } = splitAwesomeCvName(nameText);
+        const items = buildResearchScholarContactItems(personalInfo);
+        const addressLine = buildResearchScholarAddressLine(personalInfo);
+        const titleParts = [
+          personalInfo.jobTitle?.trim(),
+          personalInfo.specialization?.trim() &&
+          !personalInfo.jobTitle?.trim().toLowerCase().includes(personalInfo.specialization.trim().toLowerCase())
+            ? personalInfo.specialization.trim()
+            : '',
+        ].filter(Boolean);
+        const quoteText = effectiveResume.personalQuote?.trim();
+
+        return (
+          <header className="text-center" style={{ marginBottom: '7pt' }}>
+            <h1
+              style={{
+                fontSize: `${scale.namePt + 5}pt`,
+                letterSpacing: '0.25pt',
+                lineHeight: 1.08,
+                marginBottom: '3pt',
+              }}
+            >
+              {firstPart ? (
+                <span style={{ fontWeight: 300, color: '#555555' }}>{firstPart} </span>
+              ) : null}
+              <span style={{ fontWeight: 800, color: '#222222' }}>{lastPart || nameText}</span>
+            </h1>
+
+            {titleParts.length > 0 && (
+              <div
+                className="uppercase"
+                style={{
+                  fontSize: `${scale.metaPt}pt`,
+                  fontWeight: 500,
+                  letterSpacing: '0.6pt',
+                  color: accent,
+                  lineHeight: 1.25,
+                  marginBottom: '2pt',
+                }}
+              >
+                {titleParts.join(' · ')}
+              </div>
+            )}
+
+            {addressLine && (
+              <div
+                className="italic"
+                style={{
+                  fontSize: `${scale.metaPt - 0.15}pt`,
+                  color: '#6b7280',
+                  lineHeight: 1.3,
+                  marginBottom: '2.5pt',
+                }}
+              >
+                {addressLine}
+              </div>
+            )}
+
+            {items.length > 0 && (
+              <div
+                className="flex flex-wrap items-center justify-center"
+                style={{
+                  fontSize: `${Math.max(6.4, scale.metaPt - 0.4)}pt`,
+                  color: '#333333',
+                  lineHeight: 1.35,
+                  rowGap: '2pt',
+                }}
+              >
+                {items.map((item, idx) => (
+                  <span key={`${item.kind}-${idx}`} className="inline-flex items-center whitespace-nowrap">
+                    {idx > 0 && (
+                      <span style={{ color: '#9ca3af', margin: '0 2.8pt' }}>|</span>
+                    )}
+                    {renderAwesomeCvContactIcon(item.kind, '#333333')}
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target={item.url.startsWith('http') ? '_blank' : undefined}
+                        rel={item.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className="no-underline hover:underline"
+                        style={{ color: '#333333' }}
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {quoteText && (
+              <div
+                className="italic"
+                style={{
+                  fontSize: `${scale.metaPt + 0.25}pt`,
+                  color: accent,
+                  marginTop: '6pt',
+                  lineHeight: 1.35,
+                }}
+              >
+                &ldquo;{quoteText.replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '')}&rdquo;
+              </div>
+            )}
+          </header>
+        );
+      }
+
       case 'creative-centered': {
         const { firstPart, lastPart } = splitCreativeName(nameText);
         const items = buildCreativeContactItems(personalInfo);
@@ -3140,6 +3358,94 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               });
             });
           }
+          if (isResearchScholar) {
+            const extraScholarMeta = [
+              effectiveResume.yearsOfResearchExperience?.trim()
+                ? `Experience: ${effectiveResume.yearsOfResearchExperience.trim()}`
+                : '',
+              effectiveResume.researchFocusSummary?.trim() &&
+              !paragraphs.some((p) =>
+                p.toLowerCase().includes(effectiveResume.researchFocusSummary!.trim().toLowerCase())
+              )
+                ? `Focus: ${effectiveResume.researchFocusSummary.trim()}`
+                : '',
+            ].filter(Boolean);
+            if (extraScholarMeta.length > 0 && paragraphs.length === 0) {
+              list.push({
+                id: 'objective-scholar-focus',
+                spacing: 'section',
+                sectionHeading: sectionTitle,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <p
+                      style={{
+                        fontSize: `${scale.baseFontPt - 0.25}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: textCol,
+                      }}
+                    >
+                      {extraScholarMeta.join(' · ')}
+                    </p>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            }
+          }
+          break;
+        }
+
+        case 'research-interests': {
+          const keywords = getResearchScholarResearchInterests(effectiveResume);
+          const questions = effectiveResume.researchQuestions?.trim() || '';
+          const methodologies = effectiveResume.researchMethodologies?.trim() || '';
+          const focusSummary = effectiveResume.researchFocusSummary?.trim() || '';
+          const hasRows =
+            keywords.length > 0 || Boolean(questions) || Boolean(methodologies) || Boolean(focusSummary);
+          if (hasRows) {
+            list.push({
+              id: 'research-interests-block',
+              spacing: 'section',
+              sectionHeading: sectionTitle,
+              isSidebar: options.isSidebar,
+              render: (showHeading) =>
+                wrapLayoutUnit(
+                  sectionTitle,
+                  showHeading,
+                  <div className="cv-entry" style={{ color: textCol, fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight }}>
+                    {keywords.length > 0 && (
+                      <div style={{ marginBottom: questions || methodologies || focusSummary ? '2.5pt' : 0 }}>
+                        <span className="font-semibold" style={{ color: '#222222' }}>Core Areas: </span>
+                        <span style={{ color: subCol }}>{keywords.join(' · ')}</span>
+                      </div>
+                    )}
+                    {focusSummary && (
+                      <div style={{ marginBottom: questions || methodologies ? '2pt' : 0, color: '#4b5563' }}>
+                        <span className="font-semibold" style={{ color: '#222222' }}>Research Focus: </span>
+                        <span>{focusSummary}</span>
+                      </div>
+                    )}
+                    {questions && (
+                      <div style={{ marginBottom: methodologies ? '2pt' : 0, color: '#4b5563' }}>
+                        <span className="font-semibold" style={{ color: '#222222' }}>Research Questions: </span>
+                        <span>{questions}</span>
+                      </div>
+                    )}
+                    {methodologies && (
+                      <div style={{ color: '#4b5563' }}>
+                        <span className="font-semibold" style={{ color: '#222222' }}>Methodologies &amp; Tools: </span>
+                        <span>{methodologies}</span>
+                      </div>
+                    )}
+                  </div>,
+                  options.inverted,
+                  options.isSidebar
+                ),
+            });
+          }
           break;
         }
 
@@ -3917,6 +4223,117 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                       </div>
                     )
+                  ) : isResearchScholar ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                        <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                          {edu.institution}
+                          {edu.board?.trim() ? ` (${edu.board.trim()})` : ''}
+                        </span>
+                        {edu.location && (
+                          <span
+                            className="italic shrink-0"
+                            style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}
+                          >
+                            {edu.location}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className="flex justify-between items-baseline"
+                        style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                      >
+                        <span
+                          className="uppercase"
+                          style={{
+                            fontSize: `${scale.metaPt - 0.15}pt`,
+                            letterSpacing: '0.25pt',
+                            color: '#4b5563',
+                          }}
+                        >
+                          {edu.degree}
+                          {edu.specialization ? ` IN ${edu.specialization}` : ''}
+                        </span>
+                        {(edu.startDate || edu.endDate || edu.current) && (
+                          <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                            {edu.startDate ? `${edu.startDate} – ` : ''}
+                            {edu.current ? 'Present' : edu.endDate}
+                          </span>
+                        )}
+                      </div>
+                      {edu.grade?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            GPA: {edu.grade.trim()}
+                            {edu.gradingScale?.trim() && !edu.grade.includes('/') ? ` / ${edu.gradingScale.trim()}` : ''}
+                          </span>
+                        </div>
+                      )}
+                      {edu.thesisTitle?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Thesis: <em style={{ color: '#222222' }}>{edu.thesisTitle.trim()}</em>
+                            {edu.supervisor?.trim() ? ` (Advisor: ${edu.supervisor.trim()})` : ''}
+                          </span>
+                        </div>
+                      )}
+                      {!edu.thesisTitle?.trim() && edu.supervisor?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Supervisor: {edu.supervisor.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {edu.scholarships?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {edu.scholarships.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {(edu.honors?.trim() || edu.achievements?.trim()) && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {edu.honors?.trim() || edu.achievements?.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {courseworkList.length > 0 && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Coursework: {courseworkList.join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      {edu.description?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {edu.description.trim()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="cv-entry" style={{ color: textCol, paddingLeft: isJakes ? '8pt' : undefined }}>
                       <div
@@ -4648,6 +5065,101 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           )}
                         </div>
                       )
+                    ) : isResearchScholar ? (
+                      <div className="cv-entry" style={{ color: textCol }}>
+                        {categoryHeadingForThisItem && (
+                          <div
+                            className="font-bold uppercase"
+                            style={{
+                              fontSize: `${scale.metaPt}pt`,
+                              letterSpacing: '0.6pt',
+                              color: custom.accentColor,
+                              marginBottom: '3pt',
+                              marginTop: gIdx > 0 ? '2pt' : '0pt',
+                            }}
+                          >
+                            {categoryHeadingForThisItem}
+                          </div>
+                        )}
+                        <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                          <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                            {exp.company}
+                            {exp.department?.trim() ? `, ${exp.department.trim()}` : ''}
+                          </span>
+                          {exp.location && (
+                            <span
+                              className="italic shrink-0"
+                              style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}
+                            >
+                              {exp.location}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                        >
+                          <span
+                            className="uppercase"
+                            style={{
+                              fontSize: `${scale.metaPt - 0.15}pt`,
+                              letterSpacing: '0.25pt',
+                              color: '#4b5563',
+                            }}
+                          >
+                            {exp.position}
+                            {exp.employmentType?.trim() ? ` (${exp.employmentType.trim()})` : ''}
+                          </span>
+                          {expDateRange && (
+                            <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                              {expDateRange}
+                            </span>
+                          )}
+                        </div>
+                        {exp.description?.trim() && (
+                          <p style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', marginBottom: '1.5pt' }}>
+                            {exp.description.trim()}
+                          </p>
+                        )}
+                        {exp.results?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', marginBottom: '1.5pt' }}>
+                            <span className="font-semibold" style={{ color: '#222222' }}>Outcomes: </span>
+                            <span>{exp.results.trim()}</span>
+                          </div>
+                        )}
+                        {exp.technologies && exp.technologies.length > 0 && (
+                          <div style={{ fontSize: `${scale.metaPt - 0.2}pt`, color: '#6b7280', marginBottom: '1.5pt' }}>
+                            <span className="font-semibold" style={{ color: '#4b5563' }}>Tools &amp; Methods: </span>
+                            <span>{exp.technologies.join(', ')}</span>
+                          </div>
+                        )}
+                        {firstBullet && (
+                          <>
+                            <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '6pt' }}>
+                              <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                                {bulletChar}
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                                {firstBullet}
+                              </span>
+                            </div>
+                            {(subMap.get(0) || []).map((subItem, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex items-start"
+                                style={{ marginTop: '1pt', paddingLeft: '16pt', color: '#4b5563' }}
+                              >
+                                <span style={{ width: '8pt', fontSize: `${scale.bodyPt - 0.1}pt`, flexShrink: 0 }}>
+                                  –
+                                </span>
+                                <span style={{ fontSize: `${scale.bodyPt - 0.25}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                  {subItem}
+                                </span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
                     ) : (
                       <div className="cv-entry" style={{ color: textCol, paddingLeft: isJakes ? '8pt' : undefined }}>
                         {categoryHeadingForThisItem && (
@@ -4861,12 +5373,12 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         <div style={{ color: textCol }}>
                           <div
                             className="cv-entry flex items-start"
-                            style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro || isExecutiveResume ? '2pt' : '8pt' }}
+                            style={{ paddingLeft: isJakes ? '18pt' : isResearchScholar ? '6pt' : isTwoColumnPro || isExecutiveResume ? '2pt' : '8pt' }}
                           >
-                            <span style={{ width: isTwoColumnPro || isExecutiveResume ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro || isExecutiveResume ? '#4b5563' : undefined }}>
+                            <span style={{ width: isTwoColumnPro || isExecutiveResume || isResearchScholar ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro || isExecutiveResume || isResearchScholar ? '#4b5563' : undefined }}>
                               {bulletChar}
                             </span>
-                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                            <span style={{ fontSize: `${isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : undefined, flex: 1 }}>
                               {hl}
                             </span>
                           </div>
@@ -5071,6 +5583,114 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                       </div>
                     )
+                  ) : isResearchScholar ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                        <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                          {res.institution?.trim() || res.title}
+                        </span>
+                        {res.location && (
+                          <span
+                            className="italic shrink-0"
+                            style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}
+                          >
+                            {res.location}
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className="flex justify-between items-baseline"
+                        style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                      >
+                        <span
+                          className="uppercase"
+                          style={{
+                            fontSize: `${scale.metaPt - 0.15}pt`,
+                            letterSpacing: '0.25pt',
+                            color: '#4b5563',
+                          }}
+                        >
+                          {[res.role?.trim(), res.institution?.trim() ? res.title?.trim() : '', res.domain?.trim()]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                        {dateRange && (
+                          <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                            {dateRange}
+                          </span>
+                        )}
+                      </div>
+                      {res.supervisor?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Supervisor: {res.supervisor.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {res.objectives?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {res.objectives.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {res.methodology?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Methodology: {res.methodology.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {res.findings?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Findings: {res.findings.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {res.outcomes?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Outcomes: {res.outcomes.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {res.technologies && res.technologies.length > 0 && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Tools &amp; Techniques: {res.technologies.join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      {res.publications?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            Output: <em style={{ color: '#222222' }}>{res.publications.trim()}</em>
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="cv-entry" style={{ color: textCol }}>
                       <div className="flex justify-between items-baseline font-bold" style={{ fontSize: `${scale.entryTitlePt}pt` }}>
@@ -5324,6 +5944,115 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           </a>
                         </div>
                       )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+          } else if (isResearchScholar) {
+            (effectiveResume.publications || []).forEach((pub, idx) => {
+              const { doiUrl, venue } = getPublicationParts(pub);
+              const extUrl = pub.url?.trim()
+                ? pub.url.trim().startsWith('http')
+                  ? pub.url.trim()
+                  : `https://${pub.url.trim()}`
+                : doiUrl;
+              const rightTopLabel = pub.location?.trim() || (pub.status && pub.status !== 'Published' ? pub.status : '');
+              const subtitleLeft = [pub.role?.trim(), venue, pub.type && !venue ? pub.type.replace(/_/g, ' ') : '']
+                .filter(Boolean)
+                .join(' · ');
+              const dateRight = pub.publicationDate?.trim() || pub.year?.trim() || '';
+              const pubBullets = cleanHighlights(pub.highlights);
+
+              list.push({
+                id: `rs-pub-${pub.id}`,
+                spacing: idx === 0 ? 'section' : 'entry',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                        <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                          {pub.title}
+                        </span>
+                        {rightTopLabel && (
+                          <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}>
+                            {rightTopLabel}
+                          </span>
+                        )}
+                      </div>
+                      {(subtitleLeft || dateRight) && (
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                        >
+                          <span
+                            className="uppercase"
+                            style={{
+                              fontSize: `${scale.metaPt - 0.15}pt`,
+                              letterSpacing: '0.25pt',
+                              color: '#4b5563',
+                            }}
+                          >
+                            {subtitleLeft}
+                          </span>
+                          {dateRight && (
+                            <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                              {dateRight}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {(pub.authors?.trim() || pub.volume || pub.issue || pub.pages || pub.doi || extUrl) && (
+                        <div style={{ fontSize: `${scale.bodyPt - 0.1}pt`, color: '#4b5563', lineHeight: scale.lineHeight, paddingLeft: '6pt', marginTop: '1pt' }}>
+                          {pub.authors?.trim() && <span>{pub.authors.trim()}</span>}
+                          {pub.volume && <span>{pub.authors?.trim() ? ', ' : ''}Vol. {pub.volume}</span>}
+                          {pub.issue && <span> ({pub.issue})</span>}
+                          {pub.pages && <span>, {pub.pages}</span>}
+                          {(pub.doi || extUrl) && (
+                            <span>
+                              {pub.authors?.trim() || pub.volume || pub.pages ? ' · ' : ''}
+                              {extUrl ? (
+                                <a
+                                  href={extUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="no-underline hover:underline break-all"
+                                  style={{ color: custom.accentColor }}
+                                >
+                                  {pub.doi ? `DOI: ${pub.doi}` : pub.url?.replace(/^https?:\/\//, '')}
+                                </a>
+                              ) : (
+                                <span>DOI: {pub.doi}</span>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {pub.description?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {pub.description.trim()}
+                          </span>
+                        </div>
+                      )}
+                      {pubBullets.map((b, bIdx) => (
+                        <div key={bIdx} className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {b}
+                          </span>
+                        </div>
+                      ))}
                     </div>,
                     options.inverted,
                     options.isSidebar
@@ -5996,6 +6725,90 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         </div>
                       )}
                     </div>
+                  ) : isResearchScholar ? (
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                            {proj.title}
+                          </span>
+                          {(proj.githubUrl || proj.link) && (
+                            <span style={{ fontSize: `${scale.metaPt - 0.15}pt`, marginLeft: '5pt' }}>
+                              {proj.githubUrl && (
+                                <a
+                                  href={proj.githubUrl.startsWith('http') ? proj.githubUrl : `https://${proj.githubUrl}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                  style={{ color: custom.accentColor, marginRight: proj.link ? '4pt' : 0 }}
+                                >
+                                  [Code]
+                                </a>
+                              )}
+                              {proj.link && (
+                                <a
+                                  href={proj.link.startsWith('http') ? proj.link : `https://${proj.link}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:underline"
+                                  style={{ color: custom.accentColor }}
+                                >
+                                  [Link]
+                                </a>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        {(proj.institution?.trim() || proj.domain?.trim()) && (
+                          <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}>
+                            {proj.institution?.trim() || proj.domain?.trim()}
+                          </span>
+                        )}
+                      </div>
+                      {(proj.projectType?.trim() || (proj.technologies && proj.technologies.length > 0) || proj.startDate || proj.endDate) && (
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                        >
+                          <span
+                            className="uppercase"
+                            style={{
+                              fontSize: `${scale.metaPt - 0.15}pt`,
+                              letterSpacing: '0.25pt',
+                              color: '#4b5563',
+                            }}
+                          >
+                            {[
+                              proj.projectType?.trim(),
+                              proj.technologies && proj.technologies.length > 0 ? proj.technologies.join(', ') : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                          {(proj.startDate || proj.endDate || proj.current) && (
+                            <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                              {proj.startDate}
+                              {proj.current ? ' – Present' : proj.endDate && proj.endDate !== proj.startDate ? ` – ${proj.endDate}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {proj.description?.trim() && (
+                        <p style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', marginBottom: '1.5pt' }}>
+                          {proj.description.trim()}
+                        </p>
+                      )}
+                      {firstBullet && (
+                        <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {firstBullet}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="cv-entry" style={{ color: textCol }}>
                       <div
@@ -6113,12 +6926,12 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                     ) : (
                       <div
                         className="cv-entry flex items-start"
-                        style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro ? '2pt' : '8pt', color: textCol }}
+                        style={{ paddingLeft: isJakes ? '18pt' : isResearchScholar ? '6pt' : isTwoColumnPro ? '2pt' : '8pt', color: textCol }}
                       >
-                        <span style={{ width: isTwoColumnPro ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro ? '#4b5563' : undefined }}>
+                        <span style={{ width: isTwoColumnPro || isResearchScholar ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro || isResearchScholar ? '#4b5563' : undefined }}>
                           {bulletChar}
                         </span>
-                        <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                        <span style={{ fontSize: `${isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : undefined, flex: 1 }}>
                           {hl}
                         </span>
                       </div>
@@ -7028,6 +7841,109 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             break;
           }
 
+          if (isResearchScholar) {
+            const awardGroups = getResearchScholarAwardsGrouped(effectiveResume.achievements);
+            let emittedBlocks = 0;
+            awardGroups.forEach((group, gIdx) => {
+              // Chunk into intact category groups (up to 4 items per chunk so category headings don't orphan across pages)
+              const chunkSize = 4;
+              for (let start = 0; start < group.items.length; start += chunkSize) {
+                const chunk = group.items.slice(start, start + chunkSize);
+                const isFirstOverall = emittedBlocks === 0;
+                const isFirstChunkInGroup = start === 0;
+                emittedBlocks += 1;
+
+                list.push({
+                  id: `rs-ach-${group.categoryKey}-${start}`,
+                  spacing: isFirstOverall ? 'section' : isFirstChunkInGroup && gIdx > 0 ? 'entry' : 'compact',
+                  sectionHeading: isFirstOverall ? sectionTitle : undefined,
+                  isSidebar: options.isSidebar,
+                  render: (showHeading) =>
+                    wrapLayoutUnit(
+                      sectionTitle,
+                      showHeading,
+                      <div className="cv-entry" style={{ color: textCol }}>
+                        {isFirstChunkInGroup && group.heading && (
+                          <div
+                            className="uppercase font-medium"
+                            style={{
+                              fontSize: `${scale.metaPt}pt`,
+                              letterSpacing: '0.4pt',
+                              color: '#4b5563',
+                              marginBottom: '2pt',
+                            }}
+                          >
+                            {group.heading}
+                          </div>
+                        )}
+                        <div className="flex flex-col" style={{ gap: '1.5pt' }}>
+                          {chunk.map((ach) => {
+                            const boldParts = [ach.rank?.trim(), ach.title?.trim()].filter(Boolean).join(', ');
+                            const extraDetail = [
+                              ach.issuer?.trim() ? `(${ach.issuer.trim()})` : '',
+                              ach.description?.trim() || '',
+                            ]
+                              .filter(Boolean)
+                              .join(' — ');
+                            const cleanAwardUrl = ach.url?.trim()
+                              ? ach.url.trim().startsWith('http')
+                                ? ach.url.trim()
+                                : `https://${ach.url.trim()}`
+                              : null;
+
+                            return (
+                              <div
+                                key={ach.id}
+                                className="flex items-baseline"
+                                style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, gap: '6pt' }}
+                              >
+                                <span className="shrink-0" style={{ width: '36pt', color: '#4b5563', fontSize: `${scale.metaPt - 0.1}pt` }}>
+                                  {ach.date?.trim() || ''}
+                                </span>
+                                <div style={{ flex: 1, minWidth: 0, color: '#333333' }}>
+                                  <span className="font-bold" style={{ color: '#222222' }}>
+                                    {boldParts || ach.title}
+                                  </span>
+                                  {extraDetail ? (
+                                    <span style={{ color: '#4b5563' }}>
+                                      {boldParts ? ', ' : ''}
+                                      {extraDetail}
+                                    </span>
+                                  ) : null}
+                                  {cleanAwardUrl && (
+                                    <>
+                                      {' '}
+                                      <a
+                                        href={cleanAwardUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="hover:underline"
+                                        style={{ color: custom.accentColor, fontSize: `${scale.metaPt - 0.2}pt` }}
+                                      >
+                                        [Link]
+                                      </a>
+                                    </>
+                                  )}
+                                </div>
+                                {ach.location?.trim() && (
+                                  <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.1}pt`, color: custom.accentColor }}>
+                                    {ach.location.trim()}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>,
+                      options.inverted,
+                      options.isSidebar
+                    ),
+                });
+              }
+            });
+            break;
+          }
+
           (effectiveResume.achievements || []).forEach((ach, idx) => {
             list.push({
               id: `ach-${ach.id}`,
@@ -7229,7 +8145,257 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
           break;
         }
 
+        case 'presentations': {
+          const presentations = getResearchScholarPresentations(effectiveResume);
+          presentations.forEach((pres, idx) => {
+            const roleTitleLine =
+              pres.role?.trim() && pres.title?.trim()
+                ? `${pres.role.trim().toUpperCase()} FOR <${pres.title.trim().toUpperCase()}>`
+                : (pres.title?.trim() || pres.role?.trim() || '').toUpperCase();
+            const bullets = cleanHighlights(pres.highlights);
+            const firstBullet = bullets[0];
+            const remainingBullets = bullets.slice(1);
+            const cleanUrl = pres.url?.trim()
+              ? pres.url.trim().startsWith('http')
+                ? pres.url.trim()
+                : `https://${pres.url.trim()}`
+              : null;
+
+            list.push({
+              id: `pres-head-${pres.id}`,
+              spacing: idx === 0 ? 'section' : 'entry',
+              sectionHeading: idx === 0 ? sectionTitle : undefined,
+              isSidebar: options.isSidebar,
+              render: (showHeading) =>
+                wrapLayoutUnit(
+                  sectionTitle,
+                  showHeading,
+                  <div className="cv-entry" style={{ color: textCol }}>
+                    <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                          {pres.eventOrConference?.trim() || pres.title}
+                        </span>
+                        {cleanUrl && (
+                          <a
+                            href={cleanUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                            style={{ color: custom.accentColor, fontSize: `${scale.metaPt - 0.2}pt`, marginLeft: '5pt' }}
+                          >
+                            [Slides/Link]
+                          </a>
+                        )}
+                      </div>
+                      {pres.location?.trim() && (
+                        <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}>
+                          {pres.location.trim()}
+                        </span>
+                      )}
+                    </div>
+                    {(roleTitleLine || pres.date?.trim()) && (
+                      <div
+                        className="flex justify-between items-baseline"
+                        style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                      >
+                        <span
+                          className="uppercase"
+                          style={{
+                            fontSize: `${scale.metaPt - 0.15}pt`,
+                            letterSpacing: '0.25pt',
+                            color: '#4b5563',
+                          }}
+                        >
+                          {roleTitleLine}
+                        </span>
+                        {pres.date?.trim() && (
+                          <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                            {pres.date.trim()}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {pres.description?.trim() && (
+                      <p style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', marginBottom: '1.5pt' }}>
+                        {pres.description.trim()}
+                      </p>
+                    )}
+                    {firstBullet && (
+                      <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '6pt' }}>
+                        <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                          {firstBullet}
+                        </span>
+                      </div>
+                    )}
+                  </div>,
+                  options.inverted,
+                  options.isSidebar
+                ),
+            });
+
+            remainingBullets.forEach((hl, bIdx) => {
+              list.push({
+                id: `pres-bullet-${pres.id}-${bIdx}`,
+                spacing: 'bullet',
+                isSidebar: options.isSidebar,
+                render: () =>
+                  wrapLayoutUnit(
+                    undefined,
+                    false,
+                    <div className="cv-entry flex items-start" style={{ paddingLeft: '6pt', color: '#4b5563' }}>
+                      <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                        {bulletChar}
+                      </span>
+                      <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                        {hl}
+                      </span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+          });
+          break;
+        }
+
+        case 'program-committees': {
+          const pcs = getResearchScholarProgramCommittees(effectiveResume);
+          pcs.forEach((pc, idx) => {
+            list.push({
+              id: `pc-${pc.id}`,
+              spacing: idx === 0 ? 'section' : 'compact',
+              sectionHeading: idx === 0 ? sectionTitle : undefined,
+              isSidebar: options.isSidebar,
+              render: (showHeading) =>
+                wrapLayoutUnit(
+                  sectionTitle,
+                  showHeading,
+                  <div
+                    className="cv-entry flex items-baseline"
+                    style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, gap: '6pt', color: textCol }}
+                  >
+                    <span className="shrink-0" style={{ width: '36pt', color: '#4b5563', fontSize: `${scale.metaPt - 0.1}pt` }}>
+                      {pc.year?.trim() || ''}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0, color: '#333333' }}>
+                      {pc.role?.trim() && (
+                        <span className="font-bold" style={{ color: '#222222' }}>
+                          {pc.role.trim()}
+                          {pc.conferenceOrOrganization?.trim() ? ', ' : ''}
+                        </span>
+                      )}
+                      {pc.conferenceOrOrganization?.trim() && (
+                        <span style={{ color: '#4b5563' }}>{pc.conferenceOrOrganization.trim()}</span>
+                      )}
+                    </div>
+                    {pc.location?.trim() && (
+                      <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.1}pt`, color: custom.accentColor }}>
+                        {pc.location.trim()}
+                      </span>
+                    )}
+                  </div>,
+                  options.inverted,
+                  options.isSidebar
+                ),
+            });
+          });
+          break;
+        }
+
         case 'leadership': {
+          if (isResearchScholar) {
+            const extraEntries = getResearchScholarExtracurricularEntries(effectiveResume);
+            extraEntries.forEach((entry, idx) => {
+              const firstBullet = entry.highlights[0];
+              const remainingBullets = entry.highlights.slice(1);
+              list.push({
+                id: `rs-lead-head-${entry.id}`,
+                spacing: idx === 0 ? 'section' : 'entry',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div className="cv-entry" style={{ color: textCol }}>
+                      <div className="flex justify-between items-baseline" style={{ gap: '8pt' }}>
+                        <span className="font-bold" style={{ fontSize: `${scale.entryTitlePt}pt`, color: '#222222' }}>
+                          {entry.organization}
+                        </span>
+                        {entry.location && (
+                          <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt}pt`, color: custom.accentColor }}>
+                            {entry.location}
+                          </span>
+                        )}
+                      </div>
+                      {(entry.role || entry.dateRange) && (
+                        <div
+                          className="flex justify-between items-baseline"
+                          style={{ marginTop: '0.5pt', marginBottom: '2pt', gap: '8pt' }}
+                        >
+                          <span
+                            className="uppercase"
+                            style={{
+                              fontSize: `${scale.metaPt - 0.15}pt`,
+                              letterSpacing: '0.25pt',
+                              color: '#4b5563',
+                            }}
+                          >
+                            {entry.role}
+                          </span>
+                          {entry.dateRange && (
+                            <span className="italic shrink-0" style={{ fontSize: `${scale.metaPt - 0.15}pt`, color: '#6b7280' }}>
+                              {entry.dateRange}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {firstBullet && (
+                        <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '6pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#4b5563' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, color: '#4b5563', flex: 1 }}>
+                            {firstBullet}
+                          </span>
+                        </div>
+                      )}
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+
+              remainingBullets.forEach((hl, bIdx) => {
+                list.push({
+                  id: `rs-lead-bullet-${entry.id}-${bIdx}`,
+                  spacing: 'bullet',
+                  isSidebar: options.isSidebar,
+                  render: () =>
+                    wrapLayoutUnit(
+                      undefined,
+                      false,
+                      <div className="cv-entry flex items-start" style={{ paddingLeft: '6pt', color: '#4b5563' }}>
+                        <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0 }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt - 0.1}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                          {hl}
+                        </span>
+                      </div>,
+                      options.inverted,
+                      options.isSidebar
+                    ),
+                });
+              });
+            });
+            break;
+          }
           (effectiveResume.leadership || []).forEach((lead, idx) => {
             const bullets = cleanHighlights(lead.highlights);
             const firstBullet = bullets[0];
@@ -9770,7 +10936,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }),
       fullWidthTopHeader: topBannerHeader,
     };
-  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isInternshipResume, isCreativeProfessional, isExecutiveResume, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
+  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isInternshipResume, isCreativeProfessional, isExecutiveResume, isResearchScholar, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
 
   // Helper to paginate a flat array of units using measured DOM heights
   const paginateUnits = (
@@ -10022,6 +11188,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     isEditorialTwoColumn,
     isInternshipResume,
     isCreativeProfessional,
+    isResearchScholar,
     isTwoColumnSidebar,
     custom,
     scale,
@@ -10030,7 +11197,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   const marginVerticalReservePt =
     scale.marginTopPt +
     scale.marginBottomPt +
-    (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isCreativeProfessional || isExecutiveResume ? 12 : 6);
+    (isEditorialTwoColumn ? 24 : isResearchScholar ? 24 : isModernCorporate ? 14 : isCreativeProfessional || isExecutiveResume ? 12 : 6);
   const displayPages =
     pages.length > 0
       ? pages
@@ -10531,8 +11698,31 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               </div>
             )}
 
+            {/* Awesome CV 3-part per-page footer for Template 14 Research Scholar CV */}
+            {isResearchScholar && (
+              <div
+                className="flex items-center justify-between select-none"
+                style={{
+                  position: 'absolute',
+                  bottom: '16pt',
+                  left: `${scale.marginHorizPt}pt`,
+                  right: `${scale.marginHorizPt}pt`,
+                  fontSize: '7.5pt',
+                  color: '#737373',
+                  letterSpacing: '0.4pt',
+                  zIndex: 2,
+                }}
+              >
+                <span>{formatAwesomeCvFooterDate(effectiveResume.updatedAt)}</span>
+                <span className="text-center">
+                  {(personalInfo.fullName || 'CURRICULUM VITAE').trim().toUpperCase()} · CURRICULUM VITAE
+                </span>
+                <span>{page.pageNumber}</span>
+              </div>
+            )}
+
             {/* Page Number Footer when multi-page or Modern Corporate (1 / N) */}
-            {(isModernCorporate || displayPages.length > 1) && (
+            {!isResearchScholar && (isModernCorporate || displayPages.length > 1) && (
               <div
                 className="text-center select-none"
                 style={{

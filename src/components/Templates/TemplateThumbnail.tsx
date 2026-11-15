@@ -21,7 +21,10 @@ import {
   getInternshipSkillRows,
   getSectionDisplayTitle,
   getOrderedVisibleSections,
+  getResearchScholarAwardsGrouped,
   getVisibleSkills,
+  splitAwesomeCvHeading,
+  splitAwesomeCvName,
   splitCreativeName,
 } from '../../utils/resumePresentation';
 import { getLanguageDotScore } from '../../utils/dailyActivities';
@@ -211,6 +214,19 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
           <div className="text-[6.2px] font-normal truncate" style={{ color: accent }}>
             {label}
           </div>
+        </div>
+      );
+    }
+
+    if (custom.headingStyle === 'awesome-cv-rule' && !inverted) {
+      const { accentPrefix, restTitle } = splitAwesomeCvHeading(label);
+      return (
+        <div className="flex items-end gap-1 mb-1">
+          <div className="text-[6.6px] font-bold leading-none shrink-0">
+            <span style={{ color: accent }}>{accentPrefix}</span>
+            <span style={{ color: '#333333' }}>{restTitle}</span>
+          </div>
+          <div className="flex-1 h-[0.65px] mb-[1px]" style={{ backgroundColor: '#555555' }} />
         </div>
       );
     }
@@ -2093,6 +2109,168 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
               <div className="w-[72%] min-w-0">{renderSectionPreview(k)}</div>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    template.id === 'research-scholar' ||
+    template.headerVariant === 'awesome-cv-centered'
+  ) {
+    const nameSplit = splitAwesomeCvName(personName);
+    const expPreview = (resume?.experience || []).slice(0, 2);
+    const awardGroups = resume
+      ? getResearchScholarAwardsGrouped(resume.achievements).slice(0, 2)
+      : [
+          {
+            categoryKey: 'international' as const,
+            heading: 'INTERNATIONAL',
+            items: [
+              {
+                id: 'rsa1',
+                date: '2023',
+                rank: 'Finalist',
+                title: 'DEFCON 31st CTF World Final',
+                issuer: '',
+                location: 'Las Vegas, U.S.A.',
+              },
+            ],
+          },
+        ];
+    const eduPreview = eduItems.slice(0, 1);
+
+    return (
+      <div
+        aria-hidden="true"
+        className="w-full aspect-[210/297] bg-white overflow-hidden select-none p-2.5 flex flex-col justify-between font-cv-sans text-[#333333]"
+      >
+        <div>
+          {/* Awesome CV Centered Header */}
+          <div className="text-center pb-1 mb-1">
+            <div className="text-[9.5px] leading-tight truncate">
+              {nameSplit.firstPart && (
+                <span className="font-normal text-[#555555]">{nameSplit.firstPart} </span>
+              )}
+              <span className="font-extrabold text-[#222222]">
+                {nameSplit.lastPart || personName}
+              </span>
+            </div>
+            <div
+              className="text-[3.9px] font-medium uppercase tracking-[0.06em] truncate mt-[0.5px]"
+              style={{ color: accent }}
+            >
+              {jobTitle}
+            </div>
+            <div className="text-[3.5px] text-[#6b7280] truncate mt-[0.5px]">
+              {location}
+            </div>
+            <div className="text-[3.5px] font-medium text-[#222222] truncate mt-[0.5px]">
+              {phone} | {email} | github | linkedin
+            </div>
+            {resume?.personalQuote?.trim() && (
+              <div className="text-[3.6px] italic text-[#4b5563] truncate mt-0.5">
+                {resume.personalQuote}
+              </div>
+            )}
+          </div>
+
+          {/* Summary */}
+          <div className="mb-1.5">
+            {renderHeading('objective')}
+            <p className="text-[3.9px] leading-[1.32] line-clamp-2 text-[#4b5563]">
+              {resume?.objective?.trim() ||
+                'Systems engineer and applied security researcher specializing in distributed infrastructure and security telemetry.'}
+            </p>
+          </div>
+
+          {/* Work Experience */}
+          <div className="mb-1.5">
+            {renderHeading('experience')}
+            <div className="space-y-1">
+              {expPreview.map((exp) => (
+                <div key={exp.id}>
+                  <div className="flex justify-between items-baseline gap-1 text-[4.4px]">
+                    <span className="font-bold text-[#222222] truncate">{exp.company}</span>
+                    <span className="italic shrink-0 text-[3.8px]" style={{ color: accent }}>
+                      {exp.location || location}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-baseline gap-1 text-[3.7px]">
+                    <span className="uppercase text-[#4b5563] truncate">{exp.position}</span>
+                    <span className="italic text-[#6b7280] shrink-0">
+                      {exp.startDate} – {exp.current ? 'Present' : exp.endDate}
+                    </span>
+                  </div>
+                  {exp.highlights?.[0] && (
+                    <div className="text-[3.7px] text-[#4b5563] truncate pl-1 mt-[0.5px]">
+                      • {exp.highlights[0]}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Honors & Awards */}
+          {awardGroups.length > 0 && (
+            <div className="mb-1.5">
+              {renderHeading('achievements')}
+              <div className="space-y-0.5">
+                {awardGroups.map((grp) => (
+                  <div key={grp.categoryKey}>
+                    {grp.heading && (
+                      <div className="text-[3.9px] font-semibold uppercase tracking-wide text-[#333333] mb-[1px]">
+                        {grp.heading}
+                      </div>
+                    )}
+                    {grp.items.slice(0, 2).map((aw) => (
+                      <div key={aw.id} className="flex items-baseline gap-1 text-[3.7px] leading-[1.25]">
+                        <span className="w-4 shrink-0 text-[#6b7280]">{aw.date}</span>
+                        <span className="flex-1 truncate text-[#4b5563]">
+                          {aw.rank ? <strong className="text-[#222222]">{aw.rank}, </strong> : null}
+                          {aw.title}
+                        </span>
+                        <span className="italic shrink-0" style={{ color: accent }}>
+                          {aw.location || ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Education */}
+          {eduPreview.length > 0 && (
+            <div>
+              {renderHeading('education')}
+              {eduPreview.map((ed) => (
+                <div key={ed.id}>
+                  <div className="flex justify-between items-baseline gap-1 text-[4.3px]">
+                    <span className="font-bold text-[#222222] truncate">{ed.institution}</span>
+                    <span className="italic shrink-0 text-[3.8px]" style={{ color: accent }}>
+                      {ed.location || ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-baseline gap-1 text-[3.7px]">
+                    <span className="uppercase text-[#4b5563] truncate">{ed.degree}</span>
+                    <span className="italic text-[#6b7280] shrink-0">
+                      {ed.startDate} – {ed.endDate}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between text-[3.3px] uppercase text-[#9ca3af] pt-1 border-t border-slate-100">
+          <span>2026</span>
+          <span className="truncate mx-1">{personName} · CURRICULUM VITAE</span>
+          <span>1</span>
         </div>
       </div>
     );

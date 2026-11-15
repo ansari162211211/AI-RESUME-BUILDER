@@ -232,6 +232,49 @@
           "enum": ["hours", "percentage"],
           "description": "Whether dailyActivities values represent hours (<=24) or percentages (<=100)."
         },
+        "researchDiscipline": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": ["computer-science", "cybersecurity", "electronics", "mechanical-engineering", "biotechnology", "physics-mathematics", "social-sciences", "other"],
+          "description": "Optional research discipline track for Template 14 Research Scholar CV."
+        },
+        "customResearchDiscipline": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional custom research discipline label when researchDiscipline is set to other."
+        },
+        "researchFocusSummary": {
+          "type": "string",
+          "maxLength": 800,
+          "description": "Optional concise research focus statement."
+        },
+        "yearsOfResearchExperience": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Optional years of research or engineering experience."
+        },
+        "researchInterestsList": {
+          "type": "array",
+          "description": "Optional list of specialized research interest keywords or themes."
+        },
+        "researchQuestions": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Optional core research questions investigated."
+        },
+        "researchMethodologies": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Optional preferred research methodologies and frameworks."
+        },
+        "presentations": {
+          "type": "array",
+          "description": "Optional conference presentations, invited talks, keynotes, and workshops."
+        },
+        "programCommittees": {
+          "type": "array",
+          "description": "Optional conference program committee roles, reviewing, and organizing duties."
+        },
         "themeColor": {
           "type": "string",
           "maxLength": 32,

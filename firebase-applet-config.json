@@ -1,12 +1,12 @@
 {
-  "projectId": "inbound-legacy-cghtt",
-  "appId": "1:351122178251:web:ed8c116a6673cd71339b4e",
-  "apiKey": "AIzaSyCnXhae3byzX_gXVjFhUNdUg9KYxJJD2zk",
-  "authDomain": "inbound-legacy-cghtt.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-minimalistresume-c5d06c4e-e04c-4cb7-b4f3-081486e7c1db",
-  "storageBucket": "inbound-legacy-cghtt.firebasestorage.app",
-  "messagingSenderId": "351122178251",
+  "projectId": "mythic-fountain-zc62s",
+  "appId": "1:783506365035:web:c688f5d854e47c6c46af2e",
+  "apiKey": "AIzaSyDulmdg8BLdqkoWP6cW9693xCyApn4R6RE",
+  "authDomain": "mythic-fountain-zc62s.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-airesumebuilder-d8bd48ed-8ae1-427c-885f-35cd988b869a",
+  "storageBucket": "mythic-fountain-zc62s.firebasestorage.app",
+  "messagingSenderId": "783506365035",
   "measurementId": "",
-  "oAuthClientId": "351122178251-4ng8jvqkoeoms5nhvvd9at79s5r3sf10.apps.googleusercontent.com",
+  "oAuthClientId": "783506365035-dgfkrhi788i22jpkds52ce9nc2jd0ilp.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

@@ -20,11 +20,13 @@ import { sendInterviewStepWithGemini } from '../../services/aiService';
 import { resolveTemplateId } from '../../data/templates';
 import {
   EXECUTIVE_SECTION_FLOW,
+  RESEARCH_SCHOLAR_SECTION_FLOW,
   accumulateStagedUpdates,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
   buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
+  buildAdaptiveResearchScholarFallback,
   clearInterviewDraft,
   loadInterviewDraft,
   mergeResumeUpdates,
@@ -300,13 +302,33 @@ const EXECUTIVE_SECTION_LABELS: Record<string, string> = {
   'custom-sections': 'Projects & Additional',
 };
 
+const RESEARCH_SCHOLAR_SECTION_LABELS: Record<string, string> = {
+  personalInfo: 'Header & Quote',
+  objective: 'Research Summary',
+  'research-interests': 'Research Interests',
+  experience: 'Work & Research Exp',
+  research: 'Lab Research',
+  projects: 'Projects',
+  achievements: 'Honors & Awards',
+  presentations: 'Presentations',
+  publications: 'Writing & Publications',
+  'program-committees': 'Program Committees',
+  education: 'Education',
+  leadership: 'Extracurricular & Skills',
+  'custom-sections': 'Additional Info',
+};
+
 function getSectionLabel(
   sectionKey: string,
   isInternshipResume: boolean,
   isEngineeringResume: boolean = false,
   isCreativeProfessional: boolean = false,
-  isExecutiveResume: boolean = false
+  isExecutiveResume: boolean = false,
+  isResearchScholar: boolean = false
 ): string {
+  if (isResearchScholar && RESEARCH_SCHOLAR_SECTION_LABELS[sectionKey]) {
+    return RESEARCH_SCHOLAR_SECTION_LABELS[sectionKey];
+  }
   if (isExecutiveResume && EXECUTIVE_SECTION_LABELS[sectionKey]) {
     return EXECUTIVE_SECTION_LABELS[sectionKey];
   }
@@ -349,6 +371,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const isEngineeringResume = templateId === 'engineering-resume';
   const isCreativeProfessional = templateId === 'creative-professional';
   const isExecutiveResume = templateId === 'executive-resume';
+  const isResearchScholar = templateId === 'research-scholar';
   const sectionFlow = isJakes
     ? JAKES_SECTION_FLOW
     : isClassic
@@ -373,6 +396,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     ? CREATIVE_PROFESSIONAL_SECTION_FLOW
     : isExecutiveResume
     ? EXECUTIVE_SECTION_FLOW
+    : isResearchScholar
+    ? RESEARCH_SCHOLAR_SECTION_FLOW
     : ACADEMIC_SECTION_FLOW;
   const safeSectionIndex = Math.min(Math.max(0, currentSectionIndex), Math.max(0, sectionFlow.length - 1));
   const activeSection = sectionFlow[safeSectionIndex] || 'personalInfo';
@@ -466,6 +491,10 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         ? initialName
           ? `Hello ${initialName}! I'm your Executive Resume Advisor. We'll build your two-page Executive CV across 11 guided sections—Executive Header, Life Philosophy & Summary, Experience (with confirmed team/impact), Most Proud Of, Strengths, optional Day of My Life %, Education, Languages, Publications & Speaking, Referees, and Board/Additional items—never fabricating metrics, percentages, quotes, or referees. Which executive role fits you best (CEO, CTO, CFO, COO, HR Director, CMO, Founder, or Other)?`
           : `Welcome! I'm your Executive Resume Advisor. Let's craft an executive-grade two-column CV modeled on classic C-suite structure without inventing revenue figures, percentages, or quotes. To begin, which executive role are you targeting (CEO, CTO, CFO, COO, CHRO, CMO, Founder, or Other), and what are your full name, title, and email?`
+        : isResearchScholar
+        ? initialName
+          ? `Hello ${initialName}! I'm your Research Scholar CV Advisor (Awesome CV style). Let's build your scholarly CV step by step—Header & Optional Quote, Research Summary, Research Interests, Work & Research Experience, Lab Research, Projects, Categorized Honors & Awards, Presentations, Writing & Publications, Program Committees, Education, and Extracurriculars—never fabricating citations, DOIs, or quotes, and skipping empty optional sections cleanly. Which research discipline fits you best (Computer Science & AI, Cybersecurity, Electronics, Mechanical, Biotechnology, Physics & Math, Social Sciences, or Other)?`
+          : `Welcome! I'm your Research Scholar CV Advisor (Awesome CV style). I'll help you build a comprehensive research CV—capturing your experience, awards, presentations, publications, program committees, and education without inventing metrics, publications, or quotes. First, what is your research discipline (CS/AI, Cybersecurity, Electronics, Mechanical, Biotech, Physics/Math, Social Sciences, or Other), and what are your full name, scholarly title, and email?`
         : isTwoColumn
         ? initialName
           ? `Hello ${initialName}! I'm your Two Column Professional CV Advisor. Let's craft or refine your header & tagline, experience, projects, optional "A Day of My Life" breakdown, publications, philosophy, proudest achievements, strengths, languages, education, and referees. You can skip any optional section at any time—where would you like to focus?`
@@ -548,6 +577,13 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               'CTO / VP Engineering',
               'CFO / Finance Executive',
               'Founder / COO',
+            ]
+          : isResearchScholar
+          ? [
+              'Computer Science & AI',
+              'Cybersecurity & Systems',
+              'Electronics / Mechanical Eng',
+              'Biotech / Physics / Math',
             ]
           : isClassic
           ? [
@@ -760,6 +796,37 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
             structuredUpdates: adaptive.structuredUpdates,
           },
         ]);
+      } else if (isResearchScholar) {
+        const adaptive = buildAdaptiveResearchScholarFallback(
+          text,
+          stagedResume,
+          activeSection,
+          sectionFlow
+        );
+        if (Object.keys(adaptive.structuredUpdates).length > 0) {
+          setStagedUpdates((prev) =>
+            accumulateStagedUpdates(
+              prev,
+              adaptive.structuredUpdates,
+              currentResume,
+              isInternshipResume
+            )
+          );
+        }
+        if (sectionFlow.includes(adaptive.nextSection)) {
+          setCurrentSectionIndex(sectionFlow.indexOf(adaptive.nextSection));
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: adaptive.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            suggestedChips: adaptive.suggestedChips,
+            structuredUpdates: adaptive.structuredUpdates,
+          },
+        ]);
       } else {
         const fallbackMsg: InterviewChatMessage = {
           id: `msg_err_${Date.now()}`,
@@ -838,6 +905,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     ? 'Build Creative Professional CV with AI'
                     : isExecutiveResume
                     ? 'Build Executive Resume with AI'
+                    : isResearchScholar
+                    ? 'Build Research Scholar CV with AI'
                     : isClassic
                     ? 'Build Classic Professional CV with AI'
                     : isTwoColumn
@@ -856,7 +925,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     isInternshipResume,
                     isEngineeringResume,
                     isCreativeProfessional,
-                    isExecutiveResume
+                    isExecutiveResume,
+                    isResearchScholar
                   )}
                 </span>{' '}
                 • Step {safeSectionIndex + 1} of {sectionFlow.length}
@@ -881,6 +951,15 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     {stagedResume.executiveRoleType === 'other' && stagedResume.customExecutiveRole
                       ? stagedResume.customExecutiveRole
                       : stagedResume.executiveRoleType.toUpperCase()}
+                  </span>
+                ) : null}
+                {stagedResume.researchDiscipline && isResearchScholar ? (
+                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-rose-100 text-rose-900 rounded">
+                    Discipline:{' '}
+                    {stagedResume.researchDiscipline === 'other' &&
+                    stagedResume.customResearchDiscipline
+                      ? stagedResume.customResearchDiscipline
+                      : stagedResume.researchDiscipline.toUpperCase()}
                   </span>
                 ) : null}
               </p>
@@ -934,7 +1013,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
-                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional, isExecutiveResume)}
+                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional, isExecutiveResume, isResearchScholar)}
               </button>
             );
           })}
@@ -1414,6 +1493,50 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                             : stagedResume.referencesDisplayMode === 'on-request'
                             ? 'On Request'
                             : stagedResume.references?.length || 0}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : isResearchScholar ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-rose-700" />
+                        <span>
+                          Discipline:{' '}
+                          {stagedResume.researchDiscipline === 'other' &&
+                          stagedResume.customResearchDiscipline
+                            ? stagedResume.customResearchDiscipline
+                            : (stagedResume.researchDiscipline || 'computer-science').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-indigo-600" />
+                        <span>
+                          Interests &amp; Lab Research:{' '}
+                          {stagedResume.researchInterestsList?.length || 0} /{' '}
+                          {stagedResume.researchExperience?.length || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Users className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Awards &amp; Presentations: {stagedResume.achievements?.length || 0} /{' '}
+                          {stagedResume.presentations?.length || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>
+                          Publications &amp; Committees:{' '}
+                          {stagedResume.publications?.length || 0} /{' '}
+                          {stagedResume.programCommittees?.length || 0}
                         </span>
                       </div>
                     </div>
