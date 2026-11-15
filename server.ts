@@ -162,6 +162,7 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
     const isCreativeProfessionalTemplate = template === 'creative-professional';
     const isExecutiveResumeTemplate = template === 'executive-resume';
     const isResearchScholarTemplate = template === 'research-scholar';
+    const isSimpleOnePageTemplate = template === 'simple-one-page';
     const roleLabel = isJakesTemplate
       ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
       : isSoftwareDevTemplate
@@ -184,6 +185,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'senior C-suite executive and board resume editor (two-page Executive Resume AltaCV specialist)'
       : isResearchScholarTemplate
       ? 'distinguished academic and industrial research CV editor (Awesome CV Research Scholar specialist)'
+      : isSimpleOnePageTemplate
+      ? 'senior single-page ATS resume editor (Harshibar-style concise impact-bullet specialist)'
       : isClassicTemplate
       ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
       : isTwoColumnTemplate
@@ -211,6 +214,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'Executive Resume (Two-Page C-Suite & Leadership CV)'
       : isResearchScholarTemplate
       ? 'Research Scholar CV (Awesome CV Academic & R&D Curriculum Vitae)'
+      : isSimpleOnePageTemplate
+      ? 'Simple One-Page Resume (Compact Single-Column Harshibar ATS Layout)'
       : isClassicTemplate
       ? 'Classic Professional Multi-Page CV'
       : isTwoColumnTemplate
@@ -230,6 +235,8 @@ REQUIREMENTS:
 1. ${
       isJakesTemplate || isSoftwareDevTemplate
         ? 'Make each bullet crisp, high-impact, action-verb-led, and ATS-friendly (ideal 1-2 lines).'
+        : isSimpleOnePageTemplate
+        ? 'Tighten each bullet to 1–2 punchy lines ideal for a strict 1-page A4 resume: start with a strong action verb, eliminate filler words and repetition, preserve every concrete result or link, and strictly NEVER invent numbers, metrics, percentages, tools, or achievements not present in the original text.'
         : isResearchScholarTemplate
         ? 'Elevate the language with rigorous scholarly, technical, and research-grade precision suitable for an Awesome CV Research Scholar CV—leading with concrete methodology/engineering verbs and highlighting real tools, experiments, publications, or committee roles while strictly NEVER fabricating quotes, citations, DOIs, rankings, fellowships, or metrics not present in the original text.'
         : isExecutiveResumeTemplate
@@ -333,6 +340,7 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
     const isCreativeProfessionalTemplate = currentResume?.template === 'creative-professional';
     const isExecutiveResumeTemplate = currentResume?.template === 'executive-resume';
     const isResearchScholarTemplate = currentResume?.template === 'research-scholar';
+    const isSimpleOnePageTemplate = currentResume?.template === 'simple-one-page';
     const advisorName = isJakesTemplate
       ? 'Technical Resume Advisor'
       : isSoftwareDevTemplate
@@ -355,6 +363,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Executive Resume Advisor'
       : isResearchScholarTemplate
       ? 'Research Scholar CV Advisor'
+      : isSimpleOnePageTemplate
+      ? 'Simple One-Page Resume Advisor'
       : isClassicTemplate
       ? 'Classic Professional CV Advisor'
       : isTwoColumnTemplate
@@ -382,6 +392,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Executive Resume (Two-Page C-Suite & Leadership CV)'
       : isResearchScholarTemplate
       ? 'Research Scholar CV (Awesome CV Layout)'
+      : isSimpleOnePageTemplate
+      ? 'Simple One-Page Resume (Harshibar Compact Single-Page Layout)'
       : isClassicTemplate
       ? 'Classic Professional CV'
       : isTwoColumnTemplate
@@ -409,6 +421,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'executive-resume'
       : isResearchScholarTemplate
       ? 'research-scholar'
+      : isSimpleOnePageTemplate
+      ? 'simple-one-page'
       : isClassicTemplate
       ? 'classic-professional'
       : isTwoColumnTemplate
@@ -435,6 +449,8 @@ ${JSON.stringify({
   executiveYearsExperience: currentResume.executiveYearsExperience,
   researchDiscipline: currentResume.researchDiscipline,
   customResearchDiscipline: currentResume.customResearchDiscipline,
+  simpleOnePageTrack: currentResume.simpleOnePageTrack,
+  customSimpleOnePageTrack: currentResume.customSimpleOnePageTrack,
   yearsOfResearchExperience: currentResume.yearsOfResearchExperience,
   researchInterestsCount: currentResume.researchInterestsList?.length || 0,
   presentationsCount: currentResume.presentations?.length || 0,
@@ -489,6 +505,7 @@ ${JSON.stringify({
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
 2. Probe for DEPTH and specificity matching the active template:
+   - For Simple One-Page Resume ("simple-one-page"): Ask ONE focused question at a time across these 7 concise sections: \`personalInfo\` (compact horizontal header: \`fullName\`, \`phone\`, \`email\`, \`website\`, \`linkedin\`, \`github\`, \`customLinks\`, optional \`workAuthorization\` e.g. U.S. Citizen or \`location\` — zero profile photo), \`objective\` (optional 1–2 line summary, easily omitted to prioritize Experience on 1 page), \`experience\` (Company, Position, Start/End dates, Location, concise 1–2 line impact bullets, plus optional \`workHighlights: [{ id, title, url, description }]\`), \`projects\` (title, optional links \`link\`/\`githubUrl\`, concise outcome bullets), \`education\` (institution, degree, specialization, dates, location, optional \`coursework: string[]\` and \`research: string\`), \`skills\` (clean grouped categories like Languages / Tools with zero bars or dots), \`custom-sections\` (optional Certifications, Awards, Publications, Leadership, Volunteering, Custom Sections — omit if empty). Detect \`simpleOnePageTrack\` early ('software-developer' | 'cybersecurity' | 'data-science' | 'designer' | 'engineering' | 'business' | 'fresher' | 'other'). Check the user's existing resume data above and NEVER ask again for fields they already entered. Keep bullets tight for 1 A4 page and STRICTLY NEVER fabricate metrics, results, links, tools, or achievements.
    - For Research Scholar CV ("research-scholar"): Ask ONE focused question at a time across these 13 sections: \`personalInfo\` (header contacts + optional \`personalQuote\` without inventing/attributing quotes), \`objective\` (Research Summary with optional \`yearsOfResearchExperience\` and \`researchFocusSummary\`), \`research-interests\` (optional \`researchInterestsList\`, \`researchQuestions\`, \`researchMethodologies\`), \`experience\` (Work & Research Experience), \`research\` (optional dedicated Research Experience), \`projects\` (optional Research/Technical Projects), \`achievements\` (optional Categorized Honors & Awards with \`awardCategory\`: 'international'|'national'|'institutional'|'academic'|'scholarship'|'fellowship'|'competition'|'other' and \`location\`), \`presentations\` (optional \`presentations: [{ id, title, eventOrConference, role, location, date, url, highlights, description }]\`), \`publications\` (optional Writing & Publications including \`'preprint' | 'technical_article' | 'research_report'\`, \`role\`, \`highlights\`), \`program-committees\` (optional \`programCommittees: [{ id, role, conferenceOrOrganization, year, location, url, description }]\`), \`education\` (with optional \`thesisTitle\`, \`supervisor\`, \`scholarships\`, \`honors\`), \`leadership\` (optional Extracurricular Activity, Volunteering & Skills), \`custom-sections\` (optional Certifications, Languages, Referees, Custom Sections). Detect \`researchDiscipline\` early ('computer-science' | 'cybersecurity' | 'electronics' | 'mechanical-engineering' | 'biotechnology' | 'physics-mathematics' | 'social-sciences' | 'other'). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent quotes, DOIs, papers, rankings, fellowships, committee roles, dates, or unconfirmed language ratings. Accept skipping any optional section cleanly.
    - For Executive Resume ("executive-resume"): Ask ONE focused question at a time across these 11 sections: \`personalInfo\`, \`philosophy\` (MY LIFE PHILOSOPHY quote + \`philosophyExplanation\` + optional \`objective\`/\`managementStyle\`/\`strategicDomains\`), \`experience\` (EXPERIENCE with optional \`teamSize\` and \`results\`), \`achievements\` (MOST PROUD OF with \`icon\`: 'trophy'|'heart'|'chart'|'award'|'star', \`challenge\`, \`actionTaken\`, \`outcome\`), \`strengths\` (STRENGTHS outline tags), \`daily-life\` (A DAY OF MY LIFE optional percentage <= 100% or hours <= 24h), \`education\` (EDUCATION with optional \`honors\`), \`languages\` (LANGUAGES 5-dot scale), \`publications\` (PUBLICATIONS & SPEAKING), \`references\` (REFEREES with \`referencesDisplayMode\` 'detailed'|'on-request'|'hidden'), \`custom-sections\` (Board Roles, Projects, Leadership, Volunteer, Memberships & Custom Sections). Detect \`executiveRoleType\` early ('ceo' | 'cto' | 'cfo' | 'coo' | 'hr-director' | 'marketing-director' | 'founder' | 'other'). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent financial/revenue figures, percentages, team sizes, personal quotes, \`dailyActivities\` numbers, language dot scores, or referee contacts! Only save values explicitly stated by the user. Accept skipping any optional section cleanly.
    - For Creative Professional ("creative-professional"): Ask ONE focused question at a time across: \`personalInfo\`, \`experience\` (SHORT RESUME), \`education\` (DEGREES), \`skills\` (SKILLS), \`proficiency-circles\` (Dynamic Circular Proficiency Heading), \`skill-bars\` (SKILLS & PROFICIENCY), \`communication\` (COMMUNICATION SKILLS), \`certifications\` (CERTIFICATES & GRANTS), \`languages\` (LANGUAGES), \`publications\` (TALKS & PUBLICATIONS), \`custom-sections\`. Detect \`creativeProfession\` early ('developer' | 'designer' | 'cybersecurity' | 'marketing' | 'researcher' | 'engineer' | 'other') and extract factual fields (\`creativeSkillItems\`, \`circularProficiencies\`, \`creativeSkillBars\`, \`communicationSkills\`, \`personalInfo.specialization\`, \`personalInfo.tagline\`, \`personalQuote\`). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent percentages (0-100) for \`circularProficiencies\` or \`creativeSkillBars\`, never invent quotes, metrics, or unconfirmed language levels! Only include percentage ratings if the user explicitly stated a number.
@@ -618,7 +635,44 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
     const isCreativeProfessionalTemplate = resume?.template === 'creative-professional';
     const isExecutiveResumeTemplate = resume?.template === 'executive-resume';
     const isResearchScholarTemplate = resume?.template === 'research-scholar';
-    const auditPrompt = isResearchScholarTemplate
+    const isSimpleOnePageTemplate = resume?.template === 'simple-one-page';
+    const auditPrompt = isSimpleOnePageTemplate
+      ? `You are a senior technical & career resume editor reviewing a Simple One-Page Resume (Harshibar compact single-column layout).
+Analyze this Simple One-Page Resume across its structured sections:
+(header, objective [optional Summary], experience [Experience + optional workHighlights], projects [Projects], education [Education + optional coursework & research], skills [Skills grouped cleanly without bars/dots], certifications [optional Certifications, Awards, Publications, Leadership, Volunteering, Custom Sections]).
+
+TRACK: ${resume.simpleOnePageTrack || 'software-developer'}${resume.customSimpleOnePageTrack ? ` (${resume.customSimpleOnePageTrack})` : ''}
+
+RESUME DATA:
+${JSON.stringify(resume)}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'objective', 'experience', 'projects', 'education', 'skills', 'certifications'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty optional sections ('objective', 'certifications', or 'experience' when simpleOnePageTrack is 'fresher').
+4. NEVER suggest skill rating bars/dots or fabricate numbers, metrics, achievements, links, or tools not supplied by the user.
+5. Note 1-page A4 conciseness neutrally if any bullets are overly verbose, without advising silent deletion of user facts.
+6. Calculate overallScore (0 to 100) and top 3-4 concise, factual recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isResearchScholarTemplate
       ? `You are a distinguished academic search committee chair and industrial R&D lead reviewing a Research Scholar CV (Awesome CV layout).
 Analyze this Research Scholar CV across its structured sections:
 (header, objective [Summary], research-interests [optional Research Interests & Methodologies], experience [Work & Research Experience], research [optional Academic Research Appointments], projects [optional Research & Technical Projects], achievements [optional Categorized Honors & Awards], presentations [optional Presentations], publications [optional Writing & Publications], program-committees [optional Program Committees], education [Education], leadership [optional Extracurricular Activity, Volunteering & Skills], custom-sections [optional Certifications, Languages, Referees & Custom Sections]).

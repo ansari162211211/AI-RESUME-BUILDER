@@ -7,11 +7,8 @@ import {
   Copy,
   Eye,
   Calendar,
-  Sparkles,
   Loader2,
-  CheckCircle2,
   Search,
-  MessageSquare,
   LayoutTemplate,
 } from 'lucide-react';
 import type { Resume, AuthUser } from '../../types/resume';
@@ -24,7 +21,6 @@ import {
 } from '../../services/resumeService';
 import { calculateResumeCompleteness } from '../../utils/validation';
 import { ConfirmModal } from '../Common/ConfirmModal';
-import { AiInterviewModal } from '../AiAssistant/AiInterviewModal';
 
 interface DashboardPageProps {
   user: AuthUser;
@@ -44,36 +40,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteCandidate, setDeleteCandidate] = useState<Resume | null>(null);
   const [creating, setCreating] = useState(false);
-  const [isInterviewOpen, setIsInterviewOpen] = useState(false);
-  const [interviewDraft, setInterviewDraft] = useState<Resume | null>(null);
 
   const displayName = user.displayName || user.email?.split('@')[0] || 'User';
-
-  const handleStartAiInterview = async () => {
-    try {
-      const draft = await createNewResume(
-        user.uid,
-        'AI Assisted Academic CV',
-        'blank',
-        user.displayName || undefined,
-        user.email || undefined
-      );
-      setInterviewDraft(draft);
-      setIsInterviewOpen(true);
-    } catch (e) {
-      console.error('Failed to init AI interview:', e);
-    }
-  };
-
-  const handleInterviewFinished = async (updated: Resume) => {
-    try {
-      await saveResume(user.uid, updated);
-      setResumes((prev) => [updated, ...prev.filter((r) => r.id !== updated.id)]);
-      onSelectResumeForEdit(updated);
-    } catch (e) {
-      console.error('Failed to save interview CV:', e);
-    }
-  };
 
   const loadResumes = async () => {
     setLoading(true);
@@ -173,29 +141,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         </div>
 
         {/* Quick Creation CTA Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            onClick={handleStartAiInterview}
-            className="inline-flex items-center justify-center px-4 py-2.5 border border-purple-200 rounded text-sm font-semibold text-purple-900 bg-purple-50 hover:bg-purple-100 transition-colors shadow-xs cursor-pointer"
-          >
-            <MessageSquare className="w-4 h-4 mr-2 text-purple-700" />
-            <span>Build My CV with AI</span>
-          </button>
-
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           {onOpenTemplates && (
             <button
+              type="button"
               onClick={onOpenTemplates}
-              className="inline-flex items-center justify-center px-3.5 py-2.5 border border-blue-200 rounded text-sm font-semibold text-[#0f2b5c] bg-blue-50 hover:bg-blue-100 transition-colors shadow-xs cursor-pointer"
+              className="inline-flex items-center justify-center px-4 py-2.5 border border-blue-200 rounded text-sm font-semibold text-[#0f2b5c] bg-blue-50 hover:bg-blue-100 transition-colors shadow-xs cursor-pointer"
             >
-              <LayoutTemplate className="w-4 h-4 mr-1.5 text-[#0f2b5c]" />
+              <LayoutTemplate className="w-4 h-4 mr-2 text-[#0f2b5c]" />
               <span>Browse Templates</span>
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => handleCreateNew('blank')}
             disabled={creating}
-            className="inline-flex items-center justify-center px-3.5 py-2.5 border border-slate-300 rounded text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+            className="inline-flex items-center justify-center px-4 py-2.5 border border-slate-300 rounded text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
           >
             <Plus className="w-4 h-4 mr-1.5 text-slate-500" />
             <span>Blank CV</span>
@@ -243,17 +205,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
             {searchQuery
               ? 'Try adjusting your search query or clear the filter.'
-              : 'Interview with our AI advisor or choose a profile template to get started.'}
+              : 'Choose a profile template or start with a blank CV to get started.'}
           </p>
           {!searchQuery && (
             <div className="mt-6 flex flex-wrap justify-center gap-2.5 max-w-2xl mx-auto">
-              <button
-                onClick={handleStartAiInterview}
-                className="px-4 py-2 bg-purple-50 border border-purple-200 hover:bg-purple-100 text-purple-900 text-xs font-bold rounded shadow-xs flex items-center cursor-pointer"
-              >
-                <MessageSquare className="w-3.5 h-3.5 mr-1.5 text-purple-700" />
-                Build My CV with AI
-              </button>
+              {onOpenTemplates && (
+                <button
+                  type="button"
+                  onClick={onOpenTemplates}
+                  className="px-4 py-2 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-[#0f2b5c] text-xs font-bold rounded shadow-xs flex items-center cursor-pointer"
+                >
+                  <LayoutTemplate className="w-3.5 h-3.5 mr-1.5 text-[#0f2b5c]" />
+                  Browse Templates
+                </button>
+              )}
               <button
                 onClick={() => handleCreateNew('academic')}
                 className="px-3.5 py-2 bg-slate-900 hover:bg-black text-white text-xs font-semibold rounded shadow-xs"
@@ -399,16 +364,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteCandidate(null)}
       />
-
-      {/* AI Interview Modal */}
-      {interviewDraft && (
-        <AiInterviewModal
-          isOpen={isInterviewOpen}
-          onClose={() => setIsInterviewOpen(false)}
-          currentResume={interviewDraft}
-          onApplyUpdates={handleInterviewFinished}
-        />
-      )}
     </div>
   );
 };

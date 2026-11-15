@@ -55,6 +55,7 @@ const HEADING_STYLE_OPTIONS: { value: TemplateHeadingStyle; label: string }[] = 
   { value: 'creative-blue-rule', label: 'Creative Blue + Rule' },
   { value: 'executive-purple-rule', label: 'Executive Purple + Rule' },
   { value: 'awesome-cv-rule', label: 'Awesome CV (3-Char Accent + Rule)' },
+  { value: 'simple-one-page-rule', label: 'Simple One-Page (Bold Caps + Gray Rule)' },
 ];
 
 export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
@@ -220,7 +221,7 @@ export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
                 id="preview-template-select"
                 value={resolveTemplateId(currentResume.template)}
                 onChange={(e) => handleQuickTemplateSwitch(e.target.value)}
-                className="px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0f2b5c] cursor-pointer max-w-[175px]"
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-300 rounded hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0f2b5c] cursor-pointer max-w-[220px]"
                 title="Switch template (preserves all resume data)"
               >
                 {TEMPLATE_DEFINITIONS.map((tpl) => (
@@ -598,6 +599,49 @@ export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
             </button>
           )}
         </div>
+
+        {/* Template 15 Non-Destructive One-Page A4 Fit Indicator */}
+        {activeTemplate.id === 'simple-one-page' && (
+          <div
+            role="status"
+            className={`mt-2 px-3.5 py-2 rounded-lg border flex flex-wrap items-center justify-between gap-2 text-[11px] ${
+              pageCount > 1
+                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              {pageCount > 1 ? (
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              )}
+              <span>
+                {pageCount > 1 ? (
+                  <>
+                    <strong>One-Page Fit Notice:</strong> Current content spans{' '}
+                    <strong>{pageCount} A4 pages</strong>. All content is preserved cleanly across pages — open the{' '}
+                    <strong>One-Page Optimization Assistant</strong> in the editor if you want concise phrasing suggestions.
+                  </>
+                ) : (
+                  <>
+                    <strong>One-Page A4 Fit Confirmed:</strong> Your Simple One-Page Resume fits cleanly on{' '}
+                    <strong>1 A4 page</strong>.
+                  </>
+                )}
+              </span>
+            </div>
+            {pageCount > 1 && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="font-semibold text-amber-950 underline cursor-pointer shrink-0"
+              >
+                Optimize in Editor
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Multi-Page A4 Preview matching active template + customization */}

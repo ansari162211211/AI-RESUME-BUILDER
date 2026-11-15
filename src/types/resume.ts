@@ -26,6 +26,7 @@ export interface PersonalInfo {
   gitlab?: string;
   mastodon?: string;
   nationality?: string;
+  workAuthorization?: string;
   customLinks?: Array<{ id: string; label: string; url: string }>;
   otherProfiles?: string; // Google Scholar, ORCID, ResearchGate, etc.
 }
@@ -45,6 +46,13 @@ export type ExperienceEntryKind =
   | 'industrial_visit'
   | 'employment';
 
+export interface ExperienceHighlightItem {
+  id: string;
+  title: string;
+  description?: string;
+  url?: string;
+}
+
 export interface ExperienceItem {
   id: string;
   company: string;
@@ -62,6 +70,7 @@ export interface ExperienceItem {
   current: boolean;
   highlights: string[];
   subHighlights?: ExperienceSubHighlights[];
+  workHighlights?: ExperienceHighlightItem[];
   technologies?: string[];
   skillsDemonstrated?: string[];
   skillsLearned?: string[];
@@ -102,6 +111,7 @@ export interface EducationItem {
   thesisTitle?: string; // Optional Thesis title (Harvard & Academic)
   dissertationDetails?: string;
   coursework?: string[] | string; // Optional per-entry relevant coursework
+  research?: string; // Optional undergraduate / academic lab research line
   honors?: string; // Optional academic awards and honors
   scholarships?: string; // Optional scholarships or funding received
   supervisor?: string; // Optional thesis or academic advisor
@@ -372,6 +382,16 @@ export type ResearchDiscipline =
   | 'social-sciences'
   | 'other';
 
+export type SimpleOnePageTrack =
+  | 'software-developer'
+  | 'cybersecurity'
+  | 'data-science'
+  | 'designer'
+  | 'engineering'
+  | 'business'
+  | 'fresher'
+  | 'other';
+
 export interface CreativeSkillDetailItem {
   id: string;
   category: string; // e.g., Technical, Professional, Creative, National / International, or custom
@@ -520,7 +540,8 @@ export type TemplateHeadingStyle =
   | 'internship-rule'
   | 'creative-blue-rule'
   | 'executive-purple-rule'
-  | 'awesome-cv-rule';
+  | 'awesome-cv-rule'
+  | 'simple-one-page-rule';
 
 export interface TemplateCustomization {
   fontFamily: CvFontFamily;
@@ -603,6 +624,8 @@ export interface Resume {
   researchMethodologies?: string;
   presentations?: PresentationItem[];
   programCommittees?: ProgramCommitteeItem[];
+  simpleOnePageTrack?: SimpleOnePageTrack;
+  customSimpleOnePageTrack?: string;
   volunteer?: VolunteerItem[];
   memberships?: MembershipItem[];
   certifications: CertificationItem[];

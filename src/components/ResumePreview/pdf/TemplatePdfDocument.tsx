@@ -43,6 +43,7 @@ import {
   buildModernCorporateContactItems,
   buildResearchScholarAddressLine,
   buildResearchScholarContactItems,
+  buildSimpleOnePageContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkPairs,
@@ -83,6 +84,8 @@ import {
   groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
+  normalizeExternalUrl,
+  parseSimpleOnePageRichTextSegments,
   splitAwesomeCvHeading,
   splitAwesomeCvName,
   splitCreativeName,
@@ -92,6 +95,7 @@ import {
   type InternshipContactKind,
   type ModernCorporateContactKind,
   type ResearchScholarContactKind,
+  type SimpleOnePageContactKind,
   type TwoColumnContactKind,
   type TwoColumnPubCategoryKey,
 } from '../../../utils/resumePresentation';
@@ -151,6 +155,8 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
   const isExecutiveResume = template.id === 'executive-resume';
   const isResearchScholar =
     template.id === 'research-scholar' || template.headerVariant === 'awesome-cv-centered';
+  const isSimpleOnePage =
+    template.id === 'simple-one-page' || template.headerVariant === 'simple-one-page-centered';
 
   const isSerif = custom.fontFamily === 'serif';
   const fontRegular = isSerif ? 'Times-Roman' : 'Helvetica';
@@ -576,6 +582,32 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                 marginBottom: 2.2,
               }}
             />
+          </View>
+        );
+      }
+      case 'simple-one-page-rule': {
+        return (
+          <View
+            minPresenceAhead={opts?.disableMinAhead ? undefined : minAhead ?? 45}
+            style={{
+              marginBottom: 4.5,
+              paddingBottom: 2,
+              borderBottomWidth: 0.85,
+              borderBottomColor: '#cbd5e1',
+            }}
+          >
+            <Text
+              style={{
+                fontSize,
+                fontFamily: fontBold,
+                textTransform: 'uppercase',
+                letterSpacing: 0.45,
+                color: hColor || '#111827',
+                lineHeight: 1.2,
+              }}
+            >
+              {title}
+            </Text>
           </View>
         );
       }
@@ -1509,10 +1541,194 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     }
   };
 
+  const renderSimpleOnePagePdfIcon = (kind: SimpleOnePageContactKind, color = '#111827') => {
+    const iconStyle = { marginRight: 2.5 };
+    switch (kind) {
+      case 'phone':
+        return (
+          <Svg width={7.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z"
+            />
+          </Svg>
+        );
+      case 'email':
+        return (
+          <Svg width={7.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+            />
+          </Svg>
+        );
+      case 'youtube':
+        return (
+          <Svg width={8.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M21.8 8s-.2-1.4-.8-2c-.8-.8-1.6-.8-2-.9C16.2 4.9 12 4.9 12 4.9s-4.2 0-7 .2c-.4.1-1.2.1-2 .9-.6.6-.8 2-.8 2S2 9.6 2 11.2v1.5C2 14.3 2.2 16 2.2 16s.2 1.4.8 2c.8.8 1.8.8 2.2.9 1.6.1 6.8.2 6.8.2s4.2 0 7-.2c.4-.1 1.2-.1 2-.9.6-.6.8-2 .8-2s.2-1.6.2-3.2v-1.5C22 9.6 21.8 8 21.8 8zM9.8 14.8V9.2l5.4 2.8-5.4 2.8z"
+            />
+          </Svg>
+        );
+      case 'pin':
+        return (
+          <Svg width={7.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"
+            />
+          </Svg>
+        );
+      case 'linkedin':
+        return (
+          <Svg width={7.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"
+            />
+          </Svg>
+        );
+      case 'github':
+        return (
+          <Svg width={7.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Path
+              fill={color}
+              d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"
+            />
+          </Svg>
+        );
+      case 'website':
+      case 'custom':
+      default:
+        return (
+          <Svg width={7.6} height={7.6} viewBox="0 0 24 24" style={iconStyle}>
+            <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={2} fill="none" />
+            <Line x1="2" y1="12" x2="22" y2="12" stroke={color} strokeWidth={2} />
+            <Path
+              stroke={color}
+              strokeWidth={2}
+              fill="none"
+              d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"
+            />
+          </Svg>
+        );
+    }
+  };
+
+  const renderSimpleOnePagePdfRichText = (text: string, baseItalic = false) => {
+    const segments = parseSimpleOnePageRichTextSegments(text);
+    const baseFamily = baseItalic ? fontItalic : fontRegular;
+    return segments.map((seg, i) => {
+      if (seg.url) {
+        return (
+          <Link
+            key={i}
+            src={seg.url}
+            style={{
+              color: '#111827',
+              textDecoration: 'underline',
+              fontFamily: seg.bold ? fontBold : baseFamily,
+            }}
+          >
+            {seg.text}
+          </Link>
+        );
+      }
+      if (seg.bold) {
+        return (
+          <Text key={i} style={{ fontFamily: fontBold }}>
+            {seg.text}
+          </Text>
+        );
+      }
+      return (
+        <Text key={i} style={{ fontFamily: baseFamily }}>
+          {seg.text}
+        </Text>
+      );
+    });
+  };
+
   const renderHeader = () => {
     const nameText = personalInfo.fullName || 'FULL NAME';
 
     switch (template.headerVariant) {
+      case 'simple-one-page-centered': {
+        const items = buildSimpleOnePageContactItems(personalInfo);
+        const headline = personalInfo.jobTitle?.trim();
+        return (
+          <View style={{ marginBottom: 7, alignItems: 'center' }}>
+            <Text
+              style={{
+                fontFamily: fontBold,
+                fontSize: scale.namePt,
+                color: '#111827',
+                lineHeight: 1.08,
+                textAlign: 'center',
+                marginBottom: headline ? 2 : 4,
+              }}
+            >
+              {nameText}
+            </Text>
+
+            {headline ? (
+              <Text
+                style={{
+                  fontSize: scale.metaPt,
+                  color: '#4b5563',
+                  textAlign: 'center',
+                  marginBottom: 3,
+                }}
+              >
+                {headline}
+              </Text>
+            ) : null}
+
+            {items.length > 0 ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                {items.map((item, idx) => (
+                  <View
+                    key={`${item.kind}-${idx}`}
+                    style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 1.5 }}
+                  >
+                    {idx > 0 ? (
+                      <Text style={{ fontSize: scale.metaPt - 0.25, color: '#9ca3af', marginHorizontal: 4.5 }}>
+                        |
+                      </Text>
+                    ) : null}
+                    {renderSimpleOnePagePdfIcon(item.kind, '#111827')}
+                    {item.url ? (
+                      <Link
+                        src={item.url}
+                        style={{
+                          fontSize: scale.metaPt - 0.25,
+                          color: '#111827',
+                          textDecoration: item.underlined ? 'underline' : 'none',
+                        }}
+                      >
+                        {item.label}
+                      </Link>
+                    ) : (
+                      <Text style={{ fontSize: scale.metaPt - 0.25, color: '#1f2937' }}>
+                        {item.label}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        );
+      }
+
       case 'awesome-cv-centered': {
         const { firstPart, lastPart } = splitAwesomeCvName(nameText);
         const items = buildResearchScholarContactItems(personalInfo);
@@ -4811,6 +5027,78 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                         </View>
                       ) : null}
                     </View>
+                  ) : isSimpleOnePage ? (
+                    (() => {
+                      const simpleDateRange = [
+                        edu.startDate,
+                        edu.current ? 'Present' : edu.endDate,
+                      ]
+                        .filter(Boolean)
+                        .join(' – ');
+                      const simpleCourseworkList = Array.isArray(edu.coursework)
+                        ? edu.coursework
+                        : typeof edu.coursework === 'string' && edu.coursework.trim()
+                        ? edu.coursework.split(',').map((s) => s.trim()).filter(Boolean)
+                        : [];
+                      return (
+                        <View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                            <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#111827', flex: 1, marginRight: 8 }}>
+                              {edu.institution}
+                            </Text>
+                            {simpleDateRange ? (
+                              <Text style={{ fontFamily: fontRegular, fontSize: scale.entrySubtitlePt, color: '#1f2937', textAlign: 'right' }}>
+                                {simpleDateRange}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {edu.degree || edu.location ? (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1.5 }}>
+                              <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: '#374151', flex: 1, marginRight: 8 }}>
+                                {edu.degree}
+                                {edu.specialization ? ` in ${edu.specialization}` : ''}
+                              </Text>
+                              {edu.location ? (
+                                <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: '#374151', textAlign: 'right' }}>
+                                  {edu.location}
+                                </Text>
+                              ) : null}
+                            </View>
+                          ) : null}
+                          {simpleCourseworkList.length > 0 ? (
+                            <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 11 }}>
+                              <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>{bulletChar}</Text>
+                              <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                                <Text style={{ fontFamily: fontBold }}>Coursework: </Text>
+                                <Text>{simpleCourseworkList.join(', ')}</Text>
+                              </Text>
+                            </View>
+                          ) : null}
+                      {edu.research?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 11 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                            <Text style={{ fontFamily: fontBold }}>Research: </Text>
+                            {renderSimpleOnePagePdfRichText(edu.research.trim())}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {edu.grade?.trim() || edu.honors?.trim() || edu.achievements?.trim() ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 11 }}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>{bulletChar}</Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                            {[
+                              edu.grade?.trim() ? `GPA: ${edu.grade.trim()}` : '',
+                              edu.honors?.trim() || edu.achievements?.trim() || '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </Text>
+                        </View>
+                      ) : null}
+                        </View>
+                      );
+                    })()
                   ) : (
                     <>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -5535,6 +5823,30 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                                   </Text>
                                 ) : null}
                               </>
+                            ) : isSimpleOnePage ? (
+                              <>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 0.5 }}>
+                                  <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt, color: '#111827', flex: 1, marginRight: 8 }}>
+                                    {exp.company}
+                                  </Text>
+                                  {expDateRange ? (
+                                    <Text style={{ fontFamily: fontRegular, fontSize: scale.entrySubtitlePt, color: '#1f2937', textAlign: 'right' }}>
+                                      {expDateRange}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1.5 }}>
+                                  <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: '#374151', flex: 1, marginRight: 8 }}>
+                                    {renderSimpleOnePagePdfRichText(exp.position || '', true)}
+                                    {exp.employmentType?.trim() ? ` (${exp.employmentType.trim()})` : ''}
+                                  </Text>
+                                  {exp.location ? (
+                                    <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: '#374151', textAlign: 'right' }}>
+                                      {exp.location}
+                                    </Text>
+                                  ) : null}
+                                </View>
+                              </>
                             ) : (
                               <>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -5573,25 +5885,25 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                               </>
                             )}
                             {exp.description ? (
-                              <Text style={{ fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, color: isResearchScholar ? '#4b5563' : subCol, lineHeight: scale.lineHeight, marginTop: 1.5 }}>
-                                {exp.description}
+                              <Text style={{ fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, color: isResearchScholar ? '#4b5563' : isSimpleOnePage ? '#1f2937' : subCol, lineHeight: scale.lineHeight, marginTop: 1.5 }}>
+                                {isSimpleOnePage ? renderSimpleOnePagePdfRichText(exp.description) : exp.description}
                               </Text>
                             ) : null}
                             {firstBullet ? (
                               <View>
-                                <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isResearchScholar ? 6 : 8 }}>
-                                  <Text style={{ width: isResearchScholar ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isResearchScholar ? '#4b5563' : col }}>
+                                <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isSimpleOnePage ? 11 : isResearchScholar ? 6 : 8 }}>
+                                  <Text style={{ width: isResearchScholar || isSimpleOnePage ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isResearchScholar ? '#4b5563' : isSimpleOnePage ? '#111827' : col }}>
                                     {bulletChar}
                                   </Text>
-                                  <Text style={{ flex: 1, fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : col }}>
-                                    {firstBullet}
+                                  <Text style={{ flex: 1, fontSize: isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : isSimpleOnePage ? '#1f2937' : col }}>
+                                    {isSimpleOnePage ? renderSimpleOnePagePdfRichText(firstBullet) : firstBullet}
                                   </Text>
                                 </View>
                                 {(subMap.get(0) || []).map((subItem, sIdx) => (
                                   <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: isResearchScholar ? 16 : 22 }}>
                                     <Text style={{ width: isResearchScholar ? 8 : 9, fontSize: scale.bodyPt, color: isResearchScholar ? '#4b5563' : subCol }}>–</Text>
                                     <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.25, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : subCol }}>
-                                      {subItem}
+                                      {isSimpleOnePage ? renderSimpleOnePagePdfRichText(subItem) : subItem}
                                     </Text>
                                   </View>
                                 ))}
@@ -5673,6 +5985,25 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                                 true
                               )}
                             </View>
+                          ) : isSimpleOnePage ? (
+                            <View key={bIdx} wrap={false}>
+                              <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 11 }}>
+                                <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>
+                                  {bulletChar}
+                                </Text>
+                                <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                                  {renderSimpleOnePagePdfRichText(hl)}
+                                </Text>
+                              </View>
+                              {nestedSubs.map((subItem, sIdx) => (
+                                <View key={sIdx} style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 22 }}>
+                                  <Text style={{ width: 8, fontSize: scale.bodyPt, color: '#374151' }}>–</Text>
+                                  <Text style={{ flex: 1, fontSize: scale.bodyPt - 0.2, lineHeight: scale.lineHeight, color: '#374151' }}>
+                                    {renderSimpleOnePagePdfRichText(subItem)}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
                           ) : (
                             <View key={bIdx} wrap={false}>
                               <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 1.5, paddingLeft: isJakes ? 10 : isResearchScholar ? 6 : isTwoColumnPro || isExecutiveResume ? 2 : 8 }}>
@@ -5697,6 +6028,33 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           `${exp.id}-b-${bIdx}`
                         );
                       })}
+                      {isSimpleOnePage && (exp.workHighlights || []).some((wh) => (wh.title || '').trim()) ? (
+                        <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 11 }} wrap={false}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>
+                            {bulletChar}
+                          </Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                            <Text>Highlights: </Text>
+                            {(exp.workHighlights || [])
+                              .filter((wh) => (wh.title || '').trim())
+                              .map((wh, whIdx) => {
+                                const href = normalizeExternalUrl(wh.url);
+                                return (
+                                  <Text key={wh.id || whIdx}>
+                                    {whIdx > 0 ? ', ' : ''}
+                                    {href ? (
+                                      <Link src={href} style={{ color: '#111827', textDecoration: 'underline' }}>
+                                        {wh.title}
+                                      </Link>
+                                    ) : (
+                                      wh.title
+                                    )}
+                                  </Text>
+                                );
+                              })}
+                          </Text>
+                        </View>
+                      ) : null}
                       {isFresherResume
                         ? (() => {
                             const learned = [
@@ -7028,6 +7386,52 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           </View>
                         ) : null}
                       </View>
+                    ) : isSimpleOnePage ? (
+                      <View wrap={false}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
+                          <Text style={{ flex: 1, marginRight: 8, fontSize: scale.entryTitlePt, color: '#111827' }}>
+                            <Text style={{ fontFamily: fontBold }}>{proj.title}</Text>
+                            {cleanProjUrl ? (
+                              <Text style={{ fontSize: scale.metaPt - 0.15 }}>
+                                {'  '}
+                                <Link src={cleanProjUrl} style={{ color: '#111827', textDecoration: 'underline' }}>
+                                  Link
+                                </Link>
+                              </Text>
+                            ) : null}
+                            {cleanGithubUrl ? (
+                              <Text style={{ fontSize: scale.metaPt - 0.15 }}>
+                                {'  '}
+                                <Link src={cleanGithubUrl} style={{ color: '#111827', textDecoration: 'underline' }}>
+                                  GitHub
+                                </Link>
+                              </Text>
+                            ) : null}
+                          </Text>
+                          {proj.startDate || proj.endDate || proj.current ? (
+                            <Text style={{ fontSize: scale.entrySubtitlePt, color: '#1f2937', textAlign: 'right' }}>
+                              {proj.startDate}
+                              {proj.current ? ' – Present' : proj.endDate && proj.endDate !== proj.startDate ? ` – ${proj.endDate}` : ''}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {proj.description?.trim() ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1, paddingLeft: 11 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                              {renderSimpleOnePagePdfRichText(proj.description.trim())}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {firstBullet ? (
+                          <View style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 11 }}>
+                            <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>{bulletChar}</Text>
+                            <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                              {renderSimpleOnePagePdfRichText(firstBullet)}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     ) : (
                       <View wrap={false}>
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 1 }}>
@@ -7119,6 +7523,15 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                             </View>,
                             true
                           )}
+                        </View>
+                      ) : isSimpleOnePage ? (
+                        <View key={bIdx} style={{ flexDirection: 'row', marginTop: 1.5, paddingLeft: 11 }} wrap={false}>
+                          <Text style={{ width: 9, fontSize: scale.entrySubtitlePt, color: '#111827' }}>
+                            {bulletChar}
+                          </Text>
+                          <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: '#1f2937' }}>
+                            {renderSimpleOnePagePdfRichText(hl)}
+                          </Text>
                         </View>
                       ) : (
                         <View key={bIdx} style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 1.5, paddingLeft: isJakes ? 10 : isResearchScholar ? 6 : isTwoColumnPro ? 2 : 8 }} wrap={false}>
@@ -7628,6 +8041,40 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       {items.join(', ')}
                     </Text>
                   </View>
+                );
+              })}
+            </View>
+          );
+        }
+
+        if (isSimpleOnePage) {
+          const nonEmptySimpleSkills = visibleSkills.filter((cat) =>
+            (cat.skills || []).some((s) => s.trim())
+          );
+          if (nonEmptySimpleSkills.length === 0) return null;
+          return (
+            <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
+              {headingIfNormal}
+              {nonEmptySimpleSkills.map((cat) => {
+                const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+                return (
+                  <Text
+                    key={cat.id}
+                    style={{
+                      fontSize: scale.bodyPt,
+                      lineHeight: scale.lineHeight,
+                      color: '#1f2937',
+                      marginBottom: 2.5,
+                    }}
+                    wrap={false}
+                  >
+                    {cat.category?.trim() ? (
+                      <Text style={{ fontFamily: fontBold, color: '#111827' }}>
+                        {cat.category.trim()} :{' '}
+                      </Text>
+                    ) : null}
+                    <Text>{items.join(', ')}</Text>
+                  </Text>
                 );
               })}
             </View>

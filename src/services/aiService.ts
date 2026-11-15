@@ -8,11 +8,13 @@ import { resolveTemplateId } from '../data/templates';
 import {
   EXECUTIVE_SECTION_FLOW,
   RESEARCH_SCHOLAR_SECTION_FLOW,
+  SIMPLE_ONE_PAGE_SECTION_FLOW,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
   buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
   buildAdaptiveResearchScholarFallback,
+  buildAdaptiveSimpleOnePageFallback,
 } from '../utils/aiInterviewHelpers';
 import { analyzeResumeSections } from '../utils/validation';
 
@@ -140,7 +142,7 @@ export async function improveTextWithGemini(
 }
 
 /**
- * Perform one conversational turn in "Build My CV with AI".
+ * Perform one conversational turn in template AI Interview Mode.
  */
 export async function sendInterviewStepWithGemini(
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>,
@@ -225,6 +227,14 @@ export async function sendInterviewStepWithGemini(
         currentResume,
         activeSection,
         RESEARCH_SCHOLAR_SECTION_FLOW
+      );
+    }
+    if (tplId === 'simple-one-page') {
+      return buildAdaptiveSimpleOnePageFallback(
+        lastUserMessage,
+        currentResume,
+        activeSection,
+        SIMPLE_ONE_PAGE_SECTION_FLOW
       );
     }
     return {

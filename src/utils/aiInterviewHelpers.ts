@@ -6,6 +6,7 @@ import type {
   InternshipTrack,
   ResearchDiscipline,
   Resume,
+  SimpleOnePageTrack,
   SkillCategory,
 } from '../types/resume';
 import { validateDailyActivities } from './dailyActivities';
@@ -223,6 +224,21 @@ export function mergeResumeUpdates(
   }
   if (typeof u.researchMethodologies === 'string' && u.researchMethodologies.trim()) {
     updated.researchMethodologies = u.researchMethodologies.trim();
+  }
+  if (
+    u.simpleOnePageTrack === 'software-developer' ||
+    u.simpleOnePageTrack === 'cybersecurity' ||
+    u.simpleOnePageTrack === 'data-science' ||
+    u.simpleOnePageTrack === 'designer' ||
+    u.simpleOnePageTrack === 'engineering' ||
+    u.simpleOnePageTrack === 'business' ||
+    u.simpleOnePageTrack === 'fresher' ||
+    u.simpleOnePageTrack === 'other'
+  ) {
+    updated.simpleOnePageTrack = u.simpleOnePageTrack;
+  }
+  if (typeof u.customSimpleOnePageTrack === 'string' && u.customSimpleOnePageTrack.trim()) {
+    updated.customSimpleOnePageTrack = u.customSimpleOnePageTrack.trim();
   }
 
   if (Array.isArray(u.learningActivities) && u.learningActivities.length > 0) {
@@ -2768,6 +2784,227 @@ export function buildAdaptiveResearchScholarFallback(
 
   return {
     reply: spec.reply,
+    structuredUpdates,
+    isSectionCompleted: wantsSkip,
+    nextSection,
+    suggestedChips: spec.chips,
+  };
+}
+
+export const SIMPLE_ONE_PAGE_SECTION_FLOW = [
+  'personalInfo',
+  'objective',
+  'experience',
+  'projects',
+  'education',
+  'skills',
+  'custom-sections',
+];
+
+export function detectSimpleOnePageTrackFromText(text: string): SimpleOnePageTrack | null {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return null;
+  if (
+    /\b(cyber\s*security|cybersecurity|infosec|appsec|soc\s*analyst|penetration|red\s*team|security\s*engineer)\b/.test(
+      lower
+    )
+  ) {
+    return 'cybersecurity';
+  }
+  if (
+    /\b(data\s*science|data\s*analyst|machine\s*learning|ml\s*engineer|ai\s*engineer|analytics|bi\s*analyst)\b/.test(
+      lower
+    )
+  ) {
+    return 'data-science';
+  }
+  if (
+    /\b(ui\/ux|ux\s*designer|product\s*designer|graphic\s*design|brand\s*designer|figma|creative\s*director)\b/.test(
+      lower
+    )
+  ) {
+    return 'designer';
+  }
+  if (
+    /\b(software|full[- ]?stack|backend|frontend|web\s*dev|mobile\s*dev|swe|developer|devops|sre|cloud\s*engineer)\b/.test(
+      lower
+    )
+  ) {
+    return 'software-developer';
+  }
+  if (
+    /\b(fresher|recent\s*graduate|new\s*grad|undergraduate|college\s*student|entry[- ]?level|internship\s*applicant)\b/.test(
+      lower
+    )
+  ) {
+    return 'fresher';
+  }
+  if (
+    /\b(mechanical|electrical|ece|civil|hardware|embedded|robotics|manufacturing|engineering)\b/.test(
+      lower
+    )
+  ) {
+    return 'engineering';
+  }
+  if (
+    /\b(business|product\s*manager|pm\b|consulting|finance|marketing|operations|sales|strategy|program\s*manager)\b/.test(
+      lower
+    )
+  ) {
+    return 'business';
+  }
+  if (/\b(other|custom\s*domain|non[- ]?traditional)\b/.test(lower)) {
+    return 'other';
+  }
+  return null;
+}
+
+const buildSimpleOnePagePromptsForTrack = (
+  label: string,
+  skillHint: string,
+  expHint: string
+): Record<string, { reply: string; chips: string[] }> => ({
+  personalInfo: {
+    reply: `${label} track selected for your Simple One-Page Resume. Share your full name, phone, email, website/LinkedIn/GitHub, and optional location or work authorization (e.g., U.S. Citizen).`,
+    chips: ['Share contacts & links', 'Add work authorization', 'Next: Summary / Experience'],
+  },
+  objective: {
+    reply: `Optional: Would you like a crisp 1–2 line career summary, or keep it omitted like the compact Harshibar layout so Experience stays right at the top?`,
+    chips: ['Omit Summary for 1-page space', 'Add a concise 2-line Summary', 'Next: Experience'],
+  },
+  experience: {
+    reply: `Let's capture your EXPERIENCE (${expHint}). Share company, job title, dates, location, compact impact bullets, and any optional featured work highlights/links.`,
+    chips: ['Add Work / Internship role', 'Add featured Highlights link', 'Next: Projects'],
+  },
+  projects: {
+    reply: `Let's add your PROJECTS. Share 2–3 notable builds or initiatives—project title, concise 1–2 line outcome bullets, and optional GitHub/demo links.`,
+    chips: ['Add a technical or portfolio project', 'Skip to Education', 'Next: Education'],
+  },
+  education: {
+    reply: `Let's record EDUCATION—university/college, degree & specialization, dates, location, plus optional Coursework or Research bullets.`,
+    chips: ['Add Degree + Coursework', 'Add Research bullet', 'Next: Skills'],
+  },
+  skills: {
+    reply: `List your SKILLS grouped into clean compact categories (${skillHint})—no rating bars or dots needed.`,
+    chips: ['Add Languages & Tools', 'Next: Optional Extras'],
+  },
+  'custom-sections': {
+    reply: `Final optional step: Add Certifications, Awards, Publications, Leadership, Volunteering, or Custom sections only if they fit cleanly—empty ones hide automatically.`,
+    chips: ['Keep strict 4-section layout', 'Add Award or Certification', 'Ready to review in editor'],
+  },
+});
+
+const SIMPLE_ONE_PAGE_TRACK_PROMPTS: Record<
+  SimpleOnePageTrack,
+  Record<string, { reply: string; chips: string[] }>
+> = {
+  'software-developer': buildSimpleOnePagePromptsForTrack(
+    'Software Developer',
+    'e.g., Languages and Tools / Frameworks',
+    'software engineering roles, internships, shipped features, scale'
+  ),
+  cybersecurity: buildSimpleOnePagePromptsForTrack(
+    'Cybersecurity',
+    'e.g., Security Tools, Scripting & OS',
+    'SOC, AppSec, vulnerability testing, defense projects'
+  ),
+  'data-science': buildSimpleOnePagePromptsForTrack(
+    'Data Science & Analytics',
+    'e.g., Languages, ML Frameworks & Data Tools',
+    'modeling pipelines, analytics dashboards, metrics'
+  ),
+  designer: buildSimpleOnePagePromptsForTrack(
+    'Design & Creative',
+    'e.g., Design Tools & Prototyping',
+    'product design, UX research, brand systems'
+  ),
+  engineering: buildSimpleOnePagePromptsForTrack(
+    'Hardware & Core Engineering',
+    'e.g., CAD / Simulation & Programming',
+    'prototypes, testing, CAD/embedded systems'
+  ),
+  business: buildSimpleOnePagePromptsForTrack(
+    'Business & Product Management',
+    'e.g., Product Tools, Analytics & Domain Skills',
+    'GTM, cross-functional launches, operations'
+  ),
+  fresher: buildSimpleOnePagePromptsForTrack(
+    'Fresher / Student',
+    'e.g., Languages and Tools',
+    'internships, TA roles, part-time roles, or skip straight to Projects'
+  ),
+  other: buildSimpleOnePagePromptsForTrack(
+    'Custom Profession',
+    'e.g., Core Skills and Tools',
+    'organizations, roles, concrete deliverables'
+  ),
+};
+
+export function buildAdaptiveSimpleOnePageFallback(
+  userMessage: string,
+  currentResume: Partial<Resume>,
+  activeSection: string,
+  sectionFlow: string[] = SIMPLE_ONE_PAGE_SECTION_FLOW
+): {
+  reply: string;
+  structuredUpdates: Partial<Resume>;
+  isSectionCompleted: boolean;
+  nextSection: string;
+  suggestedChips: string[];
+} {
+  const detectedTrack = detectSimpleOnePageTrackFromText(userMessage);
+  const track: SimpleOnePageTrack =
+    detectedTrack || currentResume.simpleOnePageTrack || 'software-developer';
+  const structuredUpdates: Partial<Resume> = detectedTrack
+    ? { simpleOnePageTrack: detectedTrack }
+    : {};
+
+  const trimmedLower = userMessage.trim().toLowerCase();
+  const wantsSkip =
+    /\b(skip|omit|next section|move to|don't have|none|pass)\b/.test(trimmedLower);
+
+  const curIdx = Math.max(0, sectionFlow.indexOf(activeSection));
+  const jumpMatch = trimmedLower.match(/(?:skip\s+to|move\s+to|go\s+to|jump\s+to)\s+(.+)$/);
+  const jumpTarget = jumpMatch ? jumpMatch[1] : wantsSkip ? trimmedLower : '';
+  let resolvedIdx = curIdx;
+
+  if (/(custom[- ]?section|award|certif|leadership|volunteer|review|done)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('custom-sections'));
+  } else if (/(summary|objective)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('objective'));
+  } else if (/experience/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('experience'));
+  } else if (/project/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('projects'));
+  } else if (/(education|degree|coursework)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('education'));
+  } else if (/skill/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('skills'));
+  } else if (wantsSkip && curIdx < sectionFlow.length - 1) {
+    resolvedIdx = curIdx + 1;
+  }
+
+  if (wantsSkip && !jumpMatch && resolvedIdx === curIdx && curIdx < sectionFlow.length - 1) {
+    resolvedIdx = curIdx + 1;
+  }
+
+  const nextSection = sectionFlow[resolvedIdx] || activeSection;
+  const spec =
+    SIMPLE_ONE_PAGE_TRACK_PROMPTS[track][nextSection] ||
+    SIMPLE_ONE_PAGE_TRACK_PROMPTS[track].personalInfo;
+
+  // Context-aware prefix so we acknowledge already-entered info instead of repeating blindly
+  let reply = spec.reply;
+  if (nextSection === 'experience' && (currentResume.experience || []).length > 0) {
+    reply = `I already see ${currentResume.experience!.length} experience ${currentResume.experience!.length === 1 ? 'entry' : 'entries'} in your draft. Would you like to add another role, attach Highlights links, or tighten bullets for 1 A4 page?`;
+  } else if (nextSection === 'projects' && (currentResume.projects || []).length > 0) {
+    reply = `You currently have ${currentResume.projects!.length} project(s) saved. Want to add another project or refine bullets with links?`;
+  } else if (nextSection === 'education' && (currentResume.education || []).length > 0) {
+    reply = `Your Education section already has ${currentResume.education!.length} entry. Want to add Coursework or Research bullets, or move to Skills?`;
+  }
+
+  return {
+    reply,
     structuredUpdates,
     isSectionCompleted: wantsSkip,
     nextSection,

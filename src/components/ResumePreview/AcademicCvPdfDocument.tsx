@@ -23,7 +23,7 @@ function cleanBullets(highlights?: unknown[]): string[] {
   if (!Array.isArray(highlights)) return [];
   return highlights
     .filter((h): h is string => typeof h === 'string' && h.trim().length > 0)
-    .map((h) => h.replace(/^[•\-*]\s*/, '').trim());
+    .map((h) => h.replace(/^(?:[•\-]\s*|\*(?!\*)\s*)/, '').trim());
 }
 
 function chunkPairs<T>(items: T[]): T[][] {

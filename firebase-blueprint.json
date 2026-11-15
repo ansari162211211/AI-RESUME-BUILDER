@@ -275,6 +275,17 @@
           "type": "array",
           "description": "Optional conference program committee roles, reviewing, and organizing duties."
         },
+        "simpleOnePageTrack": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": ["software-developer", "cybersecurity", "data-science", "designer", "engineering", "business", "fresher", "other"],
+          "description": "Optional background track for Template 15 Simple One-Page Resume."
+        },
+        "customSimpleOnePageTrack": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional custom background label when simpleOnePageTrack is set to other."
+        },
         "themeColor": {
           "type": "string",
           "maxLength": 32,

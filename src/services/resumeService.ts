@@ -26,6 +26,7 @@ import {
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_RESEARCH_SCHOLAR_CV,
+  SAMPLE_SIMPLE_ONE_PAGE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -181,6 +182,7 @@ export type TemplateProfileType =
   | 'creative-professional'
   | 'executive-resume'
   | 'research-scholar'
+  | 'simple-one-page'
   | 'experienced'
   | 'fresher'
   | 'student'
@@ -240,6 +242,9 @@ export async function createNewResume(
       break;
     case 'research-scholar':
       base = SAMPLE_RESEARCH_SCHOLAR_CV;
+      break;
+    case 'simple-one-page':
+      base = SAMPLE_SIMPLE_ONE_PAGE_CV;
       break;
     case 'experienced':
       base = SAMPLE_EXPERIENCED_CV;

@@ -352,7 +352,7 @@ export function cleanHighlights(highlights?: unknown[]): string[] {
   if (!Array.isArray(highlights)) return [];
   return highlights
     .filter((h): h is string => typeof h === 'string' && h.trim().length > 0)
-    .map((h) => h.replace(/^[•\-*]\s*/, '').trim());
+    .map((h) => h.replace(/^(?:[•\-]\s*|\*(?!\*)\s*)/, '').trim());
 }
 
 export function chunkRows<T>(items: T[], rowSize = 2): T[][] {
@@ -2940,7 +2940,8 @@ export function getOrderedVisibleSections(
       template.id === 'engineering-resume' ||
       template.id === 'creative-professional' ||
       template.id === 'executive-resume' ||
-      template.id === 'research-scholar') &&
+      template.id === 'research-scholar' ||
+      template.id === 'simple-one-page') &&
     Array.isArray(resume.sectionOrderOverride) &&
     resume.sectionOrderOverride.length > 0
   ) {
@@ -3294,6 +3295,35 @@ export function getSectionDisplayTitle(
     }
   }
 
+  if (templateId === 'simple-one-page') {
+    switch (key) {
+      case 'objective':
+        return 'SUMMARY';
+      case 'experience':
+        return 'EXPERIENCE';
+      case 'projects':
+        return 'PROJECTS';
+      case 'education':
+        return 'EDUCATION';
+      case 'skills':
+        return 'SKILLS';
+      case 'certifications':
+        return 'CERTIFICATIONS';
+      case 'achievements':
+        return 'AWARDS & HONORS';
+      case 'publications':
+        return 'PUBLICATIONS';
+      case 'leadership':
+        return 'LEADERSHIP';
+      case 'volunteer':
+        return 'VOLUNTEERING';
+      case 'custom-sections':
+        return 'ADDITIONAL INFORMATION';
+      default:
+        break;
+    }
+  }
+
   switch (key) {
     case 'objective':
       if (templateId === 'executive-resume') return 'EXECUTIVE SUMMARY';
@@ -3307,6 +3337,7 @@ export function getSectionDisplayTitle(
         return 'PROFESSIONAL SUMMARY';
       }
       if (templateId === 'research-scholar') return 'Summary';
+      if (templateId === 'simple-one-page') return 'SUMMARY';
       return 'OBJECTIVE';
     case 'research-interests':
       return 'Research Interests';
@@ -3383,3 +3414,190 @@ export function getPublicationParts(pub: PublicationItem) {
     venue,
   };
 }
+
+export type SimpleOnePageContactKind =
+  | 'phone'
+  | 'email'
+  | 'website'
+  | 'linkedin'
+  | 'github'
+  | 'youtube'
+  | 'custom'
+  | 'pin';
+
+export interface SimpleOnePageContactItem {
+  kind: SimpleOnePageContactKind;
+  label: string;
+  url: string | null;
+  underlined?: boolean;
+}
+
+export function normalizeExternalUrl(raw?: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^(https?:|mailto:|tel:)/i.test(trimmed)) {
+    return sanitizePdfUrl(trimmed);
+  }
+  return sanitizePdfUrl(`https://${trimmed.replace(/^\/+/, '')}`);
+}
+
+export function buildSimpleOnePageContactItems(
+  personalInfo: PersonalInfo
+): SimpleOnePageContactItem[] {
+  const items: SimpleOnePageContactItem[] = [];
+  if (!personalInfo) return items;
+
+  if (personalInfo.phone?.trim()) {
+    items.push({
+      kind: 'phone',
+      label: personalInfo.phone.trim(),
+      url: `tel:${personalInfo.phone.replace(/[^+\d]/g, '')}`,
+      underlined: false,
+    });
+  }
+
+  if (personalInfo.email?.trim()) {
+    items.push({
+      kind: 'email',
+      label: personalInfo.email.trim(),
+      url: `mailto:${personalInfo.email.trim()}`,
+      underlined: true,
+    });
+  }
+
+  if (personalInfo.website?.trim()) {
+    const raw = personalInfo.website.trim();
+    const isYt = /youtube\.com|youtu\.be/i.test(raw);
+    const label = raw.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+    items.push({
+      kind: isYt ? 'youtube' : 'website',
+      label,
+      url: normalizeExternalUrl(raw),
+      underlined: true,
+    });
+  }
+
+  if (personalInfo.linkedin?.trim()) {
+    const raw = personalInfo.linkedin.trim();
+    const handle = raw
+      .replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, '')
+      .replace(/\/$/, '');
+    const fullUrl = raw.includes('linkedin.com') ? raw : `https://linkedin.com/in/${handle}`;
+    items.push({
+      kind: 'linkedin',
+      label: handle || raw,
+      url: normalizeExternalUrl(fullUrl),
+      underlined: true,
+    });
+  }
+
+  if (personalInfo.github?.trim()) {
+    const raw = personalInfo.github.trim();
+    const handle = raw
+      .replace(/^https?:\/\/(www\.)?github\.com\//i, '')
+      .replace(/\/$/, '');
+    const fullUrl = raw.includes('github.com') ? raw : `https://github.com/${handle}`;
+    items.push({
+      kind: 'github',
+      label: handle || raw,
+      url: normalizeExternalUrl(fullUrl),
+      underlined: true,
+    });
+  }
+
+  if (Array.isArray(personalInfo.customLinks)) {
+    for (const link of personalInfo.customLinks) {
+      if (!link.label?.trim() && !link.url?.trim()) continue;
+      const rawUrl = (link.url || '').trim();
+      const rawLabel = (link.label || '').trim();
+      const isYoutube = /youtube|youtu\.be/i.test(`${rawLabel} ${rawUrl}`);
+      const label =
+        rawLabel.replace(/^youtube\s*[:@-]?\s*/i, '').trim() ||
+        rawUrl.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+      items.push({
+        kind: isYoutube ? 'youtube' : 'custom',
+        label: label || rawUrl,
+        url: rawUrl ? normalizeExternalUrl(rawUrl) : null,
+        underlined: Boolean(rawUrl),
+      });
+    }
+  }
+
+  const pinText =
+    personalInfo.workAuthorization?.trim() ||
+    [personalInfo.city?.trim(), personalInfo.state?.trim(), personalInfo.country?.trim()]
+      .filter(Boolean)
+      .join(', ') ||
+    personalInfo.location?.trim() ||
+    '';
+  if (pinText) {
+    items.push({
+      kind: 'pin',
+      label: pinText,
+      url: null,
+      underlined: false,
+    });
+  }
+
+  return items;
+}
+
+export interface SimpleOnePageRichSegment {
+  text: string;
+  bold?: boolean;
+  url?: string | null;
+}
+
+export function parseSimpleOnePageRichTextSegments(
+  input: string
+): SimpleOnePageRichSegment[] {
+  if (!input) return [];
+  const tokenRegex = /(\*\*(?:[^*]|\*(?!\*))+?\*\*|\[[^\]]+\]\([^)]+\))/g;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const segments: SimpleOnePageRichSegment[] = [];
+  let lastIndex = 0;
+
+  let match: RegExpExecArray | null;
+  while ((match = tokenRegex.exec(input)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: input.slice(lastIndex, match.index) });
+    }
+    const token = match[0];
+    if (token.startsWith('**') && token.endsWith('**')) {
+      const inner = token.slice(2, -2);
+      let innerLast = 0;
+      let linkMatch: RegExpExecArray | null;
+      linkRegex.lastIndex = 0;
+      while ((linkMatch = linkRegex.exec(inner)) !== null) {
+        if (linkMatch.index > innerLast) {
+          segments.push({ text: inner.slice(innerLast, linkMatch.index), bold: true });
+        }
+        segments.push({
+          text: linkMatch[1],
+          bold: true,
+          url: normalizeExternalUrl(linkMatch[2]),
+        });
+        innerLast = linkRegex.lastIndex;
+      }
+      if (innerLast < inner.length) {
+        segments.push({ text: inner.slice(innerLast), bold: true });
+      }
+    } else if (token.startsWith('[')) {
+      const m = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (m) {
+        segments.push({ text: m[1], url: normalizeExternalUrl(m[2]) });
+      } else {
+        segments.push({ text: token });
+      }
+    }
+    lastIndex = tokenRegex.lastIndex;
+  }
+
+  if (lastIndex < input.length) {
+    segments.push({ text: input.slice(lastIndex) });
+  }
+
+  return segments;
+}
+

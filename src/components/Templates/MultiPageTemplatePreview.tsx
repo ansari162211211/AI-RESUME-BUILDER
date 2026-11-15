@@ -29,6 +29,7 @@ import {
   buildModernCorporateContactItems,
   buildResearchScholarAddressLine,
   buildResearchScholarContactItems,
+  buildSimpleOnePageContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkPairs,
@@ -69,6 +70,8 @@ import {
   groupAwardsByYearForFresher,
   groupExperienceByCategory,
   groupPublicationsForTwoColumn,
+  normalizeExternalUrl,
+  parseSimpleOnePageRichTextSegments,
   splitAwesomeCvHeading,
   splitAwesomeCvName,
   splitCreativeName,
@@ -78,6 +81,7 @@ import {
   type InternshipContactKind,
   type ModernCorporateContactKind,
   type ResearchScholarContactKind,
+  type SimpleOnePageContactKind,
   type TwoColumnContactKind,
   type TwoColumnPubCategoryKey,
 } from '../../utils/resumePresentation';
@@ -200,6 +204,8 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   const isExecutiveResume = template.id === 'executive-resume';
   const isResearchScholar =
     template.id === 'research-scholar' || template.headerVariant === 'awesome-cv-centered';
+  const isSimpleOnePage =
+    template.id === 'simple-one-page' || template.headerVariant === 'simple-one-page-centered';
   const fontClass = custom.fontFamily === 'serif' ? 'font-cv-serif' : 'font-cv-sans';
   const isTwoColumnSidebar =
     template.layout === 'sidebar-light' || template.layout === 'sidebar-dark';
@@ -743,6 +749,25 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 marginBottom: '2.2pt',
               }}
             />
+          </div>
+        );
+      }
+      case 'simple-one-page-rule': {
+        return (
+          <div style={{ marginBottom: '4.5pt' }}>
+            <h2
+              className="cv-heading font-bold uppercase"
+              style={{
+                fontSize,
+                letterSpacing: '0.45pt',
+                color: color || '#111827',
+                lineHeight: 1.2,
+                paddingBottom: '2pt',
+                borderBottom: '0.85pt solid #cbd5e1',
+              }}
+            >
+              {title}
+            </h2>
           </div>
         );
       }
@@ -1399,6 +1424,96 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     }
   };
 
+  const renderSimpleOnePageContactIcon = (kind: SimpleOnePageContactKind, color = '#111827') => {
+    const size = '8.2pt';
+    const baseStyle: React.CSSProperties = {
+      marginRight: '2.5pt',
+      flexShrink: 0,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+    };
+    switch (kind) {
+      case 'phone':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.46.57 3.58a1 1 0 01-.25 1.01l-2.2 2.2z" />
+          </svg>
+        );
+      case 'email':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+          </svg>
+        );
+      case 'youtube':
+        return (
+          <svg width="9.2pt" height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M21.8 8s-.2-1.4-.8-2c-.8-.8-1.6-.8-2-.9C16.2 4.9 12 4.9 12 4.9h0s-4.2 0-7 .2c-.4.1-1.2.1-2 .9-.6.6-.8 2-.8 2S2 9.6 2 11.2v1.5C2 14.3 2.2 16 2.2 16s.2 1.4.8 2c.8.8 1.8.8 2.2.9 1.6.1 6.8.2 6.8.2s4.2 0 7-.2c.4-.1 1.2-.1 2-.9.6-.6.8-2 .8-2s.2-1.6.2-3.2v-1.5C22 9.6 21.8 8 21.8 8zM9.8 14.8V9.2l5.4 2.8-5.4 2.8z" />
+          </svg>
+        );
+      case 'pin':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
+          </svg>
+        );
+      case 'linkedin':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M19 3a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h14m-.5 15.5v-5.3a3.26 3.26 0 00-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 011.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 001.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 00-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+          </svg>
+        );
+      case 'github':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
+            <path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+          </svg>
+        );
+      case 'website':
+      case 'custom':
+      default:
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" style={baseStyle}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="2" y1="12" x2="22" y2="12" />
+            <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
+          </svg>
+        );
+    }
+  };
+
+  const renderSimpleOnePageRichText = (text: string, linkColor = '#111827') => {
+    const segments = parseSimpleOnePageRichTextSegments(text);
+    return (
+      <>
+        {segments.map((seg, i) => {
+          if (seg.url) {
+            return (
+              <a
+                key={i}
+                href={seg.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+                style={{ color: linkColor, fontWeight: seg.bold ? 700 : undefined }}
+              >
+                {seg.text}
+              </a>
+            );
+          }
+          if (seg.bold) {
+            return (
+              <strong key={i} className="font-bold">
+                {seg.text}
+              </strong>
+            );
+          }
+          return <React.Fragment key={i}>{seg.text}</React.Fragment>;
+        })}
+      </>
+    );
+  };
+
   // Header renderer for the distinct header variants
   const renderHeader = (): React.ReactNode => {
     const nameText = personalInfo.fullName || 'FULL NAME';
@@ -1406,6 +1521,73 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     const textCol = custom.textColor;
 
     switch (template.headerVariant) {
+      case 'simple-one-page-centered': {
+        const items = buildSimpleOnePageContactItems(personalInfo);
+        const headline = personalInfo.jobTitle?.trim();
+        return (
+          <header className="text-center" style={{ marginBottom: '7pt' }}>
+            <h1
+              className="font-extrabold tracking-tight"
+              style={{
+                fontSize: `${scale.namePt}pt`,
+                color: '#111827',
+                lineHeight: 1.08,
+                marginBottom: headline ? '2pt' : '4pt',
+              }}
+            >
+              {nameText}
+            </h1>
+
+            {headline && (
+              <div
+                style={{
+                  fontSize: `${scale.metaPt}pt`,
+                  color: '#4b5563',
+                  fontWeight: 500,
+                  marginBottom: '3pt',
+                }}
+              >
+                {headline}
+              </div>
+            )}
+
+            {items.length > 0 && (
+              <div
+                className="flex flex-wrap items-center justify-center"
+                style={{
+                  fontSize: `${scale.metaPt - 0.25}pt`,
+                  color: '#1f2937',
+                  lineHeight: 1.35,
+                  rowGap: '2pt',
+                }}
+              >
+                {items.map((item, idx) => (
+                  <span key={`${item.kind}-${idx}`} className="inline-flex items-center whitespace-nowrap">
+                    {idx > 0 && (
+                      <span style={{ color: '#9ca3af', margin: '0 4.5pt' }}>|</span>
+                    )}
+                    {renderSimpleOnePageContactIcon(item.kind, '#111827')}
+                    {item.url ? (
+                      <a
+                        href={item.url}
+                        target={item.url.startsWith('http') ? '_blank' : undefined}
+                        rel={item.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                        className={item.underlined ? 'underline' : 'no-underline hover:underline'}
+                        style={{ color: '#111827' }}
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span>{item.label}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </header>
+        );
+      }
+
       case 'awesome-cv-centered': {
         const { firstPart, lastPart } = splitAwesomeCvName(nameText);
         const items = buildResearchScholarContactItems(personalInfo);
@@ -4334,6 +4516,71 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         </div>
                       )}
                     </div>
+                  ) : isSimpleOnePage ? (
+                    <div className="cv-entry" style={{ color: '#111827' }}>
+                      <div
+                        className="flex justify-between items-baseline font-bold"
+                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                      >
+                        <span style={{ marginRight: '8pt' }}>{edu.institution}</span>
+                        {dateRange && (
+                          <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#1f2937' }}>
+                            {dateRange}
+                          </span>
+                        )}
+                      </div>
+                      {(edu.degree || edu.location) && (
+                        <div
+                          className="flex justify-between items-baseline italic"
+                          style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#374151', marginBottom: '1.5pt' }}
+                        >
+                          <span style={{ marginRight: '8pt' }}>
+                            {edu.degree}
+                            {edu.specialization ? ` in ${edu.specialization}` : ''}
+                          </span>
+                          {edu.location && (
+                            <span className="italic shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#374151' }}>
+                              {edu.location}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {courseworkList.length > 0 && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '11pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                            <strong className="font-bold">Coursework:</strong> {courseworkList.join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      {edu.research?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '11pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                            <strong className="font-bold">Research:</strong> {renderSimpleOnePageRichText(edu.research.trim())}
+                          </span>
+                        </div>
+                      )}
+                      {(edu.grade?.trim() || edu.honors?.trim() || edu.achievements?.trim()) && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '11pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                            {[
+                              edu.grade?.trim() ? `GPA: ${edu.grade.trim()}` : '',
+                              edu.honors?.trim() || edu.achievements?.trim() || '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="cv-entry" style={{ color: textCol, paddingLeft: isJakes ? '8pt' : undefined }}>
                       <div
@@ -5160,6 +5407,68 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           </>
                         )}
                       </div>
+                    ) : isSimpleOnePage ? (
+                      <div className="cv-entry" style={{ color: '#111827' }}>
+                        <div
+                          className="flex justify-between items-baseline font-bold"
+                          style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '0.5pt' }}
+                        >
+                          <span style={{ marginRight: '8pt' }}>{exp.company}</span>
+                          {expDateRange && (
+                            <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#1f2937' }}>
+                              {expDateRange}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="flex justify-between items-baseline italic"
+                          style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#374151', marginBottom: '1.5pt' }}
+                        >
+                          <span style={{ marginRight: '8pt' }}>
+                            {renderSimpleOnePageRichText(exp.position || '')}
+                            {exp.employmentType?.trim() ? ` (${exp.employmentType.trim()})` : ''}
+                          </span>
+                          {exp.location && (
+                            <span className="italic shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#374151' }}>
+                              {exp.location}
+                            </span>
+                          )}
+                        </div>
+                        {exp.description?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: '1pt' }}>
+                            {renderSimpleOnePageRichText(exp.description.trim())}
+                          </div>
+                        )}
+                        {firstBullet && (
+                          <>
+                            <div
+                              className="flex items-start"
+                              style={{ marginTop: '1.5pt', paddingLeft: '11pt' }}
+                            >
+                              <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                                {bulletChar}
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                                {renderSimpleOnePageRichText(firstBullet)}
+                              </span>
+                            </div>
+                            {(subMap.get(0) || []).map((subItem, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex items-start"
+                                style={{ marginTop: '1pt', paddingLeft: '22pt', color: '#374151' }}
+                              >
+                                <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                  –
+                                </span>
+                                <span style={{ fontSize: `${scale.bodyPt - 0.2}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                  {renderSimpleOnePageRichText(subItem)}
+                                </span>
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
                     ) : (
                       <div className="cv-entry" style={{ color: textCol, paddingLeft: isJakes ? '8pt' : undefined }}>
                         {categoryHeadingForThisItem && (
@@ -5369,6 +5678,31 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             ))}
                           </div>
                         )
+                      ) : isSimpleOnePage ? (
+                        <div style={{ color: '#111827' }}>
+                          <div className="cv-entry flex items-start" style={{ paddingLeft: '11pt' }}>
+                            <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                              {bulletChar}
+                            </span>
+                            <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                              {renderSimpleOnePageRichText(hl)}
+                            </span>
+                          </div>
+                          {nestedSubs.map((subItem, sIdx) => (
+                            <div
+                              key={sIdx}
+                              className="flex items-start"
+                              style={{ marginTop: '1pt', paddingLeft: '22pt', color: '#374151' }}
+                            >
+                              <span style={{ width: '8pt', fontSize: `${scale.bodyPt}pt`, flexShrink: 0 }}>
+                                –
+                              </span>
+                              <span style={{ fontSize: `${scale.bodyPt - 0.2}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
+                                {renderSimpleOnePageRichText(subItem)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <div style={{ color: textCol }}>
                           <div
@@ -5403,6 +5737,54 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                     ),
                 });
               });
+
+              const validWorkHighlights = (exp.workHighlights || []).filter(
+                (wh) => (wh.title || '').trim().length > 0
+              );
+              if (isSimpleOnePage && validWorkHighlights.length > 0) {
+                list.push({
+                  id: `exp-work-highlights-${exp.id}`,
+                  spacing: 'bullet',
+                  isSidebar: options.isSidebar,
+                  render: () =>
+                    wrapLayoutUnit(
+                      undefined,
+                      false,
+                      <div className="cv-entry flex items-start" style={{ paddingLeft: '11pt', color: '#111827' }}>
+                        <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                          <span>Highlights: </span>
+                          {validWorkHighlights.map((wh, whIdx) => {
+                            const href = normalizeExternalUrl(wh.url);
+                            return (
+                              <React.Fragment key={wh.id || whIdx}>
+                                {whIdx > 0 && <span>, </span>}
+                                {href ? (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline"
+                                    style={{ color: '#111827' }}
+                                    title={wh.description?.trim() || wh.title}
+                                  >
+                                    {wh.title}
+                                  </a>
+                                ) : (
+                                  <span>{wh.title}</span>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </span>
+                      </div>,
+                      options.inverted,
+                      options.isSidebar
+                    ),
+                });
+              }
             });
           });
           break;
@@ -6809,6 +7191,71 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         </div>
                       )}
                     </div>
+                  ) : isSimpleOnePage ? (
+                    <div className="cv-entry" style={{ color: '#111827' }}>
+                      <div
+                        className="flex justify-between items-baseline font-bold"
+                        style={{ fontSize: `${scale.entryTitlePt}pt`, marginBottom: '1pt' }}
+                      >
+                        <div style={{ marginRight: '8pt', flex: 1, minWidth: 0 }}>
+                          <span>{proj.title}</span>
+                          {(proj.link || proj.githubUrl) && (
+                            <span className="font-normal" style={{ fontSize: `${scale.metaPt - 0.15}pt`, marginLeft: '5pt', color: '#374151' }}>
+                              {proj.link && (
+                                <a
+                                  href={normalizeExternalUrl(proj.link) || '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline"
+                                  style={{ color: '#111827', marginRight: proj.githubUrl ? '4pt' : 0 }}
+                                >
+                                  Link
+                                </a>
+                              )}
+                              {proj.githubUrl && (
+                                <a
+                                  href={normalizeExternalUrl(proj.githubUrl) || '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline"
+                                  style={{ color: '#111827' }}
+                                >
+                                  GitHub
+                                </a>
+                              )}
+                            </span>
+                          )}
+                        </div>
+                        {(proj.startDate || proj.endDate || proj.current) && (
+                          <span className="font-normal shrink-0" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: '#1f2937' }}>
+                            {proj.startDate}
+                            {proj.current ? ' – Present' : proj.endDate && proj.endDate !== proj.startDate ? ` – ${proj.endDate}` : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      {proj.description?.trim() && (
+                        <div className="flex items-start" style={{ marginTop: '1pt', paddingLeft: '11pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                            {renderSimpleOnePageRichText(proj.description.trim())}
+                          </span>
+                        </div>
+                      )}
+
+                      {firstBullet && (
+                        <div className="flex items-start" style={{ marginTop: '1.5pt', paddingLeft: '11pt' }}>
+                          <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                            {bulletChar}
+                          </span>
+                          <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                            {renderSimpleOnePageRichText(firstBullet)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="cv-entry" style={{ color: textCol }}>
                       <div
@@ -6923,12 +7370,24 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           </span>
                         </div>
                       )
+                    ) : isSimpleOnePage ? (
+                      <div
+                        className="cv-entry flex items-start"
+                        style={{ paddingLeft: '11pt', color: '#111827' }}
+                      >
+                        <span style={{ width: '9pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: '#111827' }}>
+                          {bulletChar}
+                        </span>
+                        <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: '#1f2937', flex: 1 }}>
+                          {renderSimpleOnePageRichText(hl)}
+                        </span>
+                      </div>
                     ) : (
                       <div
                         className="cv-entry flex items-start"
                         style={{ paddingLeft: isJakes ? '18pt' : isResearchScholar ? '6pt' : isTwoColumnPro ? '2pt' : '8pt', color: textCol }}
                       >
-                        <span style={{ width: isTwoColumnPro || isResearchScholar ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro || isResearchScholar ? '#4b5563' : undefined }}>
+                        <span style={{ width: isTwoColumnPro || isResearchScholar ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro || isExecutiveResume || isResearchScholar ? '#4b5563' : undefined }}>
                           {bulletChar}
                         </span>
                         <span style={{ fontSize: `${isResearchScholar ? scale.bodyPt - 0.1 : scale.bodyPt}pt`, lineHeight: scale.lineHeight, color: isResearchScholar ? '#4b5563' : undefined, flex: 1 }}>
@@ -7465,6 +7924,37 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         {cat.category}
                       </span>
                       <span style={{ flex: 1 }}>{items.join(', ')}</span>
+                    </div>,
+                    options.inverted,
+                    options.isSidebar
+                  ),
+              });
+            });
+          } else if (isSimpleOnePage) {
+            visibleSkills.forEach((cat, idx) => {
+              const items = (cat.skills || []).map((s) => s.trim()).filter(Boolean);
+              if (items.length === 0) return;
+              list.push({
+                id: `skill-simple-${cat.id}`,
+                spacing: idx === 0 ? 'section' : 'skill',
+                sectionHeading: idx === 0 ? sectionTitle : undefined,
+                isSidebar: options.isSidebar,
+                render: (showHeading) =>
+                  wrapLayoutUnit(
+                    sectionTitle,
+                    showHeading,
+                    <div
+                      className="cv-entry"
+                      style={{
+                        fontSize: `${scale.bodyPt}pt`,
+                        lineHeight: scale.lineHeight,
+                        color: '#111827',
+                      }}
+                    >
+                      {cat.category?.trim() ? (
+                        <strong className="font-bold">{cat.category.trim()} : </strong>
+                      ) : null}
+                      <span style={{ color: '#1f2937' }}>{items.join(', ')}</span>
                     </div>,
                     options.inverted,
                     options.isSidebar
@@ -10936,7 +11426,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }),
       fullWidthTopHeader: topBannerHeader,
     };
-  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isInternshipResume, isCreativeProfessional, isExecutiveResume, isResearchScholar, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
+  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isInternshipResume, isCreativeProfessional, isExecutiveResume, isResearchScholar, isSimpleOnePage, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
 
   // Helper to paginate a flat array of units using measured DOM heights
   const paginateUnits = (
@@ -11189,6 +11679,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     isInternshipResume,
     isCreativeProfessional,
     isResearchScholar,
+    isSimpleOnePage,
     isTwoColumnSidebar,
     custom,
     scale,

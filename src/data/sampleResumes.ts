@@ -3915,6 +3915,192 @@ export const SAMPLE_RESEARCH_SCHOLAR_CV: Omit<
   customSections: [],
 };
 
+export const SAMPLE_SIMPLE_ONE_PAGE_CV: Omit<
+  Resume,
+  'id' | 'userId' | 'createdAt' | 'updatedAt'
+> = {
+  title: 'Simple One-Page Resume (Harshibar)',
+  template: 'simple-one-page',
+  simpleOnePageTrack: 'software-developer',
+  targetBackground: 'experienced',
+  fontFamily: 'sans',
+  themeColor: '#111827',
+  customization: {
+    fontFamily: 'sans',
+    fontSize: 'compact',
+    textColor: '#111827',
+    accentColor: '#111827',
+    sectionSpacing: 'tight',
+    pageMargins: 'standard',
+    headingStyle: 'simple-one-page-rule',
+  },
+  personalInfo: {
+    fullName: 'Harshibar',
+    jobTitle: '',
+    email: 'hello@email.com',
+    phone: '555.555.5555',
+    workAuthorization: 'U.S. Citizen',
+    customLinks: [
+      {
+        id: 'sop-yt-1',
+        label: 'harshibar',
+        url: 'https://youtube.com/@harshibar',
+      },
+    ],
+  },
+  objective: '',
+  experience: [
+    {
+      id: 'sop-exp-1',
+      company: 'YouTube',
+      position: 'Creator (@harshibar)',
+      location: 'San Francisco, CA',
+      startDate: 'Aug. 2019',
+      endDate: 'Present',
+      current: true,
+      highlights: [
+        'Grew channel to **60k subscribers in 1.5 years**; created 80+ videos on tech and productivity',
+        'Conducted A/B testing on titles and thumbnails; **increased video impressions by 2.5M** in 3 months',
+        'Designed a Notion workflow to streamline video production and roadmapping; boosted productivity by 20%',
+        '**Partnered with brands like Skillshare and Squarespace** to expand their outreach via sponsorships',
+      ],
+      workHighlights: [
+        {
+          id: 'sop-wh-1',
+          title: 'The Problem with Productivity Apps',
+          url: 'https://youtube.com/@harshibar',
+        },
+        {
+          id: 'sop-wh-2',
+          title: 'Obsidian App Review',
+          url: 'https://youtube.com/@harshibar',
+        },
+        {
+          id: 'sop-wh-3',
+          title: 'Not-So-Minimal Desk Setup',
+          url: 'https://youtube.com/@harshibar',
+        },
+      ],
+    },
+    {
+      id: 'sop-exp-2',
+      company: 'Google Verily',
+      position: 'Software Engineer',
+      location: 'San Francisco, CA',
+      startDate: 'Aug. 2018',
+      endDate: 'Sept. 2019',
+      current: false,
+      highlights: [
+        '**Led front-end development** of a dashboard to process 50k blood samples and detect early-stage cancer',
+        'Rebuilt a Quality Control product with input from 20 cross-functional stakeholders, **saving $1M annually**',
+        'Spearheaded product development of a new lab workflow tool, leading to a 40% increase in efficiency; shadowed 10 core users, iterated on design docs, and implemented the solution with one engineer',
+      ],
+    },
+    {
+      id: 'sop-exp-3',
+      company: 'Amazon',
+      position: 'Software Engineering Intern',
+      location: 'Seattle, WA',
+      startDate: 'May 2017',
+      endDate: 'Aug. 2017',
+      current: false,
+      highlights: [
+        'Worked on the Search Customer Experience Team; **received a return offer** for a full-time position',
+        '**Shipped a new feature to 2M+ users** to improve the search experience for movie series-related queries',
+        'Built a back-end database service in Java and implemented a front-end UI to support future changes',
+      ],
+    },
+  ],
+  projects: [
+    {
+      id: 'sop-proj-1',
+      title: 'Hyku Consulting',
+      description: '',
+      technologies: [],
+      highlights: [
+        'Mentored 15 students towards acceptance at top US boarding schools; achieved **100% success rate**',
+        'Designed a **collaborative learning ecosystem** for students and parents with Trello, Miro, and Google Suite',
+      ],
+    },
+    {
+      id: 'sop-proj-2',
+      title: 'Minimal Icon Pack',
+      description: '',
+      technologies: [],
+      highlights: [
+        'Designed and released 100+ minimal iOS and Android icons from scratch using Procreate and Figma',
+        'Marketed the product and design process on [YouTube](https://youtube.com/@harshibar); accumulated over **$250 in sales** on [Gumroad](https://gumroad.com)',
+      ],
+    },
+    {
+      id: 'sop-proj-3',
+      title: 'CommonIntern',
+      description: '',
+      technologies: [],
+      highlights: [
+        'Built a Python script to automatically apply to jobs on Glassdoor using BeautifulSoup and Selenium',
+        '**500 stars on [GitHub](https://github.com)**; featured on [Hackaday](https://hackaday.com); made the front page of [r/python](https://reddit.com/r/python) and [r/programming](https://reddit.com/r/programming)',
+      ],
+    },
+  ],
+  education: [
+    {
+      id: 'sop-edu-1',
+      institution: 'Wellesley College',
+      degree: 'Bachelor of Arts',
+      specialization: 'Computer Science and Pre-Med',
+      location: 'Wellesley, MA',
+      startDate: 'Aug. 2014',
+      endDate: 'May 2018',
+      current: false,
+      coursework: [
+        'Data Structures',
+        'Algorithms',
+        'Databases',
+        'Computer Systems',
+        'Machine Learning',
+      ],
+      research:
+        'MIT Graybiel Lab (published author), MIT Media Lab (analyzed urban microbe spread)',
+    },
+  ],
+  skills: [
+    {
+      id: 'sop-sk-1',
+      category: 'Languages',
+      skills: [
+        'Python',
+        'JavaScript (React.js)',
+        'HTML/CSS',
+        'SQL (PostgreSQL, MySQL)',
+      ],
+    },
+    {
+      id: 'sop-sk-2',
+      category: 'Tools',
+      skills: [
+        'Figma',
+        'Notion',
+        'Jira',
+        'Trello',
+        'Miro',
+        'Google Analytics',
+        'GitHub',
+        'DaVinci Resolve',
+        'OBS',
+      ],
+    },
+  ],
+  certifications: [],
+  achievements: [],
+  publications: [],
+  leadership: [],
+  volunteer: [],
+  memberships: [],
+  languages: [],
+  customSections: [],
+};
+
 // Backwards compatibility alias
 export const SAMPLE_TECH_RESUME = SAMPLE_EXPERIENCED_CV;
 export const BLANK_RESUME_TEMPLATE = BLANK_ACADEMIC_CV;

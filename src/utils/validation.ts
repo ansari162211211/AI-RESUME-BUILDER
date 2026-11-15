@@ -1,5 +1,6 @@
 import type { Resume } from '../types/resume';
 import { validateDailyActivities } from './dailyActivities';
+import { estimateSimpleOnePageFit } from './onePageOptimizer';
 
 export function validateEmail(email: string): boolean {
   if (!email || typeof email !== 'string') return false;
@@ -845,6 +846,84 @@ export function calculateResumeCompleteness(resume: Partial<Resume>): number {
       bonus += 2;
     }
     score += Math.min(22, bonus);
+
+    return Math.min(100, score);
+  }
+
+  if (resume.template === 'simple-one-page') {
+    let score = 0;
+    const pi = resume.personalInfo;
+    if (pi) {
+      if (pi.fullName?.trim()) score += 10;
+      if (pi.email?.trim()) score += 6;
+      if (pi.phone?.trim()) score += 4;
+      if (
+        pi.website?.trim() ||
+        pi.linkedin?.trim() ||
+        pi.github?.trim() ||
+        pi.workAuthorization?.trim() ||
+        pi.city?.trim() ||
+        pi.location?.trim() ||
+        (pi.customLinks && pi.customLinks.length > 0)
+      ) {
+        score += 4;
+      }
+    }
+
+    const validExp = (resume.experience || []).filter(
+      (e) =>
+        (e.company?.trim() || e.position?.trim()) &&
+        ((e.highlights || []).some((h) => h.trim().length > 0) ||
+          Boolean(e.description?.trim()))
+    ).length;
+    const anyExp = (resume.experience || []).filter(
+      (e) => e.company?.trim() || e.position?.trim()
+    ).length;
+
+    const validProj = (resume.projects || []).filter(
+      (p) =>
+        p.title?.trim() &&
+        ((p.highlights || []).some((h) => h.trim().length > 0) ||
+          Boolean(p.description?.trim()))
+    ).length;
+    const anyProj = (resume.projects || []).filter((p) => p.title?.trim()).length;
+
+    if (validExp >= 2) score += 28;
+    else if (validExp === 1) score += 22;
+    else if (anyExp >= 1) score += 14;
+    else if (resume.simpleOnePageTrack === 'fresher' && validProj >= 2) score += 20;
+
+    if (validProj >= 2) score += 18;
+    else if (validProj === 1 || anyProj >= 1) score += 14;
+
+    const edu = resume.education || [];
+    const validEdu = edu.filter((e) => e.institution?.trim() && e.degree?.trim()).length;
+    if (validEdu >= 1) score += 18;
+    else if (edu.length >= 1) score += 10;
+
+    const skillCount = (resume.skills || []).reduce(
+      (acc, c) => acc + (c.skills?.filter((s) => s.trim()).length || 0),
+      0
+    );
+    if (skillCount >= 4) score += 12;
+    else if (skillCount > 0) score += 8;
+
+    let bonus = 0;
+    if (resume.objective?.trim()) bonus += 2;
+    if ((resume.experience || []).some((e) => (e.workHighlights || []).some((w) => w.title?.trim()))) {
+      bonus += 2;
+    }
+    if ((resume.achievements || []).some((a) => a.title?.trim())) bonus += 2;
+    if ((resume.certifications || []).some((c) => c.name?.trim())) bonus += 2;
+    if (
+      (resume.publications || []).some((p) => p.title?.trim()) ||
+      (resume.leadership || []).some((l) => l.organization?.trim() || l.role?.trim()) ||
+      (resume.volunteer || []).some((v) => v.organization?.trim() || v.role?.trim()) ||
+      (resume.customSections || []).some((cs) => cs.title?.trim())
+    ) {
+      bonus += 2;
+    }
+    score += Math.min(8, bonus);
 
     return Math.min(100, score);
   }
@@ -4884,7 +4963,196 @@ function analyzeResearchScholarSections(
   };
 }
 
+function analyzeSimpleOnePageSections(
+  resume: Partial<Resume>
+): import('../types/resume').CvCompletenessReport {
+  const sections: import('../types/resume').SectionAnalysis[] = [];
+  const recs: string[] = [];
+
+  // 1. Header & Contact Row
+  const pi = resume.personalInfo;
+  const piIssues: string[] = [];
+  const piSuggestions: string[] = [];
+  let piScore = 0;
+  if (pi?.fullName?.trim()) piScore += 40;
+  else piIssues.push('Full name is missing.');
+  if (pi?.email?.trim()) piScore += 30;
+  else piIssues.push('Email address is missing.');
+  if (pi?.phone?.trim()) piScore += 30;
+  else piIssues.push('Phone number is missing.');
+  if (!pi?.website && !pi?.linkedin && !pi?.github && !(pi?.customLinks || []).length) {
+    piSuggestions.push('Add at least one link (Website, GitHub, or LinkedIn) for your contact bar.');
+  }
+  sections.push({
+    sectionId: 'header',
+    name: '1. Header & Contacts',
+    status: piScore === 100 ? 'complete' : 'needs_details',
+    statusLabel: piScore === 100 ? 'Completed' : piScore > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: piScore,
+    issues: piIssues,
+    suggestions: piSuggestions,
+  });
+  if (piScore < 100) recs.push('Complete your full name, phone, and email in Header & Contacts.');
+
+  // 2. Summary (Optional)
+  const objWords = (resume.objective || '').trim().split(/\s+/).filter(Boolean).length;
+  sections.push({
+    sectionId: 'objective',
+    name: '2. Summary (Optional)',
+    status: objWords > 0 ? 'complete' : 'optional_empty',
+    statusLabel: objWords > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: objWords > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      objWords === 0
+        ? ['Optional: Keep omitted for strict Harshibar single-page focus, or add 1–2 concise lines.']
+        : objWords > 45
+        ? ['Consider tightening Summary below 40 words to help preserve a single A4 page.']
+        : [],
+  });
+
+  // 3. Experience
+  const exp = resume.experience || [];
+  const validExp = exp.filter(
+    (e) =>
+      (e.company?.trim() || e.position?.trim()) &&
+      ((e.highlights || []).some((h) => h.trim().length > 0) || Boolean(e.description?.trim()))
+  );
+  const expOptionalForFresher = resume.simpleOnePageTrack === 'fresher';
+  let expStatus: import('../types/resume').SectionStatus =
+    validExp.length > 0 ? 'complete' : exp.length > 0 ? 'needs_details' : expOptionalForFresher ? 'optional_empty' : 'needs_details';
+  let expScore = validExp.length > 0 ? 100 : exp.length > 0 ? 60 : 0;
+  const expIssues: string[] = [];
+  if (exp.length === 0 && !expOptionalForFresher) {
+    expIssues.push('No experience entries added yet.');
+    recs.push('Add relevant internships or work experience with compact impact bullets.');
+  } else if (exp.length > 0 && validExp.length < exp.length) {
+    expIssues.push('Some experience entries lack concise bullet points.');
+  }
+  sections.push({
+    sectionId: 'experience',
+    name: '3. Experience',
+    status: expStatus,
+    statusLabel:
+      expStatus === 'complete'
+        ? 'Completed'
+        : expStatus === 'optional_empty'
+        ? 'Optional / Skipped'
+        : exp.length > 0
+        ? 'In Progress'
+        : 'Not Started',
+    isOptional: expOptionalForFresher,
+    score: expScore,
+    issues: expIssues,
+    suggestions:
+      validExp.length > 0 && !exp.some((e) => (e.workHighlights || []).some((w) => w.title?.trim()))
+        ? ['Optional: Attach featured links under Highlights in any role.']
+        : [],
+  });
+
+  // 4. Projects
+  const proj = resume.projects || [];
+  const validProj = proj.filter(
+    (p) =>
+      p.title?.trim() &&
+      ((p.highlights || []).some((h) => h.trim().length > 0) || Boolean(p.description?.trim()))
+  );
+  sections.push({
+    sectionId: 'projects',
+    name: '4. Projects',
+    status: validProj.length > 0 ? 'complete' : proj.length > 0 ? 'needs_details' : 'optional_empty',
+    statusLabel:
+      validProj.length > 0 ? 'Completed' : proj.length > 0 ? 'In Progress' : 'Optional / Skipped',
+    isOptional: validExp.length > 0,
+    score: validProj.length > 0 ? 100 : proj.length > 0 ? 60 : 0,
+    issues: proj.length > 0 && validProj.length < proj.length ? ['Add concise bullets to each project.'] : [],
+    suggestions: proj.length === 0 ? ['Add 2–3 concrete projects with links and results.'] : [],
+  });
+
+  // 5. Education
+  const edu = resume.education || [];
+  const validEdu = edu.filter((e) => e.institution?.trim() && e.degree?.trim());
+  sections.push({
+    sectionId: 'education',
+    name: '5. Education',
+    status: validEdu.length > 0 ? 'complete' : 'needs_details',
+    statusLabel: validEdu.length > 0 ? 'Completed' : edu.length > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: validEdu.length > 0 ? 100 : edu.length > 0 ? 55 : 0,
+    issues: validEdu.length === 0 ? ['Add your degree, institution, dates, and location.'] : [],
+    suggestions: [],
+  });
+  if (validEdu.length === 0) recs.push('Add your primary degree under Education.');
+
+  // 6. Skills
+  const totalSkills = (resume.skills || []).reduce(
+    (acc, c) => acc + (c.skills?.filter((s) => s.trim()).length || 0),
+    0
+  );
+  sections.push({
+    sectionId: 'skills',
+    name: '6. Skills',
+    status: totalSkills >= 4 ? 'complete' : totalSkills > 0 ? 'needs_details' : 'needs_details',
+    statusLabel: totalSkills >= 4 ? 'Completed' : totalSkills > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: totalSkills >= 4 ? 100 : totalSkills > 0 ? 60 : 0,
+    issues: totalSkills === 0 ? ['Add grouped skills (e.g., Languages, Tools).'] : [],
+    suggestions: [],
+  });
+  if (totalSkills === 0) recs.push('Group your core technical or functional skills under Skills.');
+
+  // 7. Optional Sections
+  const hasOptionalExtras =
+    (resume.certifications || []).some((c) => c.name?.trim()) ||
+    (resume.achievements || []).some((a) => a.title?.trim()) ||
+    (resume.publications || []).some((p) => p.title?.trim()) ||
+    (resume.leadership || []).some((l) => l.organization?.trim() || l.role?.trim()) ||
+    (resume.volunteer || []).some((v) => v.organization?.trim() || v.role?.trim()) ||
+    (resume.customSections || []).some((cs) => cs.title?.trim());
+  sections.push({
+    sectionId: 'certifications',
+    name: '7. Optional Extras (Awards, Certs, Leadership)',
+    status: hasOptionalExtras ? 'complete' : 'optional_empty',
+    statusLabel: hasOptionalExtras ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasOptionalExtras ? 100 : 0,
+    issues: [],
+    suggestions: !hasOptionalExtras
+      ? ['Optional: Certifications, Awards, Publications, Leadership, Volunteering, or Custom Sections hide automatically when empty.']
+      : [],
+  });
+
+  // 1-Page A4 Fit Check (Non-destructive advisory)
+  const fit = estimateSimpleOnePageFit(resume as Resume);
+  if (!fit.fitsOnOnePage) {
+    recs.unshift(
+      `Estimated ${fit.estimatedPages} pages (~${fit.overflowPercent}% above 1-page A4 target). Content is preserved cleanly across pages, or use the One-Page Optimization Assistant in the editor.`
+    );
+  }
+
+  const overallScore = calculateResumeCompleteness(resume);
+  let overallStatus: 'excellent' | 'good' | 'in_progress' | 'needs_work' = 'needs_work';
+  if (overallScore >= 85) overallStatus = 'excellent';
+  else if (overallScore >= 65) overallStatus = 'good';
+  else if (overallScore >= 40) overallStatus = 'in_progress';
+
+  return {
+    overallScore,
+    overallStatus,
+    sections,
+    topRecommendations:
+      recs.length > 0
+        ? recs
+        : ['Your Simple One-Page Resume is crisp, factual, and fits cleanly on 1 A4 page.'],
+  };
+}
+
 export function analyzeResumeSections(resume: Partial<Resume>): import('../types/resume').CvCompletenessReport {
+  if (resume?.template === 'simple-one-page') {
+    return analyzeSimpleOnePageSections(resume);
+  }
   if (resume?.template === 'research-scholar') {
     return analyzeResearchScholarSections(resume);
   }

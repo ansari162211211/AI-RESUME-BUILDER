@@ -5,16 +5,19 @@ import {
   EXECUTIVE_SECTION_FLOW,
   RESEARCH_DISCIPLINE_PROMPTS,
   RESEARCH_SCHOLAR_SECTION_FLOW,
+  SIMPLE_ONE_PAGE_SECTION_FLOW,
   accumulateStagedUpdates,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
   buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
   buildAdaptiveResearchScholarFallback,
+  buildAdaptiveSimpleOnePageFallback,
   detectCreativeProfessionFromText,
   detectEngineeringBranchFromText,
   detectExecutiveRoleFromText,
   detectResearchDisciplineFromText,
+  detectSimpleOnePageTrackFromText,
   mergeResumeUpdates,
 } from './aiInterviewHelpers.ts';
 import {
@@ -23,6 +26,7 @@ import {
   SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
   SAMPLE_RESEARCH_SCHOLAR_CV,
+  SAMPLE_SIMPLE_ONE_PAGE_CV,
 } from '../data/sampleResumes.ts';
 import type {
   CreativeProfession,
@@ -30,6 +34,7 @@ import type {
   ExecutiveRoleType,
   ResearchDiscipline,
   Resume,
+  SimpleOnePageTrack,
 } from '../types/resume';
 
 const baseInternshipResume: Resume = {
@@ -586,6 +591,104 @@ test('mergeResumeUpdates merges and deduplicates all 9 Template 14 Research Scho
   assert.equal(mergedTwice.presentations?.length, mergedOnce.presentations?.length);
   assert.equal(mergedTwice.programCommittees?.length, mergedOnce.programCommittees?.length);
 });
+
+const baseSimpleOnePageResume: Resume = {
+  ...SAMPLE_SIMPLE_ONE_PAGE_CV,
+  id: 'res-test-s1p',
+  userId: 'user-test',
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+};
+
+test('detectSimpleOnePageTrackFromText accurately classifies all 8 Simple One-Page tracks', () => {
+  assert.equal(detectSimpleOnePageTrackFromText('Full-stack React software developer SWE'), 'software-developer');
+  assert.equal(detectSimpleOnePageTrackFromText('Cybersecurity SOC analyst and pentester'), 'cybersecurity');
+  assert.equal(detectSimpleOnePageTrackFromText('Data Science and ML Engineer with PyTorch'), 'data-science');
+  assert.equal(detectSimpleOnePageTrackFromText('UI/UX Product Designer working in Figma'), 'designer');
+  assert.equal(detectSimpleOnePageTrackFromText('Mechanical & Embedded Robotics Engineering'), 'engineering');
+  assert.equal(detectSimpleOnePageTrackFromText('Product Manager and Business Strategy consulting'), 'business');
+  assert.equal(detectSimpleOnePageTrackFromText('Recent graduate fresher looking for first role'), 'fresher');
+  assert.equal(detectSimpleOnePageTrackFromText('Custom domain / other background'), 'other');
+  assert.equal(detectSimpleOnePageTrackFromText('Let us begin'), null);
+});
+
+test('buildAdaptiveSimpleOnePageFallback supports all 8 tracks cleanly across section flow', () => {
+  const tracks: SimpleOnePageTrack[] = [
+    'software-developer',
+    'cybersecurity',
+    'data-science',
+    'designer',
+    'engineering',
+    'business',
+    'fresher',
+    'other',
+  ];
+
+  assert.equal(SIMPLE_ONE_PAGE_SECTION_FLOW.length, 7);
+  for (const track of tracks) {
+    const res = buildAdaptiveSimpleOnePageFallback(
+      'Skip to Projects',
+      { ...baseSimpleOnePageResume, simpleOnePageTrack: track, projects: [] },
+      'experience',
+      SIMPLE_ONE_PAGE_SECTION_FLOW
+    );
+    assert.equal(res.nextSection, 'projects');
+    assert.equal(res.isSectionCompleted, true);
+    assert.ok(res.reply.length > 20);
+  }
+
+  const autoCyber = buildAdaptiveSimpleOnePageFallback(
+    'I am applying as a Cybersecurity Security Engineer',
+    baseSimpleOnePageResume,
+    'personalInfo',
+    SIMPLE_ONE_PAGE_SECTION_FLOW
+  );
+  assert.equal(autoCyber.structuredUpdates.simpleOnePageTrack, 'cybersecurity');
+});
+
+test('mergeResumeUpdates preserves Template 15 workAuthorization, workHighlights, edu.research, and simpleOnePageTrack cleanly', () => {
+  const patch: Partial<Resume> = {
+    simpleOnePageTrack: 'data-science',
+    customSimpleOnePageTrack: 'Applied ML Systems',
+    personalInfo: {
+      ...baseSimpleOnePageResume.personalInfo,
+      workAuthorization: 'Permanent Resident (Green Card)',
+    },
+    experience: [
+      {
+        id: 'exp-s1p-new',
+        company: 'DataForge',
+        position: 'ML Engineer',
+        startDate: 'Jun 2023',
+        endDate: 'Present',
+        current: true,
+        highlights: ['Deployed feature store pipelines cutting training skew.'],
+        workHighlights: [
+          { id: 'wh-1', title: 'Engineering Post: Feature Parity', url: 'https://example.com/parity' },
+        ],
+      },
+    ],
+    education: [
+      {
+        id: 'edu-s1p-new',
+        institution: 'Georgia Tech',
+        degree: 'M.S. in Computer Science',
+        startDate: '2021',
+        endDate: '2023',
+        current: false,
+        research: 'Distributed Systems Lab — Fault-tolerant parameter servers',
+      },
+    ],
+  };
+
+  const merged = mergeResumeUpdates(baseSimpleOnePageResume, patch, false);
+  assert.equal(merged.simpleOnePageTrack, 'data-science');
+  assert.equal(merged.customSimpleOnePageTrack, 'Applied ML Systems');
+  assert.equal(merged.personalInfo.workAuthorization, 'Permanent Resident (Green Card)');
+  assert.ok(merged.experience.some((e) => e.workHighlights?.some((w) => w.title.includes('Feature Parity'))));
+  assert.ok(merged.education.some((e) => e.research?.includes('Distributed Systems Lab')));
+});
+
 
 
 

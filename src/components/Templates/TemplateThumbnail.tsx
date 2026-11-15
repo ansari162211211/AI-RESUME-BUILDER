@@ -4,6 +4,7 @@ import {
   buildCreativeContactItems,
   buildFresherHeaderColumns,
   buildHarvardContactItems,
+  buildSimpleOnePageContactItems,
   getCreativeCategorizedSkills,
   getCreativeCertificatesAndGrants,
   getCreativeCircularProficiencies,
@@ -227,6 +228,20 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
             <span style={{ color: '#333333' }}>{restTitle}</span>
           </div>
           <div className="flex-1 h-[0.65px] mb-[1px]" style={{ backgroundColor: '#555555' }} />
+        </div>
+      );
+    }
+
+    if (custom.headingStyle === 'simple-one-page-rule' && !inverted) {
+      return (
+        <div className="mb-1">
+          <div
+            className="text-[6px] font-bold uppercase tracking-[0.04em] leading-tight"
+            style={{ color: accent || '#111827' }}
+          >
+            {label}
+          </div>
+          <div className="h-[0.7px] mt-[1px]" style={{ backgroundColor: '#cbd5e1' }} />
         </div>
       );
     }
@@ -2110,6 +2125,138 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  if (
+    template.id === 'simple-one-page' ||
+    template.headerVariant === 'simple-one-page-centered'
+  ) {
+    const simpleContacts = resume?.personalInfo
+      ? buildSimpleOnePageContactItems(resume.personalInfo).slice(0, 4)
+      : [
+          { kind: 'phone' as const, label: '555.555.5555' },
+          { kind: 'email' as const, label: 'hello@email.com', url: 'mailto:hello@email.com', underlined: true },
+          { kind: 'youtube' as const, label: 'harshibar', url: 'https://youtube.com', underlined: true },
+          { kind: 'pin' as const, label: 'U.S. Citizen', url: null, underlined: false },
+        ];
+    const expPreview = (resume?.experience || []).slice(0, 2);
+    const projPreview = (resume?.projects || []).slice(0, 2);
+    const eduPreview = (resume?.education || []).slice(0, 1);
+    const skillPreview = skillCats.slice(0, 2);
+
+    return (
+      <div
+        aria-hidden="true"
+        className="w-full aspect-[210/297] bg-white overflow-hidden select-none px-3 py-2.5 flex flex-col font-cv-sans text-[#111827]"
+      >
+        {/* Centered Bold Name + Compact Pipe-Separated Contact Bar */}
+        <div className="text-center mb-1.5">
+          <div className="text-[11px] font-extrabold leading-tight tracking-tight text-[#111827] truncate">
+            {personName}
+          </div>
+          <div className="flex items-center justify-center flex-wrap gap-x-1 gap-y-0.5 mt-0.5 text-[3.5px] text-[#374151]">
+            {simpleContacts.map((c, idx) => (
+              <span key={`${c.kind}-${idx}`} className="inline-flex items-center gap-[1.5px]">
+                {idx > 0 && <span className="text-[#9ca3af] mr-[1.5px]">|</span>}
+                <span className="inline-block w-[4px] h-[4px] rounded-[0.5px] bg-[#111827] shrink-0" />
+                <span className={c.underlined ? 'underline' : ''}>{c.label}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* EXPERIENCE */}
+        {expPreview.length > 0 && (
+          <div className="mb-1.5">
+            {renderHeading('experience')}
+            <div className="space-y-1">
+              {expPreview.map((exp) => (
+                <div key={exp.id}>
+                  <div className="flex justify-between items-baseline gap-1 text-[4.4px]">
+                    <span className="font-bold text-[#111827] truncate">{exp.company}</span>
+                    <span className="text-[#111827] shrink-0 text-[3.8px]">
+                      {exp.startDate} – {exp.current ? 'Present' : exp.endDate}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-baseline gap-1 text-[3.8px] italic text-[#374151]">
+                    <span className="truncate">{exp.position.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')}</span>
+                    <span className="shrink-0">{exp.location || ''}</span>
+                  </div>
+                  {exp.highlights?.[0] && (
+                    <div className="text-[3.7px] text-[#1f2937] truncate pl-1.5 mt-[0.5px]">
+                      • {exp.highlights[0].replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')}
+                    </div>
+                  )}
+                  {exp.workHighlights && exp.workHighlights.length > 0 && (
+                    <div className="text-[3.6px] text-[#1f2937] truncate pl-1.5">
+                      • Highlights: <span className="underline">{exp.workHighlights.map((w) => w.title).join(', ')}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* PROJECTS */}
+        {projPreview.length > 0 && (
+          <div className="mb-1.5">
+            {renderHeading('projects')}
+            <div className="space-y-1">
+              {projPreview.map((proj) => (
+                <div key={proj.id}>
+                  <div className="text-[4.3px] font-bold text-[#111827] truncate">{proj.title}</div>
+                  <div className="text-[3.7px] text-[#1f2937] truncate pl-1.5">
+                    • {(proj.highlights?.[0] || proj.description || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* EDUCATION */}
+        {eduPreview.length > 0 && (
+          <div className="mb-1.5">
+            {renderHeading('education')}
+            {eduPreview.map((ed) => (
+              <div key={ed.id}>
+                <div className="flex justify-between items-baseline gap-1 text-[4.3px]">
+                  <span className="font-bold text-[#111827] truncate">{ed.institution}</span>
+                  <span className="text-[#111827] shrink-0 text-[3.8px]">
+                    {ed.startDate} – {ed.endDate}
+                  </span>
+                </div>
+                <div className="flex justify-between items-baseline gap-1 text-[3.8px] italic text-[#374151]">
+                  <span className="truncate">{ed.degree}</span>
+                  <span className="shrink-0">{ed.location || ''}</span>
+                </div>
+                {ed.coursework && (
+                  <div className="text-[3.6px] text-[#1f2937] truncate pl-1.5">
+                    • <strong className="font-semibold">Coursework:</strong>{' '}
+                    {Array.isArray(ed.coursework) ? ed.coursework.join(', ') : ed.coursework}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* SKILLS */}
+        {skillPreview.length > 0 && (
+          <div>
+            {renderHeading('skills')}
+            <div className="space-y-[1px]">
+              {skillPreview.map((cat) => (
+                <div key={cat.category} className="text-[3.7px] text-[#1f2937] truncate">
+                  <strong className="font-bold text-[#111827]">{cat.category}</strong> : {(cat.skills || []).slice(0, 6).join(', ')}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -69,7 +69,8 @@ export type TemplateHeaderVariant =
   | 'internship-kunal' // Left-aligned uppercase name + headline + compact horizontal icon contact row (Template 10)
   | 'engineering-centered' // Centered bold monochrome black name + compact horizontal contact row (Template 11)
   | 'creative-centered' // Centered regular-first + bold-last name, role/specialization, tagline, compact contact bar, optional quote (Template 12)
-  | 'awesome-cv-centered'; // Centered light-first + heavy-last name, uppercase coral title, muted address, icon | contact bar, optional italic quote (Template 14)
+  | 'awesome-cv-centered' // Centered light-first + heavy-last name, uppercase coral title, muted address, icon | contact bar, optional italic quote (Template 14)
+  | 'simple-one-page-centered'; // Harshibar minimal centered bold name + single-row icon contact bar (Template 15)
 
 export interface TemplateDefinition {
   id: TemplateId;
@@ -424,6 +425,20 @@ export const RESEARCH_ORDER: ResumeSectionKey[] = [
 
 export const RESEARCH_SCHOLAR_ORDER: ResumeSectionKey[] = RESEARCH_ORDER;
 
+export const SIMPLE_ONE_PAGE_ORDER: ResumeSectionKey[] = [
+  'objective',
+  'experience',
+  'projects',
+  'education',
+  'skills',
+  'certifications',
+  'achievements',
+  'publications',
+  'leadership',
+  'volunteer',
+  'custom-sections',
+];
+
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   {
     id: 'academic-cv',
@@ -766,6 +781,30 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       headingStyle: 'awesome-cv-rule',
     },
   },
+  {
+    id: 'simple-one-page',
+    name: 'Simple One-Page Resume',
+    shortTag: 'Minimal One-Page',
+    description:
+      'Crisp single-column A4 resume inspired by the Harshibar layout — centered bold name, compact pipe-separated contact bar, clean uppercase section headings with subtle full-width horizontal rules, experience with inline highlight links, projects, education coursework & research, and inline categorized skills.',
+    categories: ['ATS-Friendly', 'Technical & Developer', 'Professional'],
+    layout: 'single-column',
+    headerVariant: 'simple-one-page-centered',
+    sectionOrder: SIMPLE_ONE_PAGE_ORDER,
+    bulletSymbol: '•',
+    citationStyle: 'numbered',
+    centeredHeadings: false,
+    skillsLayout: 'rows',
+    defaultCustomization: {
+      fontFamily: 'sans',
+      fontSize: 'compact',
+      textColor: '#111827',
+      accentColor: '#111827',
+      sectionSpacing: 'tight',
+      pageMargins: 'standard',
+      headingStyle: 'simple-one-page-rule',
+    },
+  },
 ];
 
 export const TEXT_COLOR_SWATCHES = [
@@ -796,6 +835,9 @@ export const ACCENT_COLOR_SWATCHES = [
 export function resolveTemplateId(template?: string): TemplateId {
   if (!template || template === 'academic' || template === 'academic-cv') {
     return 'academic-cv';
+  }
+  if (template === 'simple-one-page-resume' || template === 'harshibar') {
+    return 'simple-one-page';
   }
   const match = TEMPLATE_DEFINITIONS.find((t) => t.id === template);
   return match ? match.id : 'academic-cv';
@@ -847,6 +889,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
   const isCreativeProfessional = templateId === 'creative-professional';
   const isExecutiveResume = templateId === 'executive-resume';
   const isResearchScholar = templateId === 'research-scholar';
+  const isSimpleOnePage = templateId === 'simple-one-page';
   const baseFontPt =
     custom.fontSize === 'compact'
       ? 8.75
@@ -854,7 +897,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 10.25
       : isTwoColumn || isExecutiveResume || isElegantSerif || isInternshipResume || isCreativeProfessional
       ? 9.0
-      : isModernCorporate || isFresherResume || isEngineeringResume || isResearchScholar
+      : isModernCorporate || isFresherResume || isEngineeringResume || isResearchScholar || isSimpleOnePage
       ? 9.25
       : 9.5;
   const delta = baseFontPt - 9.5;
@@ -865,6 +908,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 48
       : 36
+    : isSimpleOnePage
+    ? custom.pageMargins === 'narrow'
+      ? 22
+      : custom.pageMargins === 'wide'
+      ? 44
+      : 28
     : isHarvard
     ? custom.pageMargins === 'narrow'
       ? 28
@@ -942,6 +991,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 52
       : 42
+    : isSimpleOnePage
+    ? custom.pageMargins === 'narrow'
+      ? 28
+      : custom.pageMargins === 'wide'
+      ? 52
+      : 36
     : isHarvard
     ? custom.pageMargins === 'narrow'
       ? 32
@@ -1014,6 +1069,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 9.5
       : 6.5
+    : isSimpleOnePage
+    ? custom.sectionSpacing === 'tight'
+      ? 6.5
+      : custom.sectionSpacing === 'relaxed'
+      ? 11
+      : 8.5
     : isHarvard
     ? custom.sectionSpacing === 'tight'
       ? 5
@@ -1091,6 +1152,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 7
       : 5
+    : isSimpleOnePage
+    ? custom.sectionSpacing === 'tight'
+      ? 4.25
+      : custom.sectionSpacing === 'relaxed'
+      ? 8
+      : 6
     : isHarvard
     ? custom.sectionSpacing === 'tight'
       ? 3.5
@@ -1168,6 +1235,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 1.34
       : 1.25
+    : isSimpleOnePage
+    ? custom.sectionSpacing === 'tight'
+      ? 1.22
+      : custom.sectionSpacing === 'relaxed'
+      ? 1.38
+      : 1.28
     : isHarvard
     ? custom.sectionSpacing === 'tight'
       ? 1.18
@@ -1244,6 +1317,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
     baseFontPt,
     namePt: isJakes
       ? 22 + delta * 1.5
+      : isSimpleOnePage
+      ? 23.5 + delta * 1.4
       : isHarvard
       ? 18 + delta * 1.4
       : isResearchScholar
@@ -1278,6 +1353,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 10 + delta * 0.6,
     headingPt: isJakes
       ? 11 + delta * 0.5
+      : isSimpleOnePage
+      ? 10.8 + delta * 0.5
       : isHarvard
       ? 10.5 + delta * 0.5
       : isResearchScholar
@@ -1301,6 +1378,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 10 + delta * 0.5,
     entryTitlePt: isTwoColumn || isExecutiveResume
       ? 9.75 + delta
+      : isSimpleOnePage
+      ? 10.1 + delta
       : isResearchScholar
       ? 9.5 + delta
       : isElegantSerif
@@ -1314,6 +1393,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 9.5 + delta,
     entrySubtitlePt: isTwoColumn || isExecutiveResume
       ? 9 + delta
+      : isSimpleOnePage
+      ? 9.8 + delta
       : isResearchScholar
       ? 8.0 + delta
       : isElegantSerif
@@ -1327,6 +1408,8 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : 9 + delta,
     bodyPt: isElegantSerif
       ? 8.5 + delta
+      : isSimpleOnePage
+      ? 9.55 + delta
       : isResearchScholar
       ? 8.6 + delta
       : isInternshipResume || isCreativeProfessional
@@ -1337,7 +1420,9 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 8.6 + delta
       : 8.75 + delta,
     metaPt:
-      isElegantSerif || isModernCorporate || isInternshipResume || isCreativeProfessional || isResearchScholar
+      isSimpleOnePage
+        ? 9.1 + delta * 0.5
+        : isElegantSerif || isModernCorporate || isInternshipResume || isCreativeProfessional || isResearchScholar
         ? 8.0 + delta * 0.5
         : isFresherResume || isEngineeringResume
         ? 8.35 + delta * 0.5

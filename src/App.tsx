@@ -201,6 +201,8 @@ export default function App() {
             ? 'executive-resume'
             : template.id === 'research-scholar'
             ? 'research-scholar'
+            : template.id === 'simple-one-page'
+            ? 'simple-one-page'
             : template.categories.includes('Student & Fresher')
             ? 'fresher'
             : template.categories.includes('Technical & Developer')
@@ -234,6 +236,8 @@ export default function App() {
             ? 'Executive Resume'
             : template.id === 'research-scholar'
             ? 'Research Scholar CV'
+            : template.id === 'simple-one-page'
+            ? 'Simple One-Page Resume'
             : `${template.name} CV`,
           seedType,
           user.displayName || undefined,

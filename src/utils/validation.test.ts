@@ -27,6 +27,7 @@ import {
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_RESEARCH_SCHOLAR_CV,
+  SAMPLE_SIMPLE_ONE_PAGE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_STUDENT_CV,
   SAMPLE_TWO_COLUMN_CV,
@@ -711,5 +712,34 @@ test('analyzeResumeSections & calculateResumeCompleteness evaluate Research Scho
   assert.equal(incompleteScholar.sections.find((s) => s.sectionId === 'education')?.status, 'needs_details');
   assert.ok(calculateResumeCompleteness(incompleteScholarInput) < 40);
 });
+
+test('analyzeResumeSections & calculateResumeCompleteness evaluate Simple One-Page Resume (Template 15) without penalizing omitted optional summary or extras', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_SIMPLE_ONE_PAGE_CV);
+  assert.equal(fullReport.overallStatus, 'excellent');
+  assert.ok(fullReport.overallScore >= 95);
+  assert.equal(calculateResumeCompleteness(SAMPLE_SIMPLE_ONE_PAGE_CV), 100);
+
+  // Optional sections empty do not penalize completeness
+  const optObjective = fullReport.sections.find((s) => s.sectionId === 'objective');
+  const optCerts = fullReport.sections.find((s) => s.sectionId === 'certifications');
+  assert.equal(optObjective?.isOptional, true);
+  assert.equal(optObjective?.status, 'optional_empty');
+  assert.equal(optCerts?.isOptional, true);
+  assert.equal(optCerts?.status, 'optional_empty');
+
+  // Missing required contact info & experience/education drops completeness appropriately
+  const incompleteSimple = analyzeResumeSections({
+    template: 'simple-one-page',
+    personalInfo: { fullName: 'Sam', email: '', phone: '' },
+    experience: [],
+    projects: [],
+    education: [],
+    skills: [],
+  });
+  assert.equal(incompleteSimple.sections.find((s) => s.sectionId === 'header')?.status, 'needs_details');
+  assert.equal(incompleteSimple.sections.find((s) => s.sectionId === 'education')?.status, 'needs_details');
+  assert.equal(incompleteSimple.sections.find((s) => s.sectionId === 'skills')?.status, 'needs_details');
+});
+
 
 

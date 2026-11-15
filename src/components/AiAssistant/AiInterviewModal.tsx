@@ -21,12 +21,14 @@ import { resolveTemplateId } from '../../data/templates';
 import {
   EXECUTIVE_SECTION_FLOW,
   RESEARCH_SCHOLAR_SECTION_FLOW,
+  SIMPLE_ONE_PAGE_SECTION_FLOW,
   accumulateStagedUpdates,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
   buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
   buildAdaptiveResearchScholarFallback,
+  buildAdaptiveSimpleOnePageFallback,
   clearInterviewDraft,
   loadInterviewDraft,
   mergeResumeUpdates,
@@ -318,14 +320,28 @@ const RESEARCH_SCHOLAR_SECTION_LABELS: Record<string, string> = {
   'custom-sections': 'Additional Info',
 };
 
+const SIMPLE_ONE_PAGE_SECTION_LABELS: Record<string, string> = {
+  personalInfo: 'Header & Contacts',
+  objective: 'Summary (Optional)',
+  experience: 'Experience & Highlights',
+  projects: 'Projects',
+  education: 'Education',
+  skills: 'Skills',
+  'custom-sections': 'Optional Extras',
+};
+
 function getSectionLabel(
   sectionKey: string,
   isInternshipResume: boolean,
   isEngineeringResume: boolean = false,
   isCreativeProfessional: boolean = false,
   isExecutiveResume: boolean = false,
-  isResearchScholar: boolean = false
+  isResearchScholar: boolean = false,
+  isSimpleOnePage: boolean = false
 ): string {
+  if (isSimpleOnePage && SIMPLE_ONE_PAGE_SECTION_LABELS[sectionKey]) {
+    return SIMPLE_ONE_PAGE_SECTION_LABELS[sectionKey];
+  }
   if (isResearchScholar && RESEARCH_SCHOLAR_SECTION_LABELS[sectionKey]) {
     return RESEARCH_SCHOLAR_SECTION_LABELS[sectionKey];
   }
@@ -372,6 +388,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const isCreativeProfessional = templateId === 'creative-professional';
   const isExecutiveResume = templateId === 'executive-resume';
   const isResearchScholar = templateId === 'research-scholar';
+  const isSimpleOnePage = templateId === 'simple-one-page';
   const sectionFlow = isJakes
     ? JAKES_SECTION_FLOW
     : isClassic
@@ -398,6 +415,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     ? EXECUTIVE_SECTION_FLOW
     : isResearchScholar
     ? RESEARCH_SCHOLAR_SECTION_FLOW
+    : isSimpleOnePage
+    ? SIMPLE_ONE_PAGE_SECTION_FLOW
     : ACADEMIC_SECTION_FLOW;
   const safeSectionIndex = Math.min(Math.max(0, currentSectionIndex), Math.max(0, sectionFlow.length - 1));
   const activeSection = sectionFlow[safeSectionIndex] || 'personalInfo';
@@ -495,6 +514,10 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         ? initialName
           ? `Hello ${initialName}! I'm your Research Scholar CV Advisor (Awesome CV style). Let's build your scholarly CV step by step—Header & Optional Quote, Research Summary, Research Interests, Work & Research Experience, Lab Research, Projects, Categorized Honors & Awards, Presentations, Writing & Publications, Program Committees, Education, and Extracurriculars—never fabricating citations, DOIs, or quotes, and skipping empty optional sections cleanly. Which research discipline fits you best (Computer Science & AI, Cybersecurity, Electronics, Mechanical, Biotechnology, Physics & Math, Social Sciences, or Other)?`
           : `Welcome! I'm your Research Scholar CV Advisor (Awesome CV style). I'll help you build a comprehensive research CV—capturing your experience, awards, presentations, publications, program committees, and education without inventing metrics, publications, or quotes. First, what is your research discipline (CS/AI, Cybersecurity, Electronics, Mechanical, Biotech, Physics/Math, Social Sciences, or Other), and what are your full name, scholarly title, and email?`
+        : isSimpleOnePage
+        ? initialName
+          ? `Hello ${initialName}! I'm your Simple One-Page Resume Advisor (Harshibar compact layout). Let's keep your resume razor-sharp for 1 A4 page across Header & Contacts, optional Summary, Experience (with optional featured Highlights links), Projects, Education (with optional Coursework & Research), and cleanly grouped Skills—strictly preserving your real facts without fabricating metrics. Which profession or track fits you best (Software Developer, Cybersecurity, Data Science, Designer, Engineering, Business, Fresher, or Other)?`
+          : `Welcome! I'm your Simple One-Page Resume Advisor. Together we'll build a clean, single-page resume—compact contact row, Experience + optional Highlights links, Projects, Education, and grouped Skills—with zero fabricated metrics or rating bars. First, which track fits you best (Software Developer, Cybersecurity, Data Science, Designer, Engineering, Business, Fresher, or Other), and what are your full name, phone, email, and key links?`
         : isTwoColumn
         ? initialName
           ? `Hello ${initialName}! I'm your Two Column Professional CV Advisor. Let's craft or refine your header & tagline, experience, projects, optional "A Day of My Life" breakdown, publications, philosophy, proudest achievements, strengths, languages, education, and referees. You can skip any optional section at any time—where would you like to focus?`
@@ -584,6 +607,13 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               'Cybersecurity & Systems',
               'Electronics / Mechanical Eng',
               'Biotech / Physics / Math',
+            ]
+          : isSimpleOnePage
+          ? [
+              'Software Developer Track',
+              'Cybersecurity Track',
+              'Data Science / Designer Track',
+              'Fresher / Student Track',
             ]
           : isClassic
           ? [
@@ -827,6 +857,37 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
             structuredUpdates: adaptive.structuredUpdates,
           },
         ]);
+      } else if (isSimpleOnePage) {
+        const adaptive = buildAdaptiveSimpleOnePageFallback(
+          text,
+          stagedResume,
+          activeSection,
+          sectionFlow
+        );
+        if (Object.keys(adaptive.structuredUpdates).length > 0) {
+          setStagedUpdates((prev) =>
+            accumulateStagedUpdates(
+              prev,
+              adaptive.structuredUpdates,
+              currentResume,
+              isInternshipResume
+            )
+          );
+        }
+        if (sectionFlow.includes(adaptive.nextSection)) {
+          setCurrentSectionIndex(sectionFlow.indexOf(adaptive.nextSection));
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: adaptive.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            suggestedChips: adaptive.suggestedChips,
+            structuredUpdates: adaptive.structuredUpdates,
+          },
+        ]);
       } else {
         const fallbackMsg: InterviewChatMessage = {
           id: `msg_err_${Date.now()}`,
@@ -907,11 +968,13 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     ? 'Build Executive Resume with AI'
                     : isResearchScholar
                     ? 'Build Research Scholar CV with AI'
+                    : isSimpleOnePage
+                    ? 'Build Simple One-Page Resume with AI'
                     : isClassic
                     ? 'Build Classic Professional CV with AI'
                     : isTwoColumn
                     ? 'Build Two Column Professional CV with AI'
-                    : 'Build My CV with AI'}
+                    : 'Build Academic CV with AI'}
                 </h3>
                 <span className="px-2 py-0.5 text-[10px] font-semibold bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200 uppercase tracking-wider">
                   Interactive Interview
@@ -926,7 +989,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     isEngineeringResume,
                     isCreativeProfessional,
                     isExecutiveResume,
-                    isResearchScholar
+                    isResearchScholar,
+                    isSimpleOnePage
                   )}
                 </span>{' '}
                 • Step {safeSectionIndex + 1} of {sectionFlow.length}
@@ -960,6 +1024,15 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     stagedResume.customResearchDiscipline
                       ? stagedResume.customResearchDiscipline
                       : stagedResume.researchDiscipline.toUpperCase()}
+                  </span>
+                ) : null}
+                {stagedResume.simpleOnePageTrack && isSimpleOnePage ? (
+                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-800 rounded">
+                    Track:{' '}
+                    {stagedResume.simpleOnePageTrack === 'other' &&
+                    stagedResume.customSimpleOnePageTrack
+                      ? stagedResume.customSimpleOnePageTrack
+                      : stagedResume.simpleOnePageTrack.toUpperCase()}
                   </span>
                 ) : null}
               </p>
@@ -1013,7 +1086,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
-                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional, isExecutiveResume, isResearchScholar)}
+                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional, isExecutiveResume, isResearchScholar, isSimpleOnePage)}
               </button>
             );
           })}

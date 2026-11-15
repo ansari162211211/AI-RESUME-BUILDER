@@ -16,6 +16,7 @@ import {
   INTERNSHIP_RIGHT_ORDER,
   MODERN_CORPORATE_ORDER,
   RESEARCH_SCHOLAR_ORDER,
+  SIMPLE_ONE_PAGE_ORDER,
   TEMPLATE_CATEGORIES,
   TEMPLATE_DEFINITIONS,
   getTemplateById,
@@ -42,6 +43,7 @@ import {
   SAMPLE_JAKES_CV,
   SAMPLE_MODERN_CORPORATE_CV,
   SAMPLE_RESEARCH_SCHOLAR_CV,
+  SAMPLE_SIMPLE_ONE_PAGE_CV,
   SAMPLE_SOFTWARE_DEVELOPER_CV,
   SAMPLE_TWO_COLUMN_CV,
 } from './sampleResumes';
@@ -59,9 +61,11 @@ import {
   buildModernCorporateContactItems,
   buildResearchScholarAddressLine,
   buildResearchScholarContactItems,
+  buildSimpleOnePageContactItems,
   buildSoftwareDevContactItems,
   buildTwoColumnContactItems,
   chunkRows,
+  cleanHighlights,
   formatAwesomeCvFooterDate,
   getCourseworkItems,
   getCreativeCategorizedSkills,
@@ -100,14 +104,15 @@ import {
   isSectionVisibleAndPopulated,
   matchSoftwareDevSkillBucket,
   normalizeAwardCategoryForResearchScholar,
+  parseSimpleOnePageRichTextSegments,
   splitAwesomeCvHeading,
   splitAwesomeCvName,
   splitCreativeName,
 } from '../utils/resumePresentation';
 import type { Resume } from '../types/resume';
 
-test('keeps Templates 1 through 14 active in TEMPLATE_DEFINITIONS', () => {
-  assert.equal(TEMPLATE_DEFINITIONS.length, 14);
+test('keeps Templates 1 through 15 active in TEMPLATE_DEFINITIONS', () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 15);
   assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
   assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
   assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
@@ -136,11 +141,10 @@ test('keeps Templates 1 through 14 active in TEMPLATE_DEFINITIONS', () => {
   assert.equal(TEMPLATE_DEFINITIONS[12].name, 'Executive Resume');
   assert.equal(TEMPLATE_DEFINITIONS[13].id, 'research-scholar');
   assert.equal(TEMPLATE_DEFINITIONS[13].name, 'Research Scholar CV');
+  assert.equal(TEMPLATE_DEFINITIONS[14].id, 'simple-one-page');
+  assert.equal(TEMPLATE_DEFINITIONS[14].name, 'Simple One-Page Resume');
 
-  const removedIds = [
-    'modern-minimalist',
-    'simple-one-page',
-  ];
+  const removedIds = ['modern-minimalist'];
   for (const id of removedIds) {
     assert.equal(
       TEMPLATE_DEFINITIONS.some((t) => t.id === id),
@@ -186,7 +190,10 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(resolveTemplateId('creative-professional'), 'creative-professional');
   assert.equal(resolveTemplateId('executive-resume'), 'executive-resume');
   assert.equal(resolveTemplateId('research-scholar'), 'research-scholar');
+  assert.equal(resolveTemplateId('simple-one-page'), 'simple-one-page');
   assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
+  assert.equal(getTemplateById('simple-one-page').id, 'simple-one-page');
+  assert.equal(getTemplateById('simple-one-page').name, 'Simple One-Page Resume');
   assert.equal(getTemplateById('harvard-style').id, 'harvard-style');
   assert.equal(getTemplateById('harvard-style').name, 'Harvard Style');
   assert.equal(getTemplateById('elegant-serif').id, 'elegant-serif');
@@ -1587,6 +1594,103 @@ test('Research Scholar CV (Template 14) configures Awesome CV styling, split typ
   };
   assert.deepEqual(getOrderedVisibleSections(minimalRs, rsTpl), ['experience', 'education']);
 });
+
+test('Simple One-Page Resume (Template 15) reproduces Harshibar single-page sans typography, contacts, rich text segments, and optional section omission cleanly', () => {
+  const s1pTpl = getTemplateById('simple-one-page');
+  assert.equal(s1pTpl.layout, 'single-column');
+  assert.equal(s1pTpl.headerVariant, 'simple-one-page-centered');
+  assert.equal(s1pTpl.defaultCustomization.fontFamily, 'sans');
+  assert.equal(s1pTpl.defaultCustomization.headingStyle, 'simple-one-page-rule');
+  assert.equal(s1pTpl.defaultCustomization.accentColor, '#111827');
+  assert.equal(s1pTpl.defaultCustomization.textColor, '#111827');
+  assert.deepEqual(s1pTpl.sectionOrder, SIMPLE_ONE_PAGE_ORDER);
+  assert.ok(s1pTpl.categories.includes('ATS-Friendly'));
+  assert.ok(s1pTpl.categories.includes('Professional'));
+  assert.ok(s1pTpl.categories.includes('Technical & Developer'));
+
+  assert.equal(getSectionDisplayTitle('experience', 'simple-one-page'), 'EXPERIENCE');
+  assert.equal(getSectionDisplayTitle('projects', 'simple-one-page'), 'PROJECTS');
+  assert.equal(getSectionDisplayTitle('education', 'simple-one-page'), 'EDUCATION');
+  assert.equal(getSectionDisplayTitle('skills', 'simple-one-page'), 'SKILLS');
+  assert.equal(getSectionDisplayTitle('objective', 'simple-one-page'), 'SUMMARY');
+
+  const scale = getTypographyScale(s1pTpl.defaultCustomization, 'simple-one-page');
+  assert.equal(scale.namePt, 22.45);
+  assert.equal(scale.marginTopPt, 28);
+  assert.equal(scale.marginHorizPt, 36);
+
+  const sample: Resume = {
+    ...SAMPLE_SIMPLE_ONE_PAGE_CV,
+    id: 's1p_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // No photograph in Harshibar layout
+  assert.equal(Boolean(sample.personalInfo.photoUrl?.trim()), false);
+
+  // Compact contact items on sample include phone, email, youtube link, workAuthorization/pin
+  const contacts = buildSimpleOnePageContactItems(sample.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'youtube' && c.url?.includes('youtube.com')));
+  assert.ok(contacts.some((c) => c.kind === 'pin' && c.label.includes('U.S. Citizen')));
+
+  const extendedContacts = buildSimpleOnePageContactItems({
+    ...sample.personalInfo,
+    linkedin: 'linkedin.com/in/harshibar',
+    github: 'github.com/harshibar',
+    website: 'harshibar.dev',
+  });
+  assert.ok(extendedContacts.some((c) => c.kind === 'linkedin' && c.url?.includes('linkedin.com')));
+  assert.ok(extendedContacts.some((c) => c.kind === 'github' && c.url?.includes('github.com')));
+  assert.ok(extendedContacts.some((c) => c.kind === 'website' && c.url === 'https://harshibar.dev'));
+
+  // Rich-text parser supports **bold**, [label](url), and links nested inside **bold**
+  const parsed = parseSimpleOnePageRichTextSegments(
+    'Launched **Hyde**, an open source initiative on [YouTube](youtube.com/@harshibar) reaching viewers.'
+  );
+  assert.ok(parsed.some((seg) => seg.bold === true && seg.text === 'Hyde'));
+  assert.ok(
+    parsed.some(
+      (seg) =>
+        Boolean(seg.url) &&
+        seg.text === 'YouTube' &&
+        seg.url === 'https://youtube.com/@harshibar'
+    )
+  );
+
+  // cleanHighlights preserves leading **bold** bullets while stripping literal bullet markers
+  const cleanedLeadingBold = cleanHighlights([
+    '**Partnered with brands** to expand outreach',
+    '* Legacy bullet prefix',
+    '**500 stars on [GitHub](https://github.com)**; featured on [Hackaday](https://hackaday.com)',
+  ]);
+  assert.equal(cleanedLeadingBold[0], '**Partnered with brands** to expand outreach');
+  assert.equal(cleanedLeadingBold[1], 'Legacy bullet prefix');
+  const nestedParsed = parseSimpleOnePageRichTextSegments(cleanedLeadingBold[2]);
+  assert.ok(nestedParsed.some((seg) => seg.bold === true && seg.text === '500 stars on '));
+  assert.ok(
+    nestedParsed.some(
+      (seg) => seg.bold === true && seg.text === 'GitHub' && seg.url === 'https://github.com'
+    )
+  );
+  assert.ok(
+    nestedParsed.some(
+      (seg) => !seg.bold && seg.text === 'Hackaday' && seg.url === 'https://hackaday.com'
+    )
+  );
+
+  // Core 4-section ordering with optional objective/extras hidden when empty
+  assert.deepEqual(getOrderedVisibleSections(sample, s1pTpl), [
+    'experience',
+    'projects',
+    'education',
+    'skills',
+  ]);
+});
+
 
 
 

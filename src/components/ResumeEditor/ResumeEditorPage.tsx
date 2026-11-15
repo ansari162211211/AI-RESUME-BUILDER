@@ -64,6 +64,8 @@ import type {
   StudyAbroadItem,
   HighSchoolItem,
   MasterThesisInfo,
+  ExperienceHighlightItem,
+  SimpleOnePageTrack,
   SkillCategory,
   SkillMatrixItem,
   SkillMatrixLevel,
@@ -129,6 +131,7 @@ import {
   SAMPLE_CREATIVE_MARKETING_CV,
   SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_RESEARCH_SCHOLAR_CV,
+  SAMPLE_SIMPLE_ONE_PAGE_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
   SAMPLE_STUDENT_CV,
@@ -144,6 +147,12 @@ import {
   getSoftwareDevSkillBucketItems,
   type SoftwareDevSkillBucketKey,
 } from '../../utils/resumePresentation';
+import {
+  estimateSimpleOnePageFit,
+  generateOnePageOptimizationSuggestions,
+  applyOnePageSuggestionText,
+  type OnePageSuggestionTarget,
+} from '../../utils/onePageOptimizer';
 import { getLanguageDotScore, validateDailyActivities } from '../../utils/dailyActivities';
 import { validatePhotoFile, type PhotoCropShape } from '../../utils/photoCrop';
 import { AiImproveModal } from '../AiAssistant/AiImproveModal';
@@ -636,6 +645,21 @@ const RESEARCH_SCHOLAR_SECTIONS: SectionConfig[] = [
   { id: 'custom-sections', label: '13. Additional Info & Certs', icon: Layers },
 ];
 
+const SIMPLE_ONE_PAGE_SECTIONS: SectionConfig[] = [
+  { id: 'header', label: '1. Header & Contacts', icon: User },
+  { id: 'experience', label: '2. Experience & Highlights', icon: Briefcase },
+  { id: 'projects', label: '3. Projects', icon: FolderGit2 },
+  { id: 'education', label: '4. Education & Coursework', icon: GraduationCap },
+  { id: 'skills', label: '5. Categorized Skills', icon: Wrench },
+  { id: 'objective', label: '6. Summary (Optional)', icon: FileText },
+  { id: 'certifications', label: '7. Certifications (Optional)', icon: BadgeCheck },
+  { id: 'awards', label: '8. Awards (Optional)', icon: Trophy },
+  { id: 'publications', label: '9. Publications (Optional)', icon: BookOpen },
+  { id: 'leadership', label: '10. Leadership (Optional)', icon: Users },
+  { id: 'volunteer', label: '11. Volunteer (Optional)', icon: HeartHandshake },
+  { id: 'custom-sections', label: '12. Additional Sections', icon: Layers },
+];
+
 const EXECUTIVE_STRENGTH_SUGGESTIONS: string[] = [
   'Strategic Planning',
   'P&L Ownership',
@@ -719,6 +743,18 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     originalText: string;
     onRestore: () => void;
   } | null>(null);
+  const [dismissedOptIds, setDismissedOptIds] = useState<string[]>([]);
+  const [editingOptId, setEditingOptId] = useState<string | null>(null);
+  const [draftOptText, setDraftOptText] = useState('');
+  const [showOnePageOptimizer, setShowOnePageOptimizer] = useState(true);
+  const [appliedOptHistory, setAppliedOptHistory] = useState<
+    Array<{
+      id: string;
+      label: string;
+      target: OnePageSuggestionTarget;
+      originalText: string;
+    }>
+  >([]);
 
   const activeTemplateId = resolveTemplateId(resume.template);
   const activeTemplate = getTemplateById(activeTemplateId);
@@ -735,6 +771,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const isCreativeProfessionalTemplate = activeTemplateId === 'creative-professional';
   const isExecutiveTemplate = activeTemplateId === 'executive-resume';
   const isResearchScholarTemplate = activeTemplateId === 'research-scholar';
+  const isSimpleOnePageTemplate = activeTemplateId === 'simple-one-page';
+  const simpleOnePageFit = isSimpleOnePageTemplate ? estimateSimpleOnePageFit(resume) : null;
+  const simpleOnePageSuggestions = isSimpleOnePageTemplate
+    ? generateOnePageOptimizationSuggestions(resume).filter(
+        (s) => !dismissedOptIds.includes(s.id)
+      )
+    : [];
   const ELEGANT_SERIF_SECTIONS = getElegantSerifSections(resume.sectionOrderOverride);
   const MODERN_CORPORATE_SECTIONS = getModernCorporateSections(resume.sectionOrderOverride);
   const FRESHER_RESUME_SECTIONS = getFresherResumeSections(resume.sectionOrderOverride);
@@ -762,6 +805,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? EXECUTIVE_RESUME_SECTIONS
     : isResearchScholarTemplate
     ? RESEARCH_SCHOLAR_SECTIONS
+    : isSimpleOnePageTemplate
+    ? SIMPLE_ONE_PAGE_SECTIONS
     : SECTIONS;
   const navSections = isTwoColumnTemplate
     ? TWO_COLUMN_SECTIONS
@@ -787,6 +832,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? EXECUTIVE_RESUME_SECTIONS
     : isResearchScholarTemplate
     ? RESEARCH_SCHOLAR_SECTIONS
+    : isSimpleOnePageTemplate
+    ? SIMPLE_ONE_PAGE_SECTIONS
     : isJakesTemplate
     ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
     : SECTIONS;
@@ -811,7 +858,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isEngineeringResumeTemplate ||
       isCreativeProfessionalTemplate ||
       isExecutiveTemplate ||
-      isResearchScholarTemplate
+      isResearchScholarTemplate ||
+      isSimpleOnePageTemplate
     ) {
       if (sectionId === 'personalInfo' || sectionId === 'header') return 'header';
       if (sectionId === 'achievements') return 'awards';
@@ -924,7 +972,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isEngineeringResumeTemplate ||
       isCreativeProfessionalTemplate ||
       isExecutiveTemplate ||
-      isResearchScholarTemplate
+      isResearchScholarTemplate ||
+      isSimpleOnePageTemplate
     ) {
       const mapped = editorId === 'awards' ? 'achievements' : editorId;
       return completenessReport.sections.find(
@@ -1165,6 +1214,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         ? EXECUTIVE_RESUME_SECTIONS
         : nextTemplate.id === 'research-scholar'
         ? RESEARCH_SCHOLAR_SECTIONS
+        : nextTemplate.id === 'simple-one-page'
+        ? SIMPLE_ONE_PAGE_SECTIONS
         : nextTemplate.id === 'jakes-resume'
         ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
         : SECTIONS;
@@ -1196,6 +1247,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'creative-marketing'
       | 'executive-resume'
       | 'research-scholar'
+      | 'simple-one-page'
       | 'experienced'
       | 'fresher'
       | 'student'
@@ -1263,6 +1315,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       case 'research-scholar':
         sampleBase = SAMPLE_RESEARCH_SCHOLAR_CV;
         break;
+      case 'simple-one-page':
+        sampleBase = SAMPLE_SIMPLE_ONE_PAGE_CV;
+        break;
       case 'experienced':
         sampleBase = SAMPLE_EXPERIENCED_CV;
         break;
@@ -1297,7 +1352,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     isInternshipResumeTemplate ||
     isEngineeringResumeTemplate ||
     isExecutiveTemplate ||
-    isResearchScholarTemplate;
+    isResearchScholarTemplate ||
+    isSimpleOnePageTemplate;
 
   const toCanonicalSectionKey = (sectionId: string): string =>
     isManagedAwardsAliasTemplate && sectionId === 'awards' ? 'achievements' : sectionId;
@@ -1681,6 +1737,54 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       return { ...exp, subHighlights: nextSubs };
     });
     updateField('experience', nextExp);
+  };
+  const addExperienceWorkHighlight = (expId: string) => {
+    const newItem: ExperienceHighlightItem = {
+      id: `wh_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+      title: '',
+      url: '',
+      description: '',
+    };
+    updateField(
+      'experience',
+      (resume.experience || []).map((exp) =>
+        exp.id === expId
+          ? { ...exp, workHighlights: [...(exp.workHighlights || []), newItem] }
+          : exp
+      )
+    );
+  };
+  const updateExperienceWorkHighlight = (
+    expId: string,
+    whId: string,
+    updates: Partial<ExperienceHighlightItem>
+  ) => {
+    updateField(
+      'experience',
+      (resume.experience || []).map((exp) =>
+        exp.id === expId
+          ? {
+              ...exp,
+              workHighlights: (exp.workHighlights || []).map((wh) =>
+                wh.id === whId ? { ...wh, ...updates } : wh
+              ),
+            }
+          : exp
+      )
+    );
+  };
+  const deleteExperienceWorkHighlight = (expId: string, whId: string) => {
+    updateField(
+      'experience',
+      (resume.experience || []).map((exp) =>
+        exp.id === expId
+          ? {
+              ...exp,
+              workHighlights: (exp.workHighlights || []).filter((wh) => wh.id !== whId),
+            }
+          : exp
+      )
+    );
   };
 
   // Research Experience
@@ -2477,6 +2581,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               title="Executive Resume (Two-Page AltaCV Style) Sample"
             >
               Executive
+            </button>
+            <button
+              onClick={() => handleLoadProfile('simple-one-page')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-900 font-semibold rounded shadow-xs"
+              title="Simple One-Page Resume (Harshibar Reference) Sample"
+            >
+              Simple 1-Page
             </button>
             <button
               onClick={() => handleLoadProfile('student')}
@@ -4001,6 +4112,283 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         </div>
       )}
 
+      {/* Simple One-Page (Template 15) Setup Banner, Fit Meter & Interactive Optimizer */}
+      {isSimpleOnePageTemplate && simpleOnePageFit && (
+        <div className="mb-6 bg-white border border-slate-300 rounded-xl p-4 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white uppercase tracking-wider">
+                  Template 15 · Simple One-Page
+                </span>
+                <span className="text-sm font-bold text-slate-900">
+                  Compact Single-Page ATS Resume &amp; A4 Fit Assistant
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1">
+                Clean centered sans-serif identity without photographs or decorative banners. Supports{' '}
+                <code className="px-1 py-0.5 bg-slate-100 rounded text-[11px]">**bold**</code> emphasis and{' '}
+                <code className="px-1 py-0.5 bg-slate-100 rounded text-[11px]">[label](url)</code> links in bullets.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('simple-one-page')}
+                className="px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded cursor-pointer"
+              >
+                Load Simple One-Page Sample
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsInterviewOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs cursor-pointer"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>AI Resume Interview</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Target Profession Track Switcher (8 Tracks) */}
+          <div className="pt-3 border-t border-slate-200">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+              Target Profession Track
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  { id: 'software-developer', label: 'Software Developer' },
+                  { id: 'cybersecurity', label: 'Cybersecurity' },
+                  { id: 'data-science', label: 'Data Science & AI' },
+                  { id: 'designer', label: 'Product / UX Design' },
+                  { id: 'engineering', label: 'Core Engineering' },
+                  { id: 'business', label: 'Business / PM / Ops' },
+                  { id: 'fresher', label: 'Fresher / Student' },
+                  { id: 'other', label: 'Other Track' },
+                ] as Array<{ id: SimpleOnePageTrack; label: string }>
+              ).map((track) => {
+                const isSelected = (resume.simpleOnePageTrack || 'software-developer') === track.id;
+                return (
+                  <button
+                    key={track.id}
+                    type="button"
+                    onClick={() => updateField('simpleOnePageTrack', track.id)}
+                    className={`px-2.5 py-1 rounded text-xs font-semibold border transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {track.label}
+                  </button>
+                );
+              })}
+            </div>
+            {(resume.simpleOnePageTrack || 'software-developer') === 'other' && (
+              <div className="mt-2.5 max-w-sm">
+                <input
+                  type="text"
+                  value={resume.customSimpleOnePageTrack || ''}
+                  onChange={(e) => updateField('customSimpleOnePageTrack', e.target.value)}
+                  placeholder="Specify custom profession track (e.g. Bioinformatics, Technical Writer)"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Non-Destructive One-Page A4 Fit Meter & Interactive Suggestions */}
+          <div
+            className={`p-3.5 rounded-lg border ${
+              simpleOnePageFit.fitsOnOnePage
+                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                : 'bg-amber-50/80 border-amber-300 text-amber-950'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {simpleOnePageFit.fitsOnOnePage ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                )}
+                <div>
+                  <div className="text-xs font-bold">
+                    {simpleOnePageFit.fitsOnOnePage
+                      ? 'One-Page A4 Fit Target Met'
+                      : `One-Page Overflow Notice (${simpleOnePageFit.estimatedPages} pages estimated · +${simpleOnePageFit.overflowPercent}%)`}
+                  </div>
+                  <p className="text-[11px] opacity-90 mt-0.5">
+                    {simpleOnePageFit.advisoryMessage}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded bg-white/80 border border-current/20 text-[11px] font-semibold">
+                  {simpleOnePageFit.totalWords} words · {simpleOnePageFit.bulletCount} bullets
+                </span>
+                {simpleOnePageSuggestions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOnePageOptimizer((prev) => !prev)}
+                    className="text-[11px] font-bold underline cursor-pointer"
+                  >
+                    {showOnePageOptimizer
+                      ? `Hide Suggestions (${simpleOnePageSuggestions.length})`
+                      : `Review Suggestions (${simpleOnePageSuggestions.length})`}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {showOnePageOptimizer && simpleOnePageSuggestions.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-200/80 space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  Interactive One-Page Condensing Suggestions (Non-Destructive · Never Invents Metrics)
+                </div>
+                {simpleOnePageSuggestions.slice(0, 6).map((sug) => {
+                  const isEditingThis = editingOptId === sug.id;
+                  return (
+                    <div
+                      key={sug.id}
+                      className="p-3 bg-white border border-slate-200 rounded-lg space-y-2 text-slate-800"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-[11px] font-bold text-slate-900">
+                          {sug.sectionLabel}: {sug.entryLabel}
+                        </div>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                          {sug.reasonLabel} ({sug.wordCountBefore} → {sug.wordCountAfter} words)
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded border border-slate-200">
+                        <span className="font-semibold text-slate-700">Original: </span>
+                        {sug.originalText}
+                      </div>
+                      {isEditingThis ? (
+                        <div className="space-y-2">
+                          <textarea
+                            rows={2}
+                            value={draftOptText}
+                            onChange={(e) => setDraftOptText(e.target.value)}
+                            className="w-full p-2 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!draftOptText.trim()) return;
+                                setAppliedOptHistory((prev) => [
+                                  {
+                                    id: `${sug.id}-${Date.now()}`,
+                                    label: `${sug.sectionLabel}: ${sug.entryLabel}`,
+                                    target: sug.target,
+                                    originalText: sug.originalText,
+                                  },
+                                  ...prev.slice(0, 9),
+                                ]);
+                                setResume((prev) =>
+                                  applyOnePageSuggestionText(prev, sug.target, draftOptText)
+                                );
+                                setEditingOptId(null);
+                                setDraftOptText('');
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-900 text-white rounded hover:bg-black cursor-pointer"
+                            >
+                              Apply Edited Version
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingOptId(null);
+                                setDraftOptText('');
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-[11px] text-emerald-950 bg-emerald-50/70 p-2 rounded border border-emerald-200">
+                            <span className="font-semibold text-emerald-800">Suggested: </span>
+                            {sug.suggestedText}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAppliedOptHistory((prev) => [
+                                  {
+                                    id: `${sug.id}-${Date.now()}`,
+                                    label: `${sug.sectionLabel}: ${sug.entryLabel}`,
+                                    target: sug.target,
+                                    originalText: sug.originalText,
+                                  },
+                                  ...prev.slice(0, 9),
+                                ]);
+                                setResume((prev) =>
+                                  applyOnePageSuggestionText(prev, sug.target, sug.suggestedText)
+                                );
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-emerald-700 text-white rounded hover:bg-emerald-800 cursor-pointer"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>Accept</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingOptId(sug.id);
+                                setDraftOptText(sug.suggestedText);
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-300 rounded hover:bg-slate-200 cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDismissedOptIds((prev) => [...prev, sug.id])}
+                              className="px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {appliedOptHistory.length > 0 && (
+              <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <span className="font-semibold text-slate-700">
+                  Last condensed edit: {appliedOptHistory[0].label}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const last = appliedOptHistory[0];
+                    setResume((prev) =>
+                      applyOnePageSuggestionText(prev, last.target, last.originalText)
+                    );
+                    setAppliedOptHistory((prev) => prev.slice(1));
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 font-semibold bg-white text-slate-800 border border-slate-300 rounded hover:bg-slate-100 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Restore Original</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Editor Body: Sidebar + Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
@@ -4032,6 +4420,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 ? 'Executive Resume (11 Steps)'
                 : isResearchScholarTemplate
                 ? 'Research Scholar CV'
+                : isSimpleOnePageTemplate
+                ? 'Simple One-Page Resume'
                 : isJakesTemplate
                 ? "Resume Sections (Jake's)"
                 : isClassicTemplate
@@ -4066,6 +4456,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               isCreativeProfessionalTemplate ||
               isExecutiveTemplate ||
               isResearchScholarTemplate ||
+              isSimpleOnePageTemplate ||
               !isJakesTemplate ||
               JAKES_EDITOR_SECTIONS.has(sec.id);
 
@@ -4198,6 +4589,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     ? 'Executive identity header: bold uppercase name, royal purple designation and tagline, purple-icon contact links, and an optional unframed right-aligned portrait.'
                     : isResearchScholarTemplate
                     ? 'Awesome CV centered scholar header: two-tone thin + bold name, uppercase coral-red specialization, address, compact icon contact row, and optional philosophy quote (no photo).'
+                    : isSimpleOnePageTemplate
+                    ? 'Harshibar centered single-page header: prominent full name above a clean horizontal icon contact row separated by "|" with underlined links and optional work authorization. No photo or colored banner.'
                     : isClassicTemplate
                     ? 'Structured Classic Professional header with contact details, multiple phones, and an optional framed portrait photo.'
                     : isTwoColumnTemplate
@@ -4501,6 +4894,21 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   />
                 </div>
 
+                {isSimpleOnePageTemplate && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Work Authorization / Location Tag (Optional — shown beside pin icon)
+                    </label>
+                    <input
+                      type="text"
+                      value={resume.personalInfo.workAuthorization || ''}
+                      onChange={(e) => updatePersonalInfo('workAuthorization', e.target.value)}
+                      placeholder="e.g. U.S. Citizen | San Francisco, CA | EU Work Permit"
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                  </div>
+                )}
+
                 {(isTwoColumnTemplate || isExecutiveTemplate) && (
                   <>
                     {isExecutiveTemplate && (
@@ -4683,14 +5091,19 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   isInternshipResumeTemplate ||
                   isEngineeringResumeTemplate ||
                   isCreativeProfessionalTemplate ||
-                  isResearchScholarTemplate) &&
+                  isResearchScholarTemplate ||
+                  isSimpleOnePageTemplate) &&
                   !isTwoColumnTemplate &&
                   !isExecutiveTemplate && (
                   <div className="sm:col-span-2 pt-3 border-t border-slate-200">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                         <Link2 className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Additional Portfolio / Profile Links (Optional)</span>
+                        <span>
+                          {isSimpleOnePageTemplate
+                            ? 'Additional Profile / Media Links (Optional — e.g. Label "harshibar" + youtube.com URL shows play icon)'
+                            : 'Additional Portfolio / Profile Links (Optional)'}
+                        </span>
                       </label>
                       <button
                         type="button"
@@ -5046,6 +5459,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Career Objective'
                       : isResearchScholarTemplate
                       ? 'Research Summary'
+                      : isSimpleOnePageTemplate
+                      ? 'Summary (Optional)'
                       : 'Career Objective / Professional Summary'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -5061,6 +5476,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Concise 1–3 line engineering career objective naming your branch, core tools, and target roles. Leave blank to omit.'
                       : isResearchScholarTemplate
                       ? 'Awesome CV Summary section: concise overview of research specialization, years of experience, technical expertise, major contributions, and career objectives. Leave empty to omit.'
+                      : isSimpleOnePageTemplate
+                      ? 'Optional 1–3 line summary paragraph. Many one-page resumes lead directly with Experience — leave blank to omit cleanly.'
                       : 'Displayed underneath the OBJECTIVE section heading as a clean paragraph.'}
                   </p>
                 </div>
@@ -5076,6 +5493,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           ? 'Executive Summary'
                           : isResearchScholarTemplate
                           ? 'Research Summary'
+                          : isSimpleOnePageTemplate
+                          ? 'Summary'
                           : isElegantSerifTemplate
                           ? 'Professional Profile'
                           : isFresherResumeTemplate
@@ -5215,6 +5634,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Impact Statement / Career Summary (Optional)'
                       : isEngineeringResumeTemplate
                       ? 'Career Objective (Optional — 1 to 3 concise sentences)'
+                      : isSimpleOnePageTemplate
+                      ? 'Summary (Optional — leave blank to open immediately with Experience)'
                       : 'Objective / Summary'}
                   </label>
                   <textarea
@@ -5645,7 +6066,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           isInternshipResumeTemplate ||
                           isEngineeringResumeTemplate ||
                           isExecutiveTemplate ||
-                          isResearchScholarTemplate) && (
+                          isResearchScholarTemplate ||
+                          isSimpleOnePageTemplate) && (
                           <>
                             <div>
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -5673,6 +6095,20 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                 className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                               />
                             </div>
+                            {isSimpleOnePageTemplate && (
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                  Research / Thesis / Capstone Summary (Optional — displayed as "Research:" bullet under degree)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={edu.research || ''}
+                                  onChange={(e) => updateEducation(edu.id, { research: e.target.value })}
+                                  placeholder="e.g. Human-Computer Interaction Lab — Accessibility tools for mobile navigation"
+                                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                                />
+                              </div>
+                            )}
                           </>
                         )}
 
@@ -6811,10 +7247,84 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           onChange={(e) =>
                             updateExperience(exp.id, { highlights: e.target.value.split('\n') })
                           }
-                          placeholder="• Lead investigator on an NIH R01 grant exploring diffusion models...&#10;• Supervise 4 doctoral candidates..."
+                          placeholder={
+                            isSimpleOnePageTemplate
+                              ? '• Designed and implemented **feature A** supporting [team blog](https://example.com) with 99.9% uptime\n• Collaborated with cross-functional teams to optimize onboarding workflows'
+                              : '• Lead investigator on an NIH R01 grant exploring diffusion models...\n• Supervise 4 doctoral candidates...'
+                          }
                           className="w-full p-2.5 border border-slate-300 rounded text-xs leading-relaxed bg-white"
                         />
+                        {isSimpleOnePageTemplate && (
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Tip: Wrap phrases in <code className="bg-slate-100 px-1 rounded">**bold**</code> or{' '}
+                            <code className="bg-slate-100 px-1 rounded">[label](https://...)</code> for rich inline emphasis &amp; links.
+                          </p>
+                        )}
                       </div>
+
+                      {isSimpleOnePageTemplate && (
+                        <div className="pt-2.5 border-t border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                                Selected Work Highlights (Optional)
+                              </div>
+                              <p className="text-[11px] text-slate-500">
+                                Rendered under this role as <span className="italic">• Highlights: clickable link 1, clickable link 2</span>.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => addExperienceWorkHighlight(exp.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-900 bg-white border border-slate-300 rounded hover:bg-slate-100 cursor-pointer shrink-0"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Highlight</span>
+                            </button>
+                          </div>
+                          {(exp.workHighlights || []).length > 0 && (
+                            <div className="space-y-2">
+                              {(exp.workHighlights || []).map((wh) => (
+                                <div
+                                  key={wh.id}
+                                  className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center p-2 bg-white border border-slate-200 rounded"
+                                >
+                                  <input
+                                    type="text"
+                                    value={wh.title}
+                                    onChange={(e) =>
+                                      updateExperienceWorkHighlight(exp.id, wh.id, {
+                                        title: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Highlight title (e.g. Case Study: Search Indexing)"
+                                    className="sm:col-span-5 px-2.5 py-1.5 border border-slate-300 rounded text-xs"
+                                  />
+                                  <input
+                                    type="url"
+                                    value={wh.url || ''}
+                                    onChange={(e) =>
+                                      updateExperienceWorkHighlight(exp.id, wh.id, {
+                                        url: e.target.value,
+                                      })
+                                    }
+                                    placeholder="Optional link https://..."
+                                    className="sm:col-span-6 px-2.5 py-1.5 border border-slate-300 rounded text-xs"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteExperienceWorkHighlight(exp.id, wh.id)}
+                                    className="sm:col-span-1 p-1.5 text-slate-400 hover:text-rose-600 rounded justify-self-end"
+                                    title="Remove highlight"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate) &&
                         (exp.highlights || []).some((h) => h.trim().length > 0) && (
@@ -9768,6 +10278,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Skills & Interests'
                       : isCreativeProfessionalTemplate
                       ? 'Categorized Skills (SKILLS)'
+                      : isSimpleOnePageTemplate
+                      ? 'Skills (Category : Items)'
                       : 'Skills by Category'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -9781,6 +10293,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ? 'Clean text-only categorized technical skills and Interests rendered under SKILLS AND INTERESTS (zero progress bars or rating dots).'
                       : isCreativeProfessionalTemplate
                       ? 'Grouped detailed skills rendered under SKILLS on the left column (Technical, Creative, Professional, or custom categories) with optional description & organization.'
+                      : isSimpleOnePageTemplate
+                      ? 'Compact colon-separated rows rendered as "Category : Skill 1, Skill 2, Skill 3" (e.g. Programming : Python, TypeScript, SQL).'
                       : 'Organize skills into research foundations, programming, tools, and platforms.'}
                   </p>
                 </div>
