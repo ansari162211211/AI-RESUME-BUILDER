@@ -19,9 +19,11 @@ import {
 import { sendInterviewStepWithGemini } from '../../services/aiService';
 import { resolveTemplateId } from '../../data/templates';
 import {
+  EXECUTIVE_SECTION_FLOW,
   accumulateStagedUpdates,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
+  buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
   clearInterviewDraft,
   loadInterviewDraft,
@@ -284,12 +286,30 @@ const CREATIVE_SECTION_LABELS: Record<string, string> = {
   'custom-sections': 'Projects & Additional Info',
 };
 
+const EXECUTIVE_SECTION_LABELS: Record<string, string> = {
+  personalInfo: 'Header & Contacts',
+  philosophy: 'Philosophy & Summary',
+  experience: 'Executive Experience',
+  achievements: 'Most Proud Of',
+  strengths: 'Strengths',
+  'daily-life': 'A Day of My Life',
+  education: 'Education',
+  languages: 'Languages',
+  publications: 'Publications & Talks',
+  references: 'Referees',
+  'custom-sections': 'Projects & Additional',
+};
+
 function getSectionLabel(
   sectionKey: string,
   isInternshipResume: boolean,
   isEngineeringResume: boolean = false,
-  isCreativeProfessional: boolean = false
+  isCreativeProfessional: boolean = false,
+  isExecutiveResume: boolean = false
 ): string {
+  if (isExecutiveResume && EXECUTIVE_SECTION_LABELS[sectionKey]) {
+    return EXECUTIVE_SECTION_LABELS[sectionKey];
+  }
   if (isCreativeProfessional && CREATIVE_SECTION_LABELS[sectionKey]) {
     return CREATIVE_SECTION_LABELS[sectionKey];
   }
@@ -328,6 +348,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
   const isInternshipResume = templateId === 'internship-resume';
   const isEngineeringResume = templateId === 'engineering-resume';
   const isCreativeProfessional = templateId === 'creative-professional';
+  const isExecutiveResume = templateId === 'executive-resume';
   const sectionFlow = isJakes
     ? JAKES_SECTION_FLOW
     : isClassic
@@ -350,6 +371,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
     ? ENGINEERING_RESUME_SECTION_FLOW
     : isCreativeProfessional
     ? CREATIVE_PROFESSIONAL_SECTION_FLOW
+    : isExecutiveResume
+    ? EXECUTIVE_SECTION_FLOW
     : ACADEMIC_SECTION_FLOW;
   const safeSectionIndex = Math.min(Math.max(0, currentSectionIndex), Math.max(0, sectionFlow.length - 1));
   const activeSection = sectionFlow[safeSectionIndex] || 'personalInfo';
@@ -439,6 +462,10 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
         ? initialName
           ? `Hello ${initialName}! I'm your Creative Professional CV Advisor. Let's shape your balanced 2-column CV—Centered Header & Tagline, Short Resume timeline, Degrees, Categorized Skills, Circular Proficiencies, Horizontal Skill Bars, Communication Skills, Certificates & Grants, Languages, and Talks & Publications—never inventing percentages or quotes. Which profession fits you best (Developer, UI/UX Designer, Cybersecurity, Marketing, Researcher, or Engineer)?`
           : `Welcome! I'm your Creative Professional CV Advisor. We'll assemble your modern two-column editorial resume step by step—adapting your visual proficiency headings automatically and keeping optional sections flexible. To start, which profession fits you best (Developer, Designer, Cybersecurity, Marketing, Researcher, or Engineer), and what are your full name, title, and email?`
+        : isExecutiveResume
+        ? initialName
+          ? `Hello ${initialName}! I'm your Executive Resume Advisor. We'll build your two-page Executive CV across 11 guided sections—Executive Header, Life Philosophy & Summary, Experience (with confirmed team/impact), Most Proud Of, Strengths, optional Day of My Life %, Education, Languages, Publications & Speaking, Referees, and Board/Additional items—never fabricating metrics, percentages, quotes, or referees. Which executive role fits you best (CEO, CTO, CFO, COO, HR Director, CMO, Founder, or Other)?`
+          : `Welcome! I'm your Executive Resume Advisor. Let's craft an executive-grade two-column CV modeled on classic C-suite structure without inventing revenue figures, percentages, or quotes. To begin, which executive role are you targeting (CEO, CTO, CFO, COO, CHRO, CMO, Founder, or Other), and what are your full name, title, and email?`
         : isTwoColumn
         ? initialName
           ? `Hello ${initialName}! I'm your Two Column Professional CV Advisor. Let's craft or refine your header & tagline, experience, projects, optional "A Day of My Life" breakdown, publications, philosophy, proudest achievements, strengths, languages, education, and referees. You can skip any optional section at any time—where would you like to focus?`
@@ -514,6 +541,13 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
               'UI/UX Product Designer',
               'Cybersecurity Engineer',
               'Marketing / Brand Strategist',
+            ]
+          : isExecutiveResume
+          ? [
+              'CEO / Managing Director',
+              'CTO / VP Engineering',
+              'CFO / Finance Executive',
+              'Founder / COO',
             ]
           : isClassic
           ? [
@@ -695,6 +729,37 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
             structuredUpdates: adaptive.structuredUpdates,
           },
         ]);
+      } else if (isExecutiveResume) {
+        const adaptive = buildAdaptiveExecutiveFallback(
+          text,
+          stagedResume,
+          activeSection,
+          sectionFlow
+        );
+        if (Object.keys(adaptive.structuredUpdates).length > 0) {
+          setStagedUpdates((prev) =>
+            accumulateStagedUpdates(
+              prev,
+              adaptive.structuredUpdates,
+              currentResume,
+              isInternshipResume
+            )
+          );
+        }
+        if (sectionFlow.includes(adaptive.nextSection)) {
+          setCurrentSectionIndex(sectionFlow.indexOf(adaptive.nextSection));
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_err_${Date.now()}`,
+            role: 'assistant',
+            content: adaptive.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            suggestedChips: adaptive.suggestedChips,
+            structuredUpdates: adaptive.structuredUpdates,
+          },
+        ]);
       } else {
         const fallbackMsg: InterviewChatMessage = {
           id: `msg_err_${Date.now()}`,
@@ -771,6 +836,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     ? 'Build Engineering Resume with AI'
                     : isCreativeProfessional
                     ? 'Build Creative Professional CV with AI'
+                    : isExecutiveResume
+                    ? 'Build Executive Resume with AI'
                     : isClassic
                     ? 'Build Classic Professional CV with AI'
                     : isTwoColumn
@@ -788,7 +855,8 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     activeSection,
                     isInternshipResume,
                     isEngineeringResume,
-                    isCreativeProfessional
+                    isCreativeProfessional,
+                    isExecutiveResume
                   )}
                 </span>{' '}
                 • Step {safeSectionIndex + 1} of {sectionFlow.length}
@@ -805,6 +873,14 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                 {stagedResume.creativeProfession && isCreativeProfessional ? (
                   <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-blue-100 text-blue-800 rounded">
                     Profession: {stagedResume.creativeProfession.toUpperCase()}
+                  </span>
+                ) : null}
+                {stagedResume.executiveRoleType && isExecutiveResume ? (
+                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold bg-purple-100 text-purple-900 rounded">
+                    Role:{' '}
+                    {stagedResume.executiveRoleType === 'other' && stagedResume.customExecutiveRole
+                      ? stagedResume.customExecutiveRole
+                      : stagedResume.executiveRoleType.toUpperCase()}
                   </span>
                 ) : null}
               </p>
@@ -858,7 +934,7 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
-                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional)}
+                {idx + 1}. {getSectionLabel(sec, isInternshipResume, isEngineeringResume, isCreativeProfessional, isExecutiveResume)}
               </button>
             );
           })}
@@ -1295,6 +1371,49 @@ export const AiInterviewModal: React.FC<AiInterviewModalProps> = ({
                         <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
                         <span>
                           Certs, Grants &amp; Talks: {(stagedResume.certifications?.length || 0) + (stagedResume.achievements?.length || 0) + (stagedResume.publications?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : isExecutiveResume ? (
+                  <>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-purple-800" />
+                        <span>
+                          Role:{' '}
+                          {stagedResume.executiveRoleType === 'other' && stagedResume.customExecutiveRole
+                            ? stagedResume.customExecutiveRole
+                            : (stagedResume.executiveRoleType || 'ceo').toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Users className="w-3 h-3 mr-1 text-purple-700" />
+                        <span>
+                          Proud Of &amp; Strengths: {stagedResume.achievements?.length || 0} / {stagedResume.strengths?.length || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <Code2 className="w-3 h-3 mr-1 text-emerald-600" />
+                        <span>
+                          Day of Life &amp; Languages: {stagedResume.dailyActivities?.length || 0} / {stagedResume.languages?.length || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white border border-slate-200 rounded-md">
+                      <div className="flex items-center text-slate-700 font-semibold mb-0.5">
+                        <BookOpen className="w-3 h-3 mr-1 text-amber-600" />
+                        <span>
+                          Pubs &amp; Referees: {stagedResume.publications?.length || 0} /{' '}
+                          {stagedResume.referencesDisplayMode === 'hidden'
+                            ? 'Hidden'
+                            : stagedResume.referencesDisplayMode === 'on-request'
+                            ? 'On Request'
+                            : stagedResume.references?.length || 0}
                         </span>
                       </div>
                     </div>

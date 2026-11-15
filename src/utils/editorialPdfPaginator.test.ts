@@ -5,15 +5,19 @@ import { getTemplateById, getTypographyScale, resolveTemplateCustomization } fro
 import {
   SAMPLE_CREATIVE_PROFESSIONAL_CV,
   SAMPLE_ELEGANT_SERIF_CV,
+  SAMPLE_EXECUTIVE_RESUME_CV,
 } from '../data/sampleResumes';
 import {
   buildCreativeContactItems,
   buildElegantSerifContactItems,
   buildElegantSerifMetadataRows,
+  buildTwoColumnContactItems,
   getOrderedVisibleSections,
 } from './resumePresentation';
 import {
+  estimateCreativeHeaderHeightPt,
   estimateEditorialHeaderHeightPt,
+  estimateExecutiveHeaderHeightPt,
   paginateEditorialPdfColumns,
 } from './editorialPdfPaginator';
 
@@ -119,8 +123,8 @@ test('paginateEditorialPdfColumns cleanly paginates Template 12 Creative Profess
   const leftSections = visible.filter((k) => !sidebarSet.has(k));
   const rightSections = visible.filter((k) => sidebarSet.has(k));
 
-  const headerPt = estimateEditorialHeaderHeightPt(
-    0,
+  const headerPt = estimateCreativeHeaderHeightPt(
+    creativeResume,
     buildCreativeContactItems(creativeResume.personalInfo).length,
     scale
   );
@@ -133,7 +137,7 @@ test('paginateEditorialPdfColumns cleanly paginates Template 12 Creative Profess
     headerHeightPt: headerPt,
     mode: 'creative',
   });
-  assert.ok(singleOrCompactPages.length >= 1);
+  assert.equal(singleOrCompactPages.length, 1);
 
   const seenCompact = new Set(
     singleOrCompactPages.flatMap((p) => [...p.left, ...p.right].map((s) => s.sectionKey))
@@ -185,3 +189,62 @@ test('paginateEditorialPdfColumns cleanly paginates Template 12 Creative Profess
     assert.ok(seenExpanded.has(k), `Missing section ${k} from multi-page Creative pagination`);
   });
 });
+
+test('paginateEditorialPdfColumns cleanly paginates Template 13 Executive Resume across 2 A4 pages with Page 2 publications & referees', () => {
+  const template = getTemplateById('executive-resume');
+  const execResume: Resume = {
+    ...SAMPLE_EXECUTIVE_RESUME_CV,
+    id: 'exec-pag-1',
+    userId: 'u-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const custom = resolveTemplateCustomization(execResume);
+  const scale = getTypographyScale(custom, template.id);
+  const visible = getOrderedVisibleSections(execResume, template);
+  const sidebarSet = new Set(template.sidebarSections || []);
+  const leftSections = visible.filter((k) => !sidebarSet.has(k));
+  const rightSections = visible.filter((k) => sidebarSet.has(k));
+
+  const headerPt = estimateExecutiveHeaderHeightPt(
+    execResume,
+    buildTwoColumnContactItems(execResume.personalInfo).length,
+    scale
+  );
+  assert.ok(headerPt >= 50);
+
+  const pages = paginateEditorialPdfColumns({
+    leftSections,
+    rightSections,
+    resume: execResume,
+    scale,
+    headerHeightPt: headerPt,
+    mode: 'executive',
+  });
+
+  assert.equal(pages.length, 2);
+
+  // Page 1 left has experience + daily-life; Page 2 carries publications / references cleanly
+  const p1LeftKeys = pages[0].left.map((s) => s.sectionKey);
+  assert.ok(p1LeftKeys.includes('experience'));
+  assert.ok(p1LeftKeys.includes('daily-life'));
+
+  const p2AllKeys = [...pages[1].left, ...pages[1].right].map((s) => s.sectionKey);
+  assert.ok(p2AllKeys.includes('publications'));
+  assert.ok(p2AllKeys.includes('references'));
+
+  pages.forEach((p) => {
+    [...p.left, ...p.right].forEach((slice) => {
+      assert.equal(slice.includeHeading, slice.sliceStart === 0);
+      assert.ok(slice.sliceEnd > slice.sliceStart);
+    });
+  });
+
+  const allSeen = new Set(
+    pages.flatMap((p) => [...p.left, ...p.right].map((s) => s.sectionKey))
+  );
+  visible.forEach((k) => {
+    assert.ok(allSeen.has(k), `Missing Executive section ${k} from PDF pagination plan`);
+  });
+});
+

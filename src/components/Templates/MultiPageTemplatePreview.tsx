@@ -186,6 +186,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
     template.id === 'engineering-resume' || template.headerVariant === 'engineering-centered';
   const isCreativeProfessional =
     template.id === 'creative-professional' || template.layout === 'two-column-creative';
+  const isExecutiveResume = template.id === 'executive-resume';
   const fontClass = custom.fontFamily === 'serif' ? 'font-cv-serif' : 'font-cv-sans';
   const isTwoColumnSidebar =
     template.layout === 'sidebar-light' || template.layout === 'sidebar-dark';
@@ -579,6 +580,24 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               {title}
             </h2>
             <div style={{ height: '1.75pt', backgroundColor: '#e5c57a' }} />
+          </div>
+        );
+      case 'executive-purple-rule':
+        return (
+          <div style={{ marginBottom: '5.5pt' }}>
+            <h2
+              className="cv-heading font-bold uppercase"
+              style={{
+                fontSize: `${scale.headingPt + 0.5}pt`,
+                letterSpacing: '0.35pt',
+                color,
+                paddingBottom: '2pt',
+                lineHeight: 1.18,
+              }}
+            >
+              {title}
+            </h2>
+            <div style={{ height: '2pt', backgroundColor: color }} />
           </div>
         );
       case 'title-rule':
@@ -1008,7 +1027,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   };
 
   const renderTwoColAchievementIcon = (
-    icon: 'trophy' | 'heart' | 'award' | 'star' | undefined,
+    icon: 'trophy' | 'heart' | 'chart' | 'award' | 'star' | undefined,
     color: string
   ) => {
     const size = '13pt';
@@ -1018,6 +1037,14 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         return (
           <svg width={size} height={size} viewBox="0 0 24 24" fill={color} style={baseStyle}>
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        );
+      case 'chart':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" style={baseStyle}>
+            <path d="M3 3v18h18" />
+            <path d="M7 15l4-4 3 3 5-6" />
+            <polyline points="16 8 19 8 19 11" />
           </svg>
         );
       case 'star':
@@ -1374,7 +1401,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                   lineHeight: 1.32,
                 }}
               >
-                &ldquo;{quoteText}&rdquo;
+                &ldquo;{quoteText.replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '')}&rdquo;
               </div>
             )}
           </header>
@@ -1526,11 +1553,12 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }
 
       case 'two-column-header': {
-        const photoUrl = personalInfo.photoUrl?.trim();
+        const photoUrl = !personalInfo.hidePhoto ? personalInfo.photoUrl?.trim() : '';
         const photoShape = personalInfo.photoShape || 'circle';
         const items = buildTwoColumnContactItems(personalInfo);
         const radius =
           photoShape === 'square' ? '6pt' : photoShape === 'portrait' ? '4pt' : '9999px';
+        const taglineText = isExecutiveResume ? personalInfo.tagline?.trim() : '';
 
         return (
           <header style={{ marginBottom: '7pt' }}>
@@ -1555,10 +1583,23 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       fontSize: `${scale.jobTitlePt + 0.5}pt`,
                       color: accent,
                       lineHeight: 1.25,
-                      marginBottom: '5pt',
+                      marginBottom: taglineText ? '2pt' : '5pt',
                     }}
                   >
                     {personalInfo.jobTitle}
+                  </div>
+                )}
+                {taglineText && (
+                  <div
+                    className="italic"
+                    style={{
+                      fontSize: `${scale.metaPt}pt`,
+                      color: '#4b5563',
+                      lineHeight: 1.28,
+                      marginBottom: '4.5pt',
+                    }}
+                  >
+                    {taglineText}
                   </div>
                 )}
                 {items.length > 0 && (
@@ -1595,22 +1636,14 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
               </div>
 
               {photoUrl && (
-                <div
-                  style={{
-                    padding: '3pt',
-                    backgroundColor: '#f3ebd3',
-                    border: '1.75pt solid #e5c57a',
-                    borderRadius: radius,
-                    flexShrink: 0,
-                  }}
-                >
+                isExecutiveResume ? (
                   <div
                     style={{
                       width: '68pt',
                       height: photoShape === 'portrait' ? '84pt' : '68pt',
                       borderRadius: radius,
                       overflow: 'hidden',
-                      backgroundColor: '#ffffff',
+                      flexShrink: 0,
                     }}
                   >
                     <img
@@ -1624,7 +1657,38 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       }}
                     />
                   </div>
-                </div>
+                ) : (
+                  <div
+                    style={{
+                      padding: '3pt',
+                      backgroundColor: '#f3ebd3',
+                      border: '1.75pt solid #e5c57a',
+                      borderRadius: radius,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: '68pt',
+                        height: photoShape === 'portrait' ? '84pt' : '68pt',
+                        borderRadius: radius,
+                        overflow: 'hidden',
+                        backgroundColor: '#ffffff',
+                      }}
+                    >
+                      <img
+                        src={photoUrl}
+                        alt={`${nameText} profile`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
               )}
             </div>
           </header>
@@ -3010,23 +3074,44 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 ),
             });
           });
-          if (isElegantSerif) {
-            const extraProfileFields = [
-              effectiveResume.academicInterests?.trim()
-                ? {
-                    id: 'objective-academic-interests',
-                    label: 'Academic Interests',
-                    value: effectiveResume.academicInterests.trim(),
-                  }
-                : null,
-              effectiveResume.careerGoals?.trim()
-                ? {
-                    id: 'objective-career-goals',
-                    label: 'Career Goals',
-                    value: effectiveResume.careerGoals.trim(),
-                  }
-                : null,
-            ].filter(Boolean) as Array<{ id: string; label: string; value: string }>;
+          if (isElegantSerif || isExecutiveResume) {
+            const extraProfileFields = isExecutiveResume
+              ? [
+                  effectiveResume.managementStyle?.trim()
+                    ? {
+                        id: 'objective-management-style',
+                        label: 'Management Style',
+                        value: effectiveResume.managementStyle.trim(),
+                      }
+                    : null,
+                  Array.isArray(effectiveResume.strategicDomains) &&
+                  effectiveResume.strategicDomains.filter((d) => d.trim()).length > 0
+                    ? {
+                        id: 'objective-strategic-domains',
+                        label: 'Strategic Focus',
+                        value: effectiveResume.strategicDomains
+                          .map((d) => d.trim())
+                          .filter(Boolean)
+                          .join(' · '),
+                      }
+                    : null,
+                ].filter(Boolean) as Array<{ id: string; label: string; value: string }>
+              : ([
+                  effectiveResume.academicInterests?.trim()
+                    ? {
+                        id: 'objective-academic-interests',
+                        label: 'Academic Interests',
+                        value: effectiveResume.academicInterests.trim(),
+                      }
+                    : null,
+                  effectiveResume.careerGoals?.trim()
+                    ? {
+                        id: 'objective-career-goals',
+                        label: 'Career Goals',
+                        value: effectiveResume.careerGoals.trim(),
+                      }
+                    : null,
+                ].filter(Boolean) as Array<{ id: string; label: string; value: string }>);
 
             extraProfileFields.forEach((item, eIdx) => {
               const isFirstObjUnit = paragraphs.length === 0 && eIdx === 0;
@@ -3735,12 +3820,17 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       )}
                     </div>
                   ) : options.isSidebar ? (
-                    isTwoColumnPro ? (
+                    isTwoColumnPro || isExecutiveResume ? (
                       <div
                         className="cv-entry"
                         style={{
                           color: textCol,
-                          borderTop: idx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
+                          borderTop:
+                            idx > 0
+                              ? isExecutiveResume
+                                ? '0.75pt dashed #cbd5e1'
+                                : '0.75pt dotted #cbd5e1'
+                              : 'none',
                           paddingTop: idx > 0 ? '4pt' : 0,
                         }}
                       >
@@ -3790,9 +3880,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             {edu.grade}
                           </div>
                         )}
-                        {edu.achievements && (
+                        {(edu.achievements || edu.honors) && (
                           <div style={{ fontSize: `${scale.bodyPt - 0.25}pt`, color: '#374151', marginTop: '1.5pt', lineHeight: 1.32 }}>
-                            {edu.achievements}
+                            {edu.achievements || edu.honors}
                           </div>
                         )}
                         {edu.description && (
@@ -4315,12 +4405,16 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           </div>
                         )}
                       </div>
-                    ) : isTwoColumnPro ? (
+                    ) : isTwoColumnPro || isExecutiveResume ? (
                       <div
                         className="cv-entry"
                         style={{
                           color: textCol,
-                          borderTop: !isFirstSectionUnit ? '0.75pt dotted #cbd5e1' : 'none',
+                          borderTop: !isFirstSectionUnit
+                            ? isExecutiveResume
+                              ? '0.75pt dashed #cbd5e1'
+                              : '0.75pt dotted #cbd5e1'
+                            : 'none',
                           paddingTop: !isFirstSectionUnit ? '4pt' : 0,
                         }}
                       >
@@ -4337,7 +4431,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           {exp.company}
                           {exp.employmentType ? ` (${exp.employmentType})` : ''}
                         </div>
-                        {(exp.startDate || exp.endDate || exp.current || exp.location) && (
+                        {(exp.startDate || exp.endDate || exp.current || exp.location || (isExecutiveResume && exp.teamSize)) && (
                           <div
                             className="flex flex-wrap items-center"
                             style={{
@@ -4362,11 +4456,22 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                                 <span>{exp.location}</span>
                               </span>
                             )}
+                            {isExecutiveResume && exp.teamSize?.trim() && (
+                              <span style={{ color: '#6b7280' }}>
+                                Team: {exp.teamSize.trim()}
+                              </span>
+                            )}
                           </div>
                         )}
                         {exp.description && (
                           <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#374151', lineHeight: scale.lineHeight, marginTop: '1.5pt' }}>
                             {exp.description}
+                          </div>
+                        )}
+                        {isExecutiveResume && exp.results?.trim() && (
+                          <div style={{ fontSize: `${scale.bodyPt}pt`, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: '1.5pt' }}>
+                            <span className="font-semibold">Impact: </span>
+                            <span>{exp.results.trim()}</span>
                           </div>
                         )}
                         {firstBullet && (
@@ -4756,9 +4861,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         <div style={{ color: textCol }}>
                           <div
                             className="cv-entry flex items-start"
-                            style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro ? '2pt' : '8pt' }}
+                            style={{ paddingLeft: isJakes ? '18pt' : isTwoColumnPro || isExecutiveResume ? '2pt' : '8pt' }}
                           >
-                            <span style={{ width: isTwoColumnPro ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro ? '#4b5563' : undefined }}>
+                            <span style={{ width: isTwoColumnPro || isExecutiveResume ? '9pt' : '10pt', fontSize: `${scale.entrySubtitlePt}pt`, flexShrink: 0, color: isTwoColumnPro || isExecutiveResume ? '#4b5563' : undefined }}>
                               {bulletChar}
                             </span>
                             <span style={{ fontSize: `${scale.bodyPt}pt`, lineHeight: scale.lineHeight, flex: 1 }}>
@@ -4994,7 +5099,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'publications': {
-          if (isTwoColumnPro) {
+          if (isTwoColumnPro || isExecutiveResume) {
             const groups = groupPublicationsForTwoColumn(effectiveResume.publications || []);
             let pubUnitCounter = 0;
             groups.forEach((group, gIdx) => {
@@ -5022,7 +5127,12 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         className="cv-entry"
                         style={{
                           color: textCol,
-                          borderTop: isFirstInGroup && gIdx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
+                          borderTop:
+                            isFirstInGroup && gIdx > 0
+                              ? isExecutiveResume
+                                ? '0.75pt dashed #cbd5e1'
+                                : '0.75pt dotted #cbd5e1'
+                              : 'none',
                           paddingTop: isFirstInGroup && gIdx > 0 ? '4pt' : 0,
                         }}
                       >
@@ -5031,11 +5141,11 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             className="flex items-center font-bold"
                             style={{
                               fontSize: `${scale.entryTitlePt - 0.25}pt`,
-                              color: custom.accentColor,
+                              color: isExecutiveResume ? '#1f2937' : custom.accentColor,
                               marginBottom: '2.5pt',
                             }}
                           >
-                            {renderTwoColPubIcon(group.categoryKey, '#111827')}
+                            {renderTwoColPubIcon(group.categoryKey, isExecutiveResume ? custom.accentColor : '#111827')}
                             <span>{group.label}</span>
                           </div>
                         )}
@@ -6023,7 +6133,10 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
         }
 
         case 'daily-life': {
+          const donutMode =
+            effectiveResume.dailyActivityMode || (isExecutiveResume ? 'percentage' : 'hours');
           const donut = computeDonutChartSegments(effectiveResume.dailyActivities || [], {
+            mode: donutMode,
             accentColor: custom.accentColor,
             viewBoxWidth: 272,
             viewBoxHeight: 152,
@@ -6053,7 +6166,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         return (
                           <g key={seg.id}>
                             <path d={seg.pathD} fill={seg.color} stroke="#ffffff" strokeWidth="1.2" />
-                            <circle cx={seg.dotX} cy={seg.dotY} r="2" fill="#64748b" />
+                            <circle cx={seg.dotX} cy={seg.dotY} r="2" fill={isExecutiveResume ? '#4c1d95' : '#64748b'} />
                             <polyline
                               points={`${seg.dotX},${seg.dotY} ${seg.elbowX},${seg.elbowY} ${seg.labelEndX},${seg.labelY}`}
                               fill="none"
@@ -6089,7 +6202,10 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
 
         case 'philosophy': {
           const quote = (effectiveResume.personalQuote || '').trim();
-          if (quote) {
+          const explanation = isExecutiveResume
+            ? (effectiveResume.philosophyExplanation || '').trim()
+            : '';
+          if (quote || explanation) {
             list.push({
               id: 'philosophy-quote',
               spacing: 'section',
@@ -6099,17 +6215,33 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                 wrapLayoutUnit(
                   sectionTitle,
                   showHeading,
-                  <div
-                    className="cv-entry italic"
-                    style={{
-                      fontSize: `${scale.bodyPt + 0.35}pt`,
-                      lineHeight: 1.4,
-                      color: custom.accentColor,
-                      textAlign: 'center',
-                      padding: '2pt 4pt',
-                    }}
-                  >
-                    &ldquo;{quote}&rdquo;
+                  <div className="cv-entry" style={{ padding: '2pt 4pt' }}>
+                    {quote && (
+                      <div
+                        className="italic"
+                        style={{
+                          fontSize: `${scale.bodyPt + 0.35}pt`,
+                          lineHeight: 1.4,
+                          color: custom.accentColor,
+                          textAlign: 'center',
+                        }}
+                      >
+                        &ldquo;{quote}&rdquo;
+                      </div>
+                    )}
+                    {explanation && (
+                      <div
+                        style={{
+                          fontSize: `${scale.metaPt - 0.25}pt`,
+                          lineHeight: 1.35,
+                          color: '#4b5563',
+                          textAlign: 'center',
+                          marginTop: quote ? '2.5pt' : 0,
+                        }}
+                      >
+                        {explanation}
+                      </div>
+                    )}
                   </div>,
                   options.inverted,
                   options.isSidebar
@@ -6950,13 +7082,18 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                       </div>
                     )
-                  ) : isTwoColumnPro ? (
+                  ) : isTwoColumnPro || isExecutiveResume ? (
                     <div
                       className="cv-entry flex items-start"
                       style={{
                         gap: '7pt',
                         color: textCol,
-                        borderTop: idx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
+                        borderTop:
+                          idx > 0
+                            ? isExecutiveResume
+                              ? '0.75pt dashed #cbd5e1'
+                              : '0.75pt dotted #cbd5e1'
+                            : 'none',
                         paddingTop: idx > 0 ? '4pt' : 0,
                       }}
                     >
@@ -6974,6 +7111,17 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                             {!ach.issuer && ach.date && <span>{ach.date}</span>}
                             {(ach.issuer || ach.date) && ach.description && <span> — </span>}
                             {ach.description && <span>{ach.description}</span>}
+                          </div>
+                        )}
+                        {isExecutiveResume && (ach.challenge?.trim() || ach.actionTaken?.trim() || ach.outcome?.trim()) && (
+                          <div style={{ fontSize: `${scale.metaPt - 0.45}pt`, color: '#4b5563', lineHeight: 1.3, marginTop: '1pt' }}>
+                            {[
+                              ach.challenge?.trim() ? `Challenge: ${ach.challenge.trim()}` : '',
+                              ach.actionTaken?.trim() ? `Action: ${ach.actionTaken.trim()}` : '',
+                              ach.outcome?.trim() ? `Outcome: ${ach.outcome.trim()}` : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </div>
                         )}
                       </div>
@@ -8568,11 +8716,16 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                         )}
                       </div>
                     )
-                  ) : isTwoColumnPro ? (
+                  ) : isTwoColumnPro || isExecutiveResume ? (
                     <div
                       className="cv-entry"
                       style={{
-                        borderTop: idx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
+                        borderTop:
+                          idx > 0
+                            ? isExecutiveResume
+                              ? '0.75pt dashed #cbd5e1'
+                              : '0.75pt dotted #cbd5e1'
+                            : 'none',
                         paddingTop: idx > 0 ? '3.5pt' : 0,
                       }}
                     >
@@ -8585,9 +8738,9 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                           if (score !== null) {
                             return renderLanguageDots(score, custom.accentColor, lang.id);
                           }
-                          return lang.proficiency ? (
+                          return profText ? (
                             <span style={{ fontSize: `${scale.metaPt - 0.5}pt`, color: '#4b5563' }}>
-                              {lang.proficiency}
+                              {profText}
                             </span>
                           ) : null;
                         })()}
@@ -9221,7 +9374,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                     )
                   ) : (
                     <div className="italic" style={{ fontSize: `${scale.entrySubtitlePt}pt`, color: subCol }}>
-                      {isTwoColumnPro ? 'Referees available upon request.' : 'References available upon request.'}
+                      {isTwoColumnPro || isExecutiveResume ? 'Referees available upon request.' : 'References available upon request.'}
                     </div>
                   ),
                   options.inverted,
@@ -9230,7 +9383,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
             });
             break;
           }
-          if (isTwoColumnPro || isEditorialTwoColumn || options.isSidebar) {
+          if (isTwoColumnPro || isExecutiveResume || isEditorialTwoColumn || options.isSidebar) {
             (effectiveResume.references || []).forEach((ref, rIdx) => {
               list.push({
                 id: `ref-single-${ref.id}`,
@@ -9245,8 +9398,15 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       className="cv-entry"
                       style={{
                         color: textCol,
-                        borderTop: isTwoColumnPro && rIdx > 0 ? '0.75pt dotted #cbd5e1' : 'none',
-                        paddingTop: isTwoColumnPro && rIdx > 0 ? '4pt' : 0,
+                        borderTop:
+                          rIdx > 0
+                            ? isExecutiveResume
+                              ? '0.75pt dashed #cbd5e1'
+                              : isTwoColumnPro
+                              ? '0.75pt dotted #cbd5e1'
+                              : 'none'
+                            : 'none',
+                        paddingTop: (isTwoColumnPro || isExecutiveResume) && rIdx > 0 ? '4pt' : 0,
                       }}
                     >
                       <div className="font-bold" style={{ fontSize: `${scale.entryTitlePt - 0.25}pt`, color: '#111827' }}>
@@ -9254,16 +9414,29 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
                       </div>
                       {(ref.jobTitle || ref.organization) && (
                         <div
-                          className={isEditorialTwoColumn ? 'italic' : 'font-semibold'}
+                          className={
+                            isEditorialTwoColumn
+                              ? 'italic'
+                              : isExecutiveResume
+                              ? 'flex items-start'
+                              : 'font-semibold'
+                          }
                           style={{
                             fontSize: `${scale.metaPt}pt`,
-                            color: isEditorialTwoColumn ? '#374151' : custom.accentColor,
+                            color: isEditorialTwoColumn || isExecutiveResume ? '#374151' : custom.accentColor,
                             marginTop: '0.5pt',
                           }}
                         >
-                          {ref.jobTitle}
-                          {ref.jobTitle && ref.organization ? ', ' : ''}
-                          {ref.organization}
+                          {isExecutiveResume && (
+                            <span className="mt-[1.5px] shrink-0">
+                              {renderTwoColContactIcon('email', custom.accentColor)}
+                            </span>
+                          )}
+                          <span className="flex-1 min-w-0">
+                            {ref.jobTitle}
+                            {ref.jobTitle && ref.organization ? ', ' : ''}
+                            {ref.organization}
+                          </span>
                         </div>
                       )}
                       {ref.department && (
@@ -9597,7 +9770,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
       }),
       fullWidthTopHeader: topBannerHeader,
     };
-  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isInternshipResume, isCreativeProfessional, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
+  }, [effectiveResume, template, custom, scale, hasTwoColumns, isMainLeftSidebarRight, isEditorialTwoColumn, isInternshipResume, isCreativeProfessional, isExecutiveResume, isTwoColumnPro, isTwoColumnSidebar, isDarkSidebar, isAsymmetric, isElegantSerif, isModernCorporate]);
 
   // Helper to paginate a flat array of units using measured DOM heights
   const paginateUnits = (
@@ -9857,7 +10030,7 @@ export const MultiPageTemplatePreview: React.FC<MultiPageTemplatePreviewProps> =
   const marginVerticalReservePt =
     scale.marginTopPt +
     scale.marginBottomPt +
-    (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isCreativeProfessional ? 12 : 6);
+    (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isCreativeProfessional || isExecutiveResume ? 12 : 6);
   const displayPages =
     pages.length > 0
       ? pages

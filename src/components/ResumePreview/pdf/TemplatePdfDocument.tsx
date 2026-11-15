@@ -92,6 +92,7 @@ import {
 import {
   estimateCreativeHeaderHeightPt,
   estimateEditorialHeaderHeightPt,
+  estimateExecutiveHeaderHeightPt,
   estimateInternshipHeaderHeightPt,
   paginateEditorialPdfColumns,
   type EditorialPdfSectionSlice,
@@ -136,6 +137,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     template.id === 'engineering-resume' || template.headerVariant === 'engineering-centered';
   const isCreativeProfessional =
     template.id === 'creative-professional' || template.layout === 'two-column-creative';
+  const isExecutiveResume = template.id === 'executive-resume';
 
   const isSerif = custom.fontFamily === 'serif';
   const fontRegular = isSerif ? 'Times-Roman' : 'Helvetica';
@@ -174,7 +176,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       paddingTop: scale.marginTopPt,
       paddingBottom:
         scale.marginBottomPt +
-        (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isInternshipResume ? 16 : isCreativeProfessional ? 12 : 0),
+        (isEditorialTwoColumn ? 24 : isModernCorporate ? 14 : isInternshipResume ? 16 : isExecutiveResume ? 10 : isCreativeProfessional ? 4 : 0),
       paddingLeft: isTwoColumnSidebar ? 0 : scale.marginHorizPt,
       paddingRight: scale.marginHorizPt,
       fontFamily: fontRegular,
@@ -395,6 +397,25 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
             <View style={{ height: 1.75, backgroundColor: '#e5c57a' }} />
           </View>
         );
+      case 'executive-purple-rule':
+        return (
+          <View minPresenceAhead={opts?.disableMinAhead ? undefined : minAhead} style={{ marginBottom: 5.5 }}>
+            <Text
+              style={{
+                fontSize: scale.headingPt + 0.5,
+                fontFamily: fontBold,
+                textTransform: 'uppercase',
+                letterSpacing: 0.35,
+                color: hColor,
+                paddingBottom: 2,
+                lineHeight: 1.18,
+              }}
+            >
+              {title}
+            </Text>
+            <View style={{ height: 2, backgroundColor: hColor }} />
+          </View>
+        );
       case 'title-rule':
         return (
           <Text
@@ -467,11 +488,11 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       case 'creative-blue-rule':
         return (
           <View
-            minPresenceAhead={opts?.disableMinAhead ? undefined : minAhead}
+            minPresenceAhead={opts?.disableMinAhead ? 18 : minAhead}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              marginBottom: 5,
+              marginBottom: 4,
             }}
           >
             <View
@@ -774,7 +795,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
   };
 
   const renderTwoColAchievementIcon = (
-    icon: 'trophy' | 'heart' | 'award' | 'star' | undefined,
+    icon: 'trophy' | 'heart' | 'chart' | 'award' | 'star' | undefined,
     color: string
   ) => {
     switch (icon) {
@@ -785,6 +806,14 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
               fill={color}
               d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
             />
+          </Svg>
+        );
+      case 'chart':
+        return (
+          <Svg width={13} height={13} viewBox="0 0 24 24">
+            <Path stroke={color} strokeWidth={2.1} fill="none" strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18" />
+            <Path stroke={color} strokeWidth={2.1} fill="none" strokeLinecap="round" strokeLinejoin="round" d="M7 15l4-4 3 3 5-6" />
+            <Path stroke={color} strokeWidth={2.1} fill="none" strokeLinecap="round" strokeLinejoin="round" d="M16 8l3 0l0 3" />
           </Svg>
         );
       case 'star':
@@ -1377,8 +1406,8 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         return (
           <View
             style={{
-              marginBottom: 8,
-              paddingBottom: 6,
+              marginBottom: 5,
+              paddingBottom: 4,
               borderBottomWidth: 0.6,
               borderBottomColor: '#e2e8f0',
               alignItems: 'center',
@@ -1473,7 +1502,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   lineHeight: 1.32,
                 }}
               >
-                &ldquo;{quoteText}&rdquo;
+                &ldquo;{quoteText.replace(/^["'“”‘’\s]+|["'“”‘’\s]+$/g, '')}&rdquo;
               </Text>
             ) : null}
           </View>
@@ -1630,7 +1659,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       }
 
       case 'two-column-header': {
-        const rawPhoto = personalInfo.photoUrl?.trim() || '';
+        const rawPhoto = !personalInfo.hidePhoto ? (personalInfo.photoUrl?.trim() || '') : '';
         const safePhotoUrl =
           rawPhoto.startsWith('data:image/jpeg') ||
           rawPhoto.startsWith('data:image/png') ||
@@ -1644,6 +1673,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           photoShape === 'square' ? 6 : photoShape === 'portrait' ? 4 : 37;
         const innerRadius =
           photoShape === 'square' ? 4 : photoShape === 'portrait' ? 3 : 34;
+        const taglineText = isExecutiveResume ? personalInfo.tagline?.trim() : '';
 
         return (
           <View style={{ marginBottom: 7 }}>
@@ -1669,10 +1699,23 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       fontFamily: fontBold,
                       color: accent,
                       lineHeight: 1.25,
-                      marginBottom: 5,
+                      marginBottom: taglineText ? 2 : 5,
                     }}
                   >
                     {personalInfo.jobTitle}
+                  </Text>
+                ) : null}
+                {taglineText ? (
+                  <Text
+                    style={{
+                      fontFamily: fontItalic,
+                      fontSize: scale.metaPt,
+                      color: '#4b5563',
+                      lineHeight: 1.28,
+                      marginBottom: 4.5,
+                    }}
+                  >
+                    {taglineText}
                   </Text>
                 ) : null}
                 {items.length > 0 ? (
@@ -1710,28 +1753,49 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
               </View>
 
               {safePhotoUrl ? (
-                <View
-                  style={{
-                    width: 74,
-                    height: photoShape === 'portrait' ? 90 : 74,
-                    padding: 3,
-                    backgroundColor: '#f3ebd3',
-                    borderWidth: 1.75,
-                    borderColor: '#e5c57a',
-                    borderRadius: radius,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Image
-                    src={safePhotoUrl}
+                isExecutiveResume ? (
+                  <View
                     style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
+                      width: 68,
+                      height: photoShape === 'portrait' ? 84 : 68,
                       borderRadius: innerRadius,
+                      overflow: 'hidden',
                     }}
-                  />
-                </View>
+                  >
+                    <Image
+                      src={safePhotoUrl}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: innerRadius,
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <View
+                    style={{
+                      width: 74,
+                      height: photoShape === 'portrait' ? 90 : 74,
+                      padding: 3,
+                      backgroundColor: '#f3ebd3',
+                      borderWidth: 1.75,
+                      borderColor: '#e5c57a',
+                      borderRadius: radius,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Image
+                      src={safePhotoUrl}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: innerRadius,
+                      }}
+                    />
+                  </View>
+                )
               ) : null}
             </View>
           </View>
@@ -3081,7 +3145,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
     const metaCol = opts.inverted ? '#cbd5e1' : '#222222';
     const showEditorialHeading = !opts.slice || opts.slice.includeHeading;
     const sliceItems = <T,>(arr: T[]): T[] =>
-      opts.slice && (isEditorialTwoColumn || isInternshipResume || isCreativeProfessional)
+      opts.slice && (isEditorialTwoColumn || isInternshipResume || isCreativeProfessional || isExecutiveResume)
         ? arr.slice(opts.slice.sliceStart, opts.slice.sliceEnd)
         : arr;
 
@@ -3241,7 +3305,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       : renderSectionHeading(title, {
           inverted: opts.inverted,
           compact: opts.isSidebar,
-          disableMinAhead: isElegantSerif || isInternshipResume || isCreativeProfessional,
+          disableMinAhead: isElegantSerif || isInternshipResume || isCreativeProfessional || isExecutiveResume,
           minAhead: sectionMinAheadMap[key] ?? 42,
         });
 
@@ -3362,6 +3426,85 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                     true
                   )}
                 </View>
+              ))}
+            </View>
+          );
+        }
+
+        if (isExecutiveResume) {
+          const paragraphs = (effectiveResume.objective || '')
+            .trim()
+            .split(/\n+/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+          const extraExecFields = [
+            effectiveResume.managementStyle?.trim()
+              ? { label: 'Management Style', value: effectiveResume.managementStyle.trim() }
+              : null,
+            Array.isArray(effectiveResume.strategicDomains) &&
+            effectiveResume.strategicDomains.filter((d) => d.trim()).length > 0
+              ? {
+                  label: 'Strategic Focus',
+                  value: effectiveResume.strategicDomains
+                    .map((d) => d.trim())
+                    .filter(Boolean)
+                    .join(' · '),
+                }
+              : null,
+          ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+          if (paragraphs.length === 0 && extraExecFields.length === 0) return null;
+
+          return (
+            <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+              <View wrap={false}>
+                {showEditorialHeading ? headingIfNormal : null}
+                {paragraphs[0] ? (
+                  <Text
+                    style={{
+                      fontSize: scale.baseFontPt - 0.25,
+                      textAlign: 'justify',
+                      lineHeight: scale.lineHeight,
+                      color: col,
+                      marginBottom: paragraphs.length > 1 || extraExecFields.length > 0 ? 3 : 0,
+                    }}
+                  >
+                    {paragraphs[0]}
+                  </Text>
+                ) : extraExecFields[0] ? (
+                  <Text style={{ fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col, marginBottom: extraExecFields.length > 1 ? 2 : 0 }}>
+                    <Text style={{ fontFamily: fontBold }}>{extraExecFields[0].label}: </Text>
+                    <Text style={{ color: '#374151' }}>{extraExecFields[0].value}</Text>
+                  </Text>
+                ) : null}
+              </View>
+              {paragraphs.slice(1).map((para, pIdx) => (
+                <Text
+                  key={`exec-obj-${pIdx}`}
+                  style={{
+                    fontSize: scale.baseFontPt - 0.25,
+                    textAlign: 'justify',
+                    lineHeight: scale.lineHeight,
+                    color: col,
+                    marginBottom: pIdx + 1 < paragraphs.length - 1 || extraExecFields.length > 0 ? 3 : 0,
+                  }}
+                >
+                  {para}
+                </Text>
+              ))}
+              {(paragraphs.length > 0 ? extraExecFields : extraExecFields.slice(1)).map((item, eIdx, arr) => (
+                <Text
+                  key={item.label}
+                  style={{
+                    fontSize: scale.bodyPt,
+                    lineHeight: scale.lineHeight,
+                    color: col,
+                    marginBottom: eIdx < arr.length - 1 ? 2 : 0,
+                  }}
+                >
+                  <Text style={{ fontFamily: fontBold }}>{item.label}: </Text>
+                  <Text style={{ color: '#374151' }}>{item.value}</Text>
+                </Text>
               ))}
             </View>
           );
@@ -4114,9 +4257,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         }
 
         return (
-          <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: isJakes ? 2 : 4 }}>
-            {!isTwoColumnPro ? headingIfNormal : null}
-            {(effectiveResume.education || []).map((edu, idx) =>
+          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 2 : 4 }}>
+            {!isTwoColumnPro && !isExecutiveResume ? headingIfNormal : null}
+            {sliceItems(effectiveResume.education || []).map((edu, idx) =>
               wrapAsymmetric(
                 <View
                   key={edu.id}
@@ -4126,14 +4269,14 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   }}
                   wrap={false}
                 >
-                  {isTwoColumnPro && idx === 0 ? headingIfNormal : null}
+                  {(isTwoColumnPro || isExecutiveResume) && showEditorialHeading && idx === 0 ? headingIfNormal : null}
                   {opts.isSidebar ? (
-                    isTwoColumnPro ? (
+                    isTwoColumnPro || isExecutiveResume ? (
                       <View
                         style={{
                           borderTopWidth: idx > 0 ? 0.75 : 0,
                           borderTopColor: '#cbd5e1',
-                          borderTopStyle: 'dotted',
+                          borderTopStyle: isExecutiveResume ? 'dashed' : 'dotted',
                           paddingTop: idx > 0 ? 4 : 0,
                         }}
                       >
@@ -4170,9 +4313,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                             {edu.grade}
                           </Text>
                         ) : null}
-                        {edu.achievements ? (
+                        {edu.achievements || edu.honors ? (
                           <Text style={{ fontSize: scale.bodyPt - 0.25, color: '#374151', marginTop: 1.5, lineHeight: 1.32 }}>
-                            {edu.achievements}
+                            {edu.achievements || edu.honors}
                           </Text>
                         ) : null}
                         {edu.description ? (
@@ -4448,6 +4591,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 1 : 4 }}>
             {!isTwoColumnPro &&
+            !isExecutiveResume &&
             !isElegantSerif &&
             !((isInternshipResume || isCreativeProfessional) && !showEditorialHeading)
               ? headingIfNormal
@@ -4668,14 +4812,14 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                             </View>,
                             true
                           )
-                        ) : isTwoColumnPro ? (
+                        ) : isTwoColumnPro || isExecutiveResume ? (
                           <View wrap={false}>
-                            {idx === 0 ? headingIfNormal : null}
+                            {showEditorialHeading && idx === 0 ? headingIfNormal : null}
                             <View
                               style={{
                                 borderTopWidth: idx > 0 ? 0.75 : 0,
                                 borderTopColor: '#cbd5e1',
-                                borderTopStyle: 'dotted',
+                                borderTopStyle: isExecutiveResume ? 'dashed' : 'dotted',
                                 paddingTop: idx > 0 ? 4 : 0,
                               }}
                             >
@@ -4686,7 +4830,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                               {exp.company}
                               {exp.employmentType ? ` (${exp.employmentType})` : ''}
                             </Text>
-                            {exp.startDate || exp.endDate || exp.current || exp.location ? (
+                            {exp.startDate || exp.endDate || exp.current || exp.location || (isExecutiveResume && exp.teamSize) ? (
                               <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 1.5, marginBottom: 2 }}>
                                 {exp.startDate || exp.endDate || exp.current ? (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
@@ -4697,18 +4841,29 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                                   </View>
                                 ) : null}
                                 {exp.location ? (
-                                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                  <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 8 }}>
                                     {renderTwoColMetaIcon('pin', '#6b7280')}
                                     <Text style={{ fontSize: scale.metaPt - 0.25, color: '#4b5563' }}>
                                       {exp.location}
                                     </Text>
                                   </View>
                                 ) : null}
+                                {isExecutiveResume && exp.teamSize?.trim() ? (
+                                  <Text style={{ fontSize: scale.metaPt - 0.25, color: '#6b7280' }}>
+                                    Team: {exp.teamSize.trim()}
+                                  </Text>
+                                ) : null}
                               </View>
                             ) : null}
                             {exp.description ? (
                               <Text style={{ fontSize: scale.bodyPt, color: '#374151', lineHeight: scale.lineHeight, marginTop: 1.5 }}>
                                 {exp.description}
+                              </Text>
+                            ) : null}
+                            {isExecutiveResume && exp.results?.trim() ? (
+                              <Text style={{ fontSize: scale.bodyPt, color: '#1f2937', lineHeight: scale.lineHeight, marginTop: 1.5 }}>
+                                <Text style={{ fontFamily: fontBold }}>Impact: </Text>
+                                {exp.results.trim()}
                               </Text>
                             ) : null}
                             {firstBullet ? (
@@ -5012,8 +5167,8 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                             </View>
                           ) : (
                             <View key={bIdx} wrap={false}>
-                              <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isTwoColumnPro ? 2 : 8 }}>
-                                <Text style={{ width: isTwoColumnPro ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isTwoColumnPro ? '#4b5563' : col }}>
+                              <View style={{ flexDirection: 'row', marginTop: isJakes ? 1 : 2, paddingLeft: isJakes ? 10 : isTwoColumnPro || isExecutiveResume ? 2 : 8 }}>
+                                <Text style={{ width: isTwoColumnPro || isExecutiveResume ? 9 : 10, fontSize: scale.entrySubtitlePt, color: isTwoColumnPro || isExecutiveResume ? '#4b5563' : col }}>
                                   {bulletChar}
                                 </Text>
                                 <Text style={{ flex: 1, fontSize: scale.bodyPt, lineHeight: scale.lineHeight, color: col }}>
@@ -5273,7 +5428,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       }
 
       case 'publications': {
-        if (isTwoColumnPro) {
+        if (isTwoColumnPro || isExecutiveResume) {
           const groups = groupPublicationsForTwoColumn(effectiveResume.publications || []);
           if (groups.length === 0) return null;
 
@@ -5290,7 +5445,10 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   {bulletChar}
                 </Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: scale.bodyPt - 0.15, lineHeight: scale.lineHeight, color: col }}>
+                  <Text
+                    hyphenationCallback={isExecutiveResume ? (word) => [word] : undefined}
+                    style={{ fontSize: scale.bodyPt - 0.15, lineHeight: scale.lineHeight, color: col }}
+                  >
                     <Text style={{ fontFamily: fontBold }}>{pub.authors || ''}</Text>
                     {pub.year ? <Text> ({pub.year}). </Text> : <Text>. </Text>}
                     <Text>"{pub.title || ''}" </Text>
@@ -5322,6 +5480,57 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
               </View>
             );
           };
+
+          if (isExecutiveResume) {
+            const flatPubs = groups.flatMap((group, gIdx) =>
+              group.items.map((pub, itemIdx) => ({
+                group,
+                pub,
+                isFirstInGroup: itemIdx === 0,
+                gIdx,
+              }))
+            );
+            const slicedFlat = sliceItems(flatPubs);
+            if (slicedFlat.length === 0) return null;
+
+            return (
+              <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+                {showEditorialHeading ? headingIfNormal : null}
+                {slicedFlat.map((entry, idx) => {
+                  const prevEntry = idx > 0 ? slicedFlat[idx - 1] : null;
+                  const showCategoryHeader =
+                    idx === 0 || prevEntry?.group.categoryKey !== entry.group.categoryKey;
+                  const showDash = idx > 0 && showCategoryHeader;
+                  return (
+                    <View
+                      key={`${entry.group.categoryKey}-${entry.pub.id}`}
+                      style={{
+                        borderTopWidth: showDash ? 0.75 : 0,
+                        borderTopColor: '#cbd5e1',
+                        borderTopStyle: 'dashed',
+                        paddingTop: showDash ? 4 : 0,
+                        marginTop: showDash ? 2.5 : 0,
+                      }}
+                    >
+                      {showCategoryHeader ? (
+                        <View wrap={false}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2.5 }}>
+                            {renderTwoColPubIcon(entry.group.categoryKey, accent)}
+                            <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt - 0.25, color: '#1f2937' }}>
+                              {entry.group.label}
+                            </Text>
+                          </View>
+                          {renderTwoColPubItem(entry.pub)}
+                        </View>
+                      ) : (
+                        renderTwoColPubItem(entry.pub)
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          }
 
           return (
             <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }}>
@@ -5518,7 +5727,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
       case 'projects':
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: isJakes ? 1 : 4 }}>
-            {!isTwoColumnPro && !isElegantSerif && !(isCreativeProfessional && !showEditorialHeading)
+            {!isTwoColumnPro && !isElegantSerif && !((isCreativeProfessional || isExecutiveResume) && !showEditorialHeading)
               ? headingIfNormal
               : null}
             {sliceItems(effectiveResume.projects || []).map((proj, idx) => {
@@ -6158,7 +6367,10 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         );
 
       case 'daily-life': {
+        const donutMode =
+          effectiveResume.dailyActivityMode || (isExecutiveResume ? 'percentage' : 'hours');
         const donut = computeDonutChartSegments(effectiveResume.dailyActivities || [], {
+          mode: donutMode,
           accentColor: accent,
           viewBoxWidth: 256,
           viewBoxHeight: 152,
@@ -6169,8 +6381,8 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           return null;
         }
         return (
-          <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }} wrap={false}>
-            {headingIfNormal}
+          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }} wrap={false}>
+            {showEditorialHeading ? headingIfNormal : null}
             <View
               style={{
                 width: donut.viewBoxWidth,
@@ -6194,7 +6406,14 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       stroke="#334155"
                       strokeWidth={0.75}
                     />
-                    <Circle cx={seg.dotX} cy={seg.dotY} r={2} fill="#ffffff" stroke="#334155" strokeWidth={0.85} />
+                    <Circle
+                      cx={seg.dotX}
+                      cy={seg.dotY}
+                      r={2}
+                      fill={isExecutiveResume ? accent : '#ffffff'}
+                      stroke={isExecutiveResume ? accent : '#334155'}
+                      strokeWidth={0.85}
+                    />
                   </React.Fragment>
                 ))}
               </Svg>
@@ -6239,23 +6458,42 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
 
       case 'philosophy': {
         const quote = (effectiveResume.personalQuote || '').trim();
-        if (!quote) return null;
+        const explanation = isExecutiveResume
+          ? (effectiveResume.philosophyExplanation || '').trim()
+          : '';
+        if (!quote && !explanation) return null;
         return (
-          <View key={key} style={{ marginTop: scale.sectionGapPt, marginBottom: 4 }} wrap={false}>
-            {headingIfNormal}
-            <Text
-              style={{
-                fontFamily: fontItalic,
-                fontSize: scale.bodyPt + 0.35,
-                lineHeight: 1.4,
-                color: accent,
-                textAlign: 'center',
-                paddingHorizontal: 4,
-                paddingVertical: 2,
-              }}
-            >
-              "{quote}"
-            </Text>
+          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }} wrap={false}>
+            {showEditorialHeading ? headingIfNormal : null}
+            {quote ? (
+              <Text
+                style={{
+                  fontFamily: fontItalic,
+                  fontSize: scale.bodyPt + 0.35,
+                  lineHeight: 1.4,
+                  color: accent,
+                  textAlign: 'center',
+                  paddingHorizontal: 4,
+                  paddingVertical: 2,
+                }}
+              >
+                "{quote}"
+              </Text>
+            ) : null}
+            {explanation ? (
+              <Text
+                style={{
+                  fontSize: scale.metaPt - 0.25,
+                  lineHeight: 1.35,
+                  color: '#4b5563',
+                  textAlign: 'center',
+                  paddingHorizontal: 4,
+                  marginTop: quote ? 2 : 0,
+                }}
+              >
+                {explanation}
+              </Text>
+            ) : null}
           </View>
         );
       }
@@ -6426,10 +6664,10 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
           const groups = sliceItems(getCreativeCategorizedSkills(effectiveResume));
           if (groups.length === 0) return null;
           return (
-            <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+            <View key={key} style={{ marginTop: showEditorialHeading ? Math.max(3, scale.sectionGapPt - 1.5) : 0, marginBottom: 2 }}>
               {showEditorialHeading ? headingIfNormal : null}
               {groups.map((grp, gIdx) => (
-                <View key={`creative-skill-${gIdx}-${grp.category}`} style={{ marginBottom: 4 }} wrap={false}>
+                <View key={`creative-skill-${gIdx}-${grp.category}`} style={{ marginBottom: 2.5 }} wrap={false}>
                   <Text
                     style={{
                       fontFamily: fontBold,
@@ -6437,7 +6675,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       textTransform: 'uppercase',
                       letterSpacing: 0.45,
                       color: accent,
-                      marginBottom: 2,
+                      marginBottom: 1.5,
                     }}
                   >
                     {grp.category}
@@ -6447,9 +6685,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       key={item.id}
                       style={{
                         fontSize: scale.bodyPt - 0.1,
-                        lineHeight: 1.34,
+                        lineHeight: 1.28,
                         color: col,
-                        marginBottom: 1.5,
+                        marginBottom: 1,
                       }}
                     >
                       <Text style={{ fontFamily: fontBold, color: '#111827' }}>{item.name}</Text>
@@ -6769,6 +7007,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
             {!isTwoColumnPro &&
+            !isExecutiveResume &&
             !isElegantSerif &&
             !((isInternshipResume || isCreativeProfessional) && !showEditorialHeading)
               ? headingIfNormal
@@ -6824,9 +7063,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       true
                     )}
                   </View>
-                ) : isTwoColumnPro ? (
+                ) : isTwoColumnPro || isExecutiveResume ? (
                   <View key={ach.id} wrap={false}>
-                    {idx === 0 ? headingIfNormal : null}
+                    {showEditorialHeading && idx === 0 ? headingIfNormal : null}
                     <View
                       style={{
                         flexDirection: 'row',
@@ -6834,7 +7073,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                         marginBottom: scale.entryGapPt,
                         borderTopWidth: idx > 0 ? 0.75 : 0,
                         borderTopColor: '#cbd5e1',
-                        borderTopStyle: 'dotted',
+                        borderTopStyle: isExecutiveResume ? 'dashed' : 'dotted',
                         paddingTop: idx > 0 ? 4 : 0,
                       }}
                     >
@@ -6851,6 +7090,17 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           {ach.issuer && ach.date ? ` (${ach.date})` : !ach.issuer && ach.date ? ach.date : ''}
                           {(ach.issuer || ach.date) && ach.description ? ' — ' : ''}
                           {ach.description ? ach.description : ''}
+                        </Text>
+                      ) : null}
+                      {isExecutiveResume && (ach.challenge?.trim() || ach.actionTaken?.trim() || ach.outcome?.trim()) ? (
+                        <Text style={{ fontSize: scale.metaPt - 0.45, color: '#4b5563', lineHeight: 1.3, marginTop: 1 }}>
+                          {[
+                            ach.challenge?.trim() ? `Challenge: ${ach.challenge.trim()}` : '',
+                            ach.actionTaken?.trim() ? `Action: ${ach.actionTaken.trim()}` : '',
+                            ach.outcome?.trim() ? `Outcome: ${ach.outcome.trim()}` : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </Text>
                       ) : null}
                     </View>
@@ -8158,6 +8408,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         return (
           <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
             {!isTwoColumnPro &&
+            !isExecutiveResume &&
             !isElegantSerif &&
             !((isInternshipResume || isCreativeProfessional) && !showEditorialHeading)
               ? headingIfNormal
@@ -8206,15 +8457,15 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                       true
                     )}
                   </View>
-                ) : isTwoColumnPro ? (
+                ) : isTwoColumnPro || isExecutiveResume ? (
                   <View key={lang.id} wrap={false}>
-                    {idx === 0 ? headingIfNormal : null}
+                    {showEditorialHeading && idx === 0 ? headingIfNormal : null}
                     <View
                       style={{
                         marginBottom: 3.5,
                         borderTopWidth: idx > 0 ? 0.75 : 0,
                         borderTopColor: '#cbd5e1',
-                        borderTopStyle: 'dotted',
+                        borderTopStyle: isExecutiveResume ? 'dashed' : 'dotted',
                         paddingTop: idx > 0 ? 3.5 : 0,
                       }}
                     >
@@ -8227,9 +8478,9 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                         if (score !== null) {
                           return renderLanguageDots(score, accent);
                         }
-                        return lang.proficiency ? (
+                        return profText ? (
                           <Text style={{ fontSize: scale.metaPt - 0.5, color: '#4b5563' }}>
-                            {lang.proficiency}
+                            {profText}
                           </Text>
                         ) : null;
                       })()}
@@ -8675,7 +8926,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                     : renderSectionHeading(cs.title.trim(), {
                         inverted: opts.inverted,
                         compact: opts.isSidebar,
-                        disableMinAhead: isElegantSerif || isInternshipResume,
+                        disableMinAhead: isElegantSerif || isInternshipResume || isExecutiveResume,
                         minAhead: 42,
                       })}
                   {cleaned.map((bullet, bIdx) =>
@@ -8694,7 +8945,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           )}
                         </View>
                       ) : (
-                        <View key={bIdx} style={{ flexDirection: 'row', marginTop: 2, paddingLeft: isElegantSerif || isInternshipResume ? 2 : 8 }} wrap={false}>
+                        <View key={bIdx} style={{ flexDirection: 'row', marginTop: 2, paddingLeft: isElegantSerif || isInternshipResume || isExecutiveResume ? 2 : 8 }} wrap={false}>
                           <Text style={{ width: 10, fontSize: scale.entrySubtitlePt, color: col }}>
                             {bulletChar}
                           </Text>
@@ -8718,7 +8969,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         const rows = sliceItems(chunkPairs(getCreativeCircularProficiencies(effectiveResume)));
         if (rows.length === 0) return null;
         return (
-          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+          <View key={key} style={{ marginTop: showEditorialHeading ? Math.max(3, scale.sectionGapPt - 1.5) : 0, marginBottom: 2 }}>
             {showEditorialHeading ? headingIfNormal : null}
             {rows.map((pair, rIdx) => (
               <View
@@ -8727,7 +8978,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   flexDirection: 'row',
                   justifyContent: 'space-between',
                   alignItems: 'flex-start',
-                  marginBottom: 6,
+                  marginBottom: 4,
                 }}
                 wrap={false}
               >
@@ -8744,14 +8995,14 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                     >
                       <View
                         style={{
-                          width: 42,
-                          height: 42,
+                          width: 34,
+                          height: 34,
                           position: 'relative',
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
                       >
-                        <Svg width={42} height={42} viewBox="0 0 48 48">
+                        <Svg width={34} height={34} viewBox="0 0 48 48">
                           <Circle
                             cx="24"
                             cy="24"
@@ -8793,7 +9044,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                           <Text
                             style={{
                               fontFamily: fontBold,
-                              fontSize: 7.4,
+                              fontSize: 6.8,
                               color: '#111827',
                               textAlign: 'center',
                             }}
@@ -8896,10 +9147,10 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
         const comms = sliceItems(getCreativeCommunicationSkills(effectiveResume));
         if (comms.length === 0) return null;
         return (
-          <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
+          <View key={key} style={{ marginTop: showEditorialHeading ? Math.max(3, scale.sectionGapPt - 2) : 0, marginBottom: 1 }}>
             {showEditorialHeading ? headingIfNormal : null}
             {comms.map((comm) => (
-              <View key={comm.id} style={{ marginBottom: 3.5 }} wrap={false}>
+              <View key={comm.id} style={{ marginBottom: 2 }} wrap={false}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <Text
                     style={{
@@ -8959,7 +9210,7 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
               ) : (
                 wrapAsymmetric(
                   <Text style={{ fontFamily: fontItalic, fontSize: scale.entrySubtitlePt, color: subCol }}>
-                    {isTwoColumnPro ? 'Referees available upon request.' : 'References available upon request.'}
+                    {isTwoColumnPro || isExecutiveResume ? 'Referees available upon request.' : 'References available upon request.'}
                   </Text>,
                   true,
                   'ref-on-request'
@@ -8968,40 +9219,53 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
             </View>
           );
         }
-        if (isTwoColumnPro || isEditorialTwoColumn || opts.isSidebar) {
+        if (isTwoColumnPro || isExecutiveResume || isEditorialTwoColumn || opts.isSidebar) {
           const refs = sliceItems(effectiveResume.references || []);
           if (refs.length === 0) return null;
           return (
             <View key={key} style={{ marginTop: showEditorialHeading ? scale.sectionGapPt : 0, marginBottom: 4 }}>
-              {!isTwoColumnPro && !isElegantSerif ? headingIfNormal : null}
+              {!isTwoColumnPro && !isExecutiveResume && !isElegantSerif ? headingIfNormal : null}
               {refs.map((ref, rIdx) => (
                 <View key={ref.id} wrap={false}>
-                  {(isTwoColumnPro || (isElegantSerif && showEditorialHeading)) && rIdx === 0 ? headingIfNormal : null}
+                  {(isTwoColumnPro || isExecutiveResume || (isElegantSerif && showEditorialHeading)) && rIdx === 0 && showEditorialHeading
+                    ? headingIfNormal
+                    : null}
                   <View
                     style={{
                       marginBottom: scale.entryGapPt + 1,
-                      borderTopWidth: isTwoColumnPro && rIdx > 0 ? 0.75 : 0,
+                      borderTopWidth: (isTwoColumnPro || isExecutiveResume) && rIdx > 0 ? 0.75 : 0,
                       borderTopColor: '#cbd5e1',
-                      borderTopStyle: 'dotted',
-                      paddingTop: isTwoColumnPro && rIdx > 0 ? 4 : 0,
+                      borderTopStyle: isExecutiveResume ? 'dashed' : 'dotted',
+                      paddingTop: (isTwoColumnPro || isExecutiveResume) && rIdx > 0 ? 4 : 0,
                     }}
                   >
                     <Text style={{ fontFamily: fontBold, fontSize: scale.entryTitlePt - 0.25, color: '#111827' }}>
                       {ref.fullName}
                     </Text>
                     {ref.jobTitle || ref.organization ? (
-                      <Text
+                      <View
                         style={{
-                          fontFamily: isEditorialTwoColumn ? fontItalic : fontBold,
-                          fontSize: scale.metaPt,
-                          color: isEditorialTwoColumn ? '#374151' : accent,
+                          flexDirection: 'row',
+                          alignItems: isExecutiveResume ? 'flex-start' : 'center',
                           marginTop: 0.5,
                         }}
                       >
-                        {ref.jobTitle}
-                        {ref.jobTitle && ref.organization ? ', ' : ''}
-                        {ref.organization}
-                      </Text>
+                        {isExecutiveResume ? (
+                          <View style={{ marginTop: 1.5 }}>{renderTwoColContactIcon('email', accent)}</View>
+                        ) : null}
+                        <Text
+                          style={{
+                            flex: 1,
+                            fontFamily: isEditorialTwoColumn ? fontItalic : isExecutiveResume ? fontRegular : fontBold,
+                            fontSize: scale.metaPt,
+                            color: isEditorialTwoColumn || isExecutiveResume ? '#374151' : accent,
+                          }}
+                        >
+                          {ref.jobTitle}
+                          {ref.jobTitle && ref.organization ? ', ' : ''}
+                          {ref.organization}
+                        </Text>
+                      </View>
                     ) : null}
                     {ref.department ? (
                       <Text style={{ fontSize: scale.metaPt - 0.4, color: '#4b5563' }}>{ref.department}</Text>
@@ -9301,6 +9565,70 @@ export const TemplatePdfDocument: React.FC<TemplatePdfDocumentProps> = ({
                   <React.Fragment key={`CR-${pg.pageNumber}-${slice.sectionKey}-${slice.sliceStart}`}>
                     {renderSection(slice.sectionKey, {
                       isSidebar: false,
+                      inverted: false,
+                      slice,
+                    })}
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
+            <Text
+              style={styles.pageNumber}
+              render={({ pageNumber, totalPages }) =>
+                totalPages > 1 ? `Page ${pageNumber} of ${totalPages}` : ''
+              }
+              fixed
+            />
+          </Page>
+        ))}
+      </Document>
+    );
+  }
+
+  if (isExecutiveResume) {
+    const executivePages = paginateEditorialPdfColumns({
+      leftSections: mainKeys,
+      rightSections: sidebarKeys,
+      resume: effectiveResume,
+      scale,
+      headerHeightPt: estimateExecutiveHeaderHeightPt(
+        effectiveResume,
+        buildTwoColumnContactItems(personalInfo).length,
+        scale
+      ),
+      mode: 'executive',
+    });
+
+    return (
+      <Document
+        title={
+          effectiveResume.title ||
+          `${personalInfo.fullName || 'Executive'} Resume`
+        }
+        author={personalInfo.fullName || 'Resume Builder'}
+        subject="Executive Resume / Curriculum Vitae"
+        keywords="Executive Resume, Curriculum Vitae, A4, Template"
+      >
+        {executivePages.map((pg, pageIdx) => (
+          <Page key={`executive-page-${pg.pageNumber}`} size="A4" style={styles.page}>
+            {pageIdx === 0 ? renderHeader() : null}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <View style={{ width: '60%', paddingRight: 10 }}>
+                {pg.left.map((slice) => (
+                  <React.Fragment key={`EL-${pg.pageNumber}-${slice.sectionKey}-${slice.sliceStart}`}>
+                    {renderSection(slice.sectionKey, {
+                      isSidebar: false,
+                      inverted: false,
+                      slice,
+                    })}
+                  </React.Fragment>
+                ))}
+              </View>
+              <View style={{ width: '40%', paddingLeft: 10 }}>
+                {pg.right.map((slice) => (
+                  <React.Fragment key={`ER-${pg.pageNumber}-${slice.sectionKey}-${slice.sliceStart}`}>
+                    {renderSection(slice.sectionKey, {
+                      isSidebar: true,
                       inverted: false,
                       slice,
                     })}

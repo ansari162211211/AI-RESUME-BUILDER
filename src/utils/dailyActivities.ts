@@ -2,8 +2,11 @@ import type { DailyActivityItem } from '../types/resume';
 
 export interface DailyActivityValidation {
   valid: boolean;
+  mode: 'hours' | 'percentage';
   totalHours: number;
   remainingHours: number;
+  totalPercentage: number;
+  remainingPercentage: number;
   validItems: DailyActivityItem[];
   invalidEntries: DailyActivityItem[];
   error?: string;
@@ -12,6 +15,7 @@ export interface DailyActivityValidation {
 export interface DonutChartSegment {
   id: string;
   activity: string;
+  description?: string;
   hours: number;
   fraction: number;
   percentage: number;
@@ -45,6 +49,16 @@ const DEFAULT_DONUT_PALETTE = [
   '#e3b5b7', // soft blush burgundy
   '#701118', // dark wine
   '#9e2c34', // rich garnet
+];
+
+export const EXECUTIVE_PURPLE_DONUT_PALETTE = [
+  '#4c1d95', // deep executive violet
+  '#6d28d9', // royal amethyst
+  '#a78bfa', // soft lavender
+  '#c4b5fd', // pale periwinkle lilac
+  '#7c3aed', // vivid violet
+  '#3b0764', // midnight plum
+  '#8b5cf6', // bright iris purple
 ];
 
 function polarToCartesian(cx: number, cy: number, radius: number, angleRad: number) {
@@ -87,19 +101,34 @@ function buildRingSlicePath(
   ].join(' ');
 }
 
+function resolveActivityNumericValue(
+  item: DailyActivityItem,
+  mode: 'hours' | 'percentage'
+): number {
+  if (mode === 'percentage') {
+    const pct = item.percentage !== undefined ? Number(item.percentage) : Number(item.hours);
+    return Number.isFinite(pct) ? pct : NaN;
+  }
+  const hrs = Number(item.hours);
+  return Number.isFinite(hrs) ? hrs : NaN;
+}
+
 /**
- * Validates daily activity hours against the strict 24-hour physical ceiling.
- * Rejects totals > 24h or negative/non-finite entries with a descriptive message.
+ * Validates daily activity hours (<= 24h) or percentages (<= 100%).
+ * Rejects totals > ceiling or negative/non-finite entries with a descriptive message.
  */
-export function validateDailyActivities(items?: DailyActivityItem[]): DailyActivityValidation {
+export function validateDailyActivities(
+  items?: DailyActivityItem[],
+  mode: 'hours' | 'percentage' = 'hours'
+): DailyActivityValidation {
   const list = Array.isArray(items) ? items : [];
   const invalidEntries: DailyActivityItem[] = [];
   const validItems: DailyActivityItem[] = [];
 
   for (const item of list) {
-    const hours = Number(item.hours);
+    const val = resolveActivityNumericValue(item, mode);
     const hasName = typeof item.activity === 'string' && item.activity.trim().length > 0;
-    if (!Number.isFinite(hours) || hours <= 0) {
+    if (!Number.isFinite(val) || val <= 0) {
       invalidEntries.push(item);
       continue;
     }
@@ -107,57 +136,81 @@ export function validateDailyActivities(items?: DailyActivityItem[]): DailyActiv
       invalidEntries.push(item);
       continue;
     }
+    const cleanVal = Number(val.toFixed(2));
     validItems.push({
       id: item.id,
       activity: item.activity.trim(),
-      hours: Number(hours.toFixed(2)),
+      hours: mode === 'hours' ? cleanVal : Number((item.hours || cleanVal).toFixed(2)),
+      ...(mode === 'percentage' || item.percentage !== undefined
+        ? { percentage: cleanVal }
+        : {}),
+      ...(item.description?.trim() ? { description: item.description.trim() } : {}),
     });
   }
 
   const rawTotal = list.reduce((sum, item) => {
-    const h = Number(item.hours);
-    return sum + (Number.isFinite(h) && h > 0 ? h : 0);
+    const v = resolveActivityNumericValue(item, mode);
+    return sum + (Number.isFinite(v) && v > 0 ? v : 0);
   }, 0);
-  const totalHours = Number(rawTotal.toFixed(2));
-  const remainingHours = Math.max(0, Number((24 - totalHours).toFixed(2)));
+  const totalRounded = Number(rawTotal.toFixed(2));
+  const ceiling = mode === 'percentage' ? 100 : 24;
+  const remaining = Math.max(0, Number((ceiling - totalRounded).toFixed(2)));
 
-  if (totalHours > 24) {
-    const excess = Number((totalHours - 24).toFixed(2));
+  if (totalRounded > ceiling) {
+    const excess = Number((totalRounded - ceiling).toFixed(2));
     return {
       valid: false,
-      totalHours,
-      remainingHours: 0,
+      mode,
+      totalHours: totalRounded,
+      remainingHours: mode === 'hours' ? 0 : remaining,
+      totalPercentage: mode === 'percentage' ? totalRounded : 0,
+      remainingPercentage: mode === 'percentage' ? 0 : 100,
       validItems,
       invalidEntries,
-      error: `Total daily hours (${totalHours}h) exceed 24 hours by ${excess}h. Please reduce your hours to 24 or less.`,
+      error:
+        mode === 'percentage'
+          ? `Total allocation (${totalRounded}%) exceeds 100% by ${excess}%. Please reduce percentages to 100% or less.`
+          : `Total daily hours (${totalRounded}h) exceed 24 hours by ${excess}h. Please reduce your hours to 24 or less.`,
     };
   }
 
   if (invalidEntries.length > 0) {
     return {
       valid: false,
-      totalHours,
-      remainingHours,
+      mode,
+      totalHours: totalRounded,
+      remainingHours: remaining,
+      totalPercentage: mode === 'percentage' ? totalRounded : 0,
+      remainingPercentage: mode === 'percentage' ? remaining : 100,
       validItems,
       invalidEntries,
-      error: 'Each daily activity must have a name and a positive number of hours.',
+      error:
+        mode === 'percentage'
+          ? 'Each activity must have a name and a positive percentage.'
+          : 'Each daily activity must have a name and a positive number of hours.',
     };
   }
 
   return {
     valid: true,
-    totalHours,
-    remainingHours,
+    mode,
+    totalHours: totalRounded,
+    remainingHours: remaining,
+    totalPercentage: mode === 'percentage' ? totalRounded : 0,
+    remainingPercentage: mode === 'percentage' ? remaining : 100,
     validItems,
     invalidEntries: [],
   };
 }
 
 /**
- * Derives a burgundy-shade palette matching any base accent color.
+ * Derives a shade palette matching any base accent color (with dedicated Executive Purple support).
  */
 export function getDonutPalette(accentColor?: string): string[] {
   const clean = (accentColor || '').trim().toLowerCase();
+  if (clean === '#4c1d95' || clean === '#581c87' || clean === '#5b21b6' || clean === '#6d28d9') {
+    return EXECUTIVE_PURPLE_DONUT_PALETTE;
+  }
   if (!clean || clean === '#8f131b' || clean === '#7c2d12') {
     return DEFAULT_DONUT_PALETTE;
   }
@@ -180,11 +233,11 @@ export function getDonutPalette(accentColor?: string): string[] {
   };
   return [
     clean,
-    mix(0.35, 0),
     mix(0.28, 255),
-    mix(0.52, 255),
-    mix(0.72, 255),
-    mix(0.18, 0),
+    mix(0.55, 255),
+    mix(0.75, 255),
+    mix(0.18, 255),
+    mix(0.32, 0),
     mix(0.42, 255),
   ];
 }
@@ -196,13 +249,15 @@ export function computeDonutChartSegments(
   items: DailyActivityItem[],
   options?: {
     accentColor?: string;
+    mode?: 'hours' | 'percentage';
     viewBoxWidth?: number;
     viewBoxHeight?: number;
     outerRadius?: number;
     innerRadius?: number;
   }
 ): DonutChartGeometry {
-  const validation = validateDailyActivities(items);
+  const mode = options?.mode || 'hours';
+  const validation = validateDailyActivities(items, mode);
   const validItems = validation.validItems;
   const viewBoxWidth = options?.viewBoxWidth ?? 330;
   const viewBoxHeight = options?.viewBoxHeight ?? 148;
@@ -212,8 +267,9 @@ export function computeDonutChartSegments(
   const innerRadius = options?.innerRadius ?? 18;
   const palette = getDonutPalette(options?.accentColor);
 
-  const totalHours = validItems.reduce((sum, item) => sum + item.hours, 0);
-  if (totalHours <= 0 || validItems.length === 0) {
+  const itemValues = validItems.map((item) => resolveActivityNumericValue(item, mode));
+  const totalValue = itemValues.reduce((sum, v) => sum + (Number.isFinite(v) && v > 0 ? v : 0), 0);
+  if (totalValue <= 0 || validItems.length === 0) {
     return {
       viewBoxWidth,
       viewBoxHeight,
@@ -228,7 +284,8 @@ export function computeDonutChartSegments(
 
   let currentAngle = -Math.PI / 2; // start at 12 o'clock
   const segments: DonutChartSegment[] = validItems.map((item, idx) => {
-    const fraction = item.hours / totalHours;
+    const val = itemValues[idx];
+    const fraction = val / totalValue;
     const sweep = fraction * Math.PI * 2;
     const startAngle = currentAngle;
     const endAngle = currentAngle + sweep;
@@ -244,7 +301,8 @@ export function computeDonutChartSegments(
     return {
       id: item.id,
       activity: item.activity,
-      hours: item.hours,
+      description: item.description,
+      hours: val,
       fraction,
       percentage: Math.round(fraction * 100),
       color: palette[idx % palette.length],
@@ -296,7 +354,7 @@ export function computeDonutChartSegments(
     cy,
     outerRadius,
     innerRadius,
-    totalHours: Number(totalHours.toFixed(2)),
+    totalHours: Number(totalValue.toFixed(2)),
     segments,
   };
 }

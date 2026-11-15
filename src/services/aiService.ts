@@ -6,8 +6,10 @@ import type {
 } from '../types/resume';
 import { resolveTemplateId } from '../data/templates';
 import {
+  EXECUTIVE_SECTION_FLOW,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
+  buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
 } from '../utils/aiInterviewHelpers';
 import { analyzeResumeSections } from '../utils/validation';
@@ -151,7 +153,7 @@ export async function sendInterviewStepWithGemini(
   suggestedChips: string[];
 }> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timeoutId = controller ? setTimeout(() => controller.abort(), 7000) : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 25000) : null;
   try {
     const res = await fetch('/api/gemini/interview-step', {
       method: 'POST',
@@ -205,6 +207,14 @@ export async function sendInterviewStepWithGemini(
         currentResume,
         activeSection,
         CREATIVE_FALLBACK_FLOW
+      );
+    }
+    if (tplId === 'executive-resume') {
+      return buildAdaptiveExecutiveFallback(
+        lastUserMessage,
+        currentResume,
+        activeSection,
+        EXECUTIVE_SECTION_FLOW
       );
     }
     return {

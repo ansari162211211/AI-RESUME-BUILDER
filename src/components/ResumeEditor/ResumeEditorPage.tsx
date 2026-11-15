@@ -82,6 +82,7 @@ import type {
   CreativeCircularProficiencyItem,
   CreativeSkillBarItem,
   CreativeCommunicationSkillItem,
+  ExecutiveRoleType,
   InternshipTrack,
   InternshipPreferences,
   LeadershipItem,
@@ -122,6 +123,7 @@ import {
   SAMPLE_CREATIVE_DESIGNER_CV,
   SAMPLE_CREATIVE_CYBERSECURITY_CV,
   SAMPLE_CREATIVE_MARKETING_CV,
+  SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_EXPERIENCED_CV,
   SAMPLE_FRESHER_CV,
   SAMPLE_STUDENT_CV,
@@ -596,6 +598,33 @@ const getNormalizedCreativeProfessionalOrder = (orderOverride?: string[]): Resum
   return [...custom, ...CREATIVE_PROFESSIONAL_ORDER.filter((k) => !seen.has(k))];
 };
 
+const EXECUTIVE_RESUME_SECTIONS: SectionConfig[] = [
+  { id: 'header', label: '1. Executive Identity', icon: User },
+  { id: 'objective', label: '2. Profile & Philosophy', icon: Quote },
+  { id: 'experience', label: '3. Professional Experience', icon: Briefcase },
+  { id: 'awards', label: '4. Most Proud Of', icon: Trophy },
+  { id: 'strengths', label: '5. Strengths & Competencies', icon: Star },
+  { id: 'daily-life', label: '6. A Day of My Life', icon: PieChart },
+  { id: 'education', label: '7. Education', icon: GraduationCap },
+  { id: 'languages', label: '8. Languages (5-Dot)', icon: Globe },
+  { id: 'publications', label: '9. Publications & Keynotes', icon: BookOpen },
+  { id: 'references', label: '10. Referees', icon: Contact },
+  { id: 'custom-sections', label: '11. Projects & Additional', icon: Layers },
+];
+
+const EXECUTIVE_STRENGTH_SUGGESTIONS: string[] = [
+  'Strategic Planning',
+  'P&L Ownership',
+  'Executive Leadership',
+  'Board Governance',
+  'M&A Integration',
+  'Digital Transformation',
+  'Organizational Scaling',
+  'Capital Allocation',
+  'Product Strategy',
+  'Cross-Functional Alignment',
+];
+
 const JAKES_EDITOR_SECTIONS = new Set<EditorSectionId>([
   'header',
   'education',
@@ -680,6 +709,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
   const isInternshipResumeTemplate = activeTemplateId === 'internship-resume';
   const isEngineeringResumeTemplate = activeTemplateId === 'engineering-resume';
   const isCreativeProfessionalTemplate = activeTemplateId === 'creative-professional';
+  const isExecutiveTemplate = activeTemplateId === 'executive-resume';
   const ELEGANT_SERIF_SECTIONS = getElegantSerifSections(resume.sectionOrderOverride);
   const MODERN_CORPORATE_SECTIONS = getModernCorporateSections(resume.sectionOrderOverride);
   const FRESHER_RESUME_SECTIONS = getFresherResumeSections(resume.sectionOrderOverride);
@@ -703,6 +733,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? ENGINEERING_SECTIONS
     : isCreativeProfessionalTemplate
     ? CREATIVE_PROFESSIONAL_SECTIONS
+    : isExecutiveTemplate
+    ? EXECUTIVE_RESUME_SECTIONS
     : SECTIONS;
   const navSections = isTwoColumnTemplate
     ? TWO_COLUMN_SECTIONS
@@ -724,11 +756,19 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     ? ENGINEERING_SECTIONS
     : isCreativeProfessionalTemplate
     ? CREATIVE_PROFESSIONAL_SECTIONS
+    : isExecutiveTemplate
+    ? EXECUTIVE_RESUME_SECTIONS
     : isJakesTemplate
     ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
     : SECTIONS;
   const completenessReport = analyzeResumeSections(resume);
-  const dailyValidation = validateDailyActivities(resume.dailyActivities || []);
+  const effectiveDailyMode: 'hours' | 'percentage' = isExecutiveTemplate
+    ? resume.dailyActivityMode || 'percentage'
+    : 'hours';
+  const dailyValidation = validateDailyActivities(
+    resume.dailyActivities || [],
+    effectiveDailyMode
+  );
 
   const sectionReportToEditorId = (sectionId: string): EditorSectionId => {
     if (
@@ -740,11 +780,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isFresherResumeTemplate ||
       isInternshipResumeTemplate ||
       isEngineeringResumeTemplate ||
-      isCreativeProfessionalTemplate
+      isCreativeProfessionalTemplate ||
+      isExecutiveTemplate
     ) {
       if (sectionId === 'personalInfo' || sectionId === 'header') return 'header';
       if (sectionId === 'achievements') return 'awards';
       if (isFresherResumeTemplate && sectionId === 'strengths') return 'objective';
+      if (isExecutiveTemplate && sectionId === 'philosophy') return 'objective';
       return sectionId as EditorSectionId;
     }
     if (isClassicTemplate) {
@@ -818,7 +860,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       isFresherResumeTemplate ||
       isInternshipResumeTemplate ||
       isEngineeringResumeTemplate ||
-      isCreativeProfessionalTemplate
+      isCreativeProfessionalTemplate ||
+      isExecutiveTemplate
     ) {
       const mapped = editorId === 'awards' ? 'achievements' : editorId;
       return completenessReport.sections.find(
@@ -1055,6 +1098,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         ? ENGINEERING_SECTIONS
         : nextTemplate.id === 'creative-professional'
         ? CREATIVE_PROFESSIONAL_SECTIONS
+        : nextTemplate.id === 'executive-resume'
+        ? EXECUTIVE_RESUME_SECTIONS
         : nextTemplate.id === 'jakes-resume'
         ? SECTIONS.filter((s) => JAKES_EDITOR_SECTIONS.has(s.id))
         : SECTIONS;
@@ -1084,6 +1129,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       | 'creative-designer'
       | 'creative-cybersecurity'
       | 'creative-marketing'
+      | 'executive-resume'
       | 'experienced'
       | 'fresher'
       | 'student'
@@ -1145,6 +1191,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
       case 'creative-marketing':
         sampleBase = SAMPLE_CREATIVE_MARKETING_CV;
         break;
+      case 'executive-resume':
+        sampleBase = SAMPLE_EXECUTIVE_RESUME_CV;
+        break;
       case 'experienced':
         sampleBase = SAMPLE_EXPERIENCED_CV;
         break;
@@ -1177,7 +1226,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     isModernCorporateTemplate ||
     isFresherResumeTemplate ||
     isInternshipResumeTemplate ||
-    isEngineeringResumeTemplate;
+    isEngineeringResumeTemplate ||
+    isExecutiveTemplate;
 
   const toCanonicalSectionKey = (sectionId: string): string =>
     isManagedAwardsAliasTemplate && sectionId === 'awards' ? 'achievements' : sectionId;
@@ -1326,7 +1376,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
 
   /* ====================== SUB-SECTION HANDLERS ====================== */
   // Personal Info
-  const updatePersonalInfo = (field: keyof PersonalInfo, val: string) => {
+  const updatePersonalInfo = <K extends keyof PersonalInfo>(field: K, val: PersonalInfo[K]) => {
     updateField('personalInfo', {
       ...resume.personalInfo,
       [field]: val,
@@ -1998,13 +2048,21 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
     );
   };
 
-  // Daily Activities ("A Day of My Life", max 24h)
+  // Daily Activities ("A Day of My Life", max 24h or 100%)
   const addDailyActivity = () => {
-    const item: DailyActivityItem = {
-      id: `day_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-      activity: '',
-      hours: 1,
-    };
+    const item: DailyActivityItem =
+      effectiveDailyMode === 'percentage'
+        ? {
+            id: `day_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+            activity: '',
+            hours: 1,
+            percentage: 10,
+          }
+        : {
+            id: `day_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+            activity: '',
+            hours: 1,
+          };
     updateField('dailyActivities', [...(resume.dailyActivities || []), item]);
   };
   const updateDailyActivity = (id: string, updates: Partial<DailyActivityItem>) => {
@@ -2287,6 +2345,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               title="Creative Professional Two-Column CV Sample"
             >
               Creative Prof.
+            </button>
+            <button
+              onClick={() => handleLoadProfile('executive-resume')}
+              className="px-2 py-1 bg-white hover:bg-slate-50 text-[#4c1d95] font-semibold rounded shadow-xs"
+              title="Executive Resume (Two-Page AltaCV Style) Sample"
+            >
+              Executive
             </button>
             <button
               onClick={() => handleLoadProfile('student')}
@@ -3539,6 +3604,143 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
         </div>
       )}
 
+      {/* Executive Resume (Template 13) Executive Role Setup & 11-Step Tracker */}
+      {isExecutiveTemplate && (
+        <div className="bg-purple-50/50 border border-purple-200 rounded-lg px-4 py-3.5 mb-5 space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-xs text-slate-700">
+              <span className="font-bold text-[#4c1d95]">
+                Executive Resume — C-Suite &amp; Leadership Setup:
+              </span>{' '}
+              <span className="text-slate-600">
+                Two-page executive layout with purple section rules, optional unframed portrait, impact metrics, and leadership milestones.
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              {(
+                [
+                  { value: 'ceo', label: 'CEO' },
+                  { value: 'cto', label: 'CTO' },
+                  { value: 'cfo', label: 'CFO' },
+                  { value: 'coo', label: 'COO' },
+                  { value: 'hr-director', label: 'HR Director' },
+                  { value: 'marketing-director', label: 'Marketing' },
+                  { value: 'founder', label: 'Founder' },
+                  { value: 'other', label: 'Other' },
+                ] as { value: ExecutiveRoleType; label: string }[]
+              ).map((opt) => {
+                const active = (resume.executiveRoleType || 'ceo') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => updateField('executiveRoleType', opt.value)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      active
+                        ? 'bg-[#4c1d95] text-white border-[#4c1d95]'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => handleLoadProfile('executive-resume')}
+                className="px-2.5 py-1 rounded border border-purple-300 bg-white hover:bg-purple-50 text-[11px] font-semibold text-[#4c1d95] cursor-pointer"
+              >
+                Load Executive Sample
+              </button>
+            </div>
+          </div>
+
+          {(resume.executiveRoleType === 'other' || Boolean(resume.customExecutiveRole)) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-purple-200/80">
+              <label
+                htmlFor="custom-executive-role"
+                className="text-[11px] font-semibold text-slate-700 shrink-0"
+              >
+                Custom Executive Designation:
+              </label>
+              <input
+                id="custom-executive-role"
+                type="text"
+                value={resume.customExecutiveRole || ''}
+                onChange={(e) => updateField('customExecutiveRole', e.target.value)}
+                placeholder="e.g. Chief Product Officer, Managing Director, VP of Strategy"
+                className="flex-1 px-2.5 py-1 text-xs border border-slate-300 rounded bg-white"
+              />
+            </div>
+          )}
+
+          {/* 11-Step Guided Completion Tracker */}
+          <div className="pt-2.5 border-t border-purple-200/80">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                Executive Resume Progress ({completenessReport.overallScore}% Ready)
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Click any step to edit · Optional sections hide cleanly when empty
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+              {EXECUTIVE_RESUME_SECTIONS.map((step) => {
+                const statusInfo = getEditorSectionStatus(step.id);
+                const statusLabel = statusInfo?.statusLabel || 'Optional / Skipped';
+                const isCurrent = activeSection === step.id;
+                const badgeStyle =
+                  statusLabel === 'Completed'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : statusLabel === 'In Progress' ||
+                      statusLabel.startsWith('Invalid') ||
+                      statusLabel.startsWith('Exceeds')
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : statusLabel === 'Not Started'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                    : 'text-slate-500 bg-slate-100 border-slate-200';
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => setActiveSection(step.id)}
+                    className={`flex flex-col items-start justify-between p-2 rounded border text-left transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-[#4c1d95] text-white border-[#4c1d95] shadow-xs'
+                        : 'bg-white text-slate-800 border-slate-200 hover:border-purple-400'
+                    }`}
+                  >
+                    <span className="text-[11px] font-semibold leading-tight w-full">
+                      {step.label}
+                    </span>
+                    <span
+                      className={`mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                        isCurrent
+                          ? 'bg-white/15 text-white border-white/25'
+                          : badgeStyle
+                      }`}
+                    >
+                      {statusLabel === 'Completed' ? (
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'In Progress' ||
+                        statusLabel.startsWith('Invalid') ||
+                        statusLabel.startsWith('Exceeds') ? (
+                        <Clock className="w-2.5 h-2.5" />
+                      ) : statusLabel === 'Not Started' ? (
+                        <AlertCircle className="w-2.5 h-2.5" />
+                      ) : (
+                        <MinusCircle className="w-2.5 h-2.5" />
+                      )}
+                      <span>{statusLabel}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Editor Body: Sidebar + Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Navigation Sidebar */}
@@ -3566,6 +3768,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 ? 'Engineering Resume (9 Steps)'
                 : isCreativeProfessionalTemplate
                 ? 'Creative Prof. Sections'
+                : isExecutiveTemplate
+                ? 'Executive Resume (11 Steps)'
                 : isJakesTemplate
                 ? "Resume Sections (Jake's)"
                 : isClassicTemplate
@@ -3598,6 +3802,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               isInternshipResumeTemplate ||
               isEngineeringResumeTemplate ||
               isCreativeProfessionalTemplate ||
+              isExecutiveTemplate ||
               !isJakesTemplate ||
               JAKES_EDITOR_SECTIONS.has(sec.id);
 
@@ -3703,7 +3908,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             <section aria-labelledby="section-header-title">
               <div className="border-b border-slate-200 pb-3 mb-5">
                 <h2 id="section-header-title" className="text-lg font-bold text-slate-900">
-                  {isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate
+                  {isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate
                     ? 'Personal Header & Optional Photo'
                     : 'Personal Header'}
                 </h2>
@@ -3726,6 +3931,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     ? 'Monochrome Engineering Resume header: centered bold name with compact horizontal clickable contacts separated by "|" (location | phone | email | LinkedIn | GitHub | portfolio). No photograph.'
                     : isCreativeProfessionalTemplate
                     ? 'Centered Creative Professional editorial header: bold surname split name, blue professional headline + specialization, tagline, horizontal contact icons, and optional personal quote.'
+                    : isExecutiveTemplate
+                    ? 'Executive identity header: bold uppercase name, royal purple designation and tagline, purple-icon contact links, and an optional unframed right-aligned portrait.'
                     : isClassicTemplate
                     ? 'Structured Classic Professional header with contact details, multiple phones, and an optional framed portrait photo.'
                     : isTwoColumnTemplate
@@ -3734,7 +3941,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </p>
               </div>
 
-              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
+              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) && (
                 <div className="mb-5 p-4 rounded-xl border border-slate-200 bg-slate-50/70">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -3743,7 +3950,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           src={resume.personalInfo.photoUrl}
                           alt="Profile portrait preview"
                           className={`bg-white object-cover shrink-0 shadow-xs ${
-                            isTwoColumnTemplate || resume.personalInfo.photoShape === 'circle'
+                            resume.personalInfo.hidePhoto ? 'opacity-40 grayscale' : ''
+                          } ${
+                            isExecutiveTemplate
+                              ? resume.personalInfo.photoShape === 'portrait'
+                                ? 'w-14 h-18 rounded-md border border-slate-200'
+                                : 'w-16 h-16 rounded-full border border-slate-200'
+                              : isTwoColumnTemplate || resume.personalInfo.photoShape === 'circle'
                               ? isElegantSerifTemplate
                                 ? 'w-16 h-16 rounded-full border-2 border-slate-800'
                                 : 'w-16 h-16 rounded-full border-2 border-[#e5c57a] ring-1 ring-[#8f131b]/30'
@@ -3763,7 +3976,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       ) : (
                         <div
                           className={`border border-dashed border-slate-300 bg-white flex flex-col items-center justify-center text-slate-400 shrink-0 ${
-                            isTwoColumnTemplate ? 'w-16 h-16 rounded-full' : 'w-14 h-18 rounded'
+                            isTwoColumnTemplate || isExecutiveTemplate ? 'w-16 h-16 rounded-full' : 'w-14 h-18 rounded'
                           }`}
                         >
                           <Camera className="w-5 h-5 mb-0.5" />
@@ -3779,10 +3992,23 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             ? 'Hidden by default in Modern Simple CV. Upload an optional monochrome/portrait headshot only if required; leave empty for the clean borderless banner.'
                             : isModernCorporateTemplate
                             ? 'Optional in ModernCV Classic. Upload a framed corporate portrait on the top right only if desired; leave empty to omit cleanly.'
+                            : isExecutiveTemplate
+                            ? 'Optional unframed executive headshot on the top right. Upload a JPG, PNG, or WebP portrait, or toggle visibility off at any time.'
                             : isTwoColumnTemplate
                             ? 'Upload a JPG, PNG, or WebP headshot cropped to Circle (1:1), Square, or Portrait. Leave empty to omit cleanly.'
                             : 'Upload a JPG, PNG, or WebP headshot and crop to Classic Portrait (3:4) or Square (1:1). Leave empty to omit the photo cleanly.'}
                         </p>
+                        {isExecutiveTemplate && (
+                          <label className="mt-2 inline-flex items-center gap-2 text-[11px] font-semibold text-slate-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(resume.personalInfo.hidePhoto)}
+                              onChange={(e) => updatePersonalInfo('hidePhoto', e.target.checked)}
+                              className="h-3.5 w-3.5 rounded border-slate-300 text-[#4c1d95]"
+                            />
+                            <span>Hide photograph on Executive Resume (preserves uploaded image)</span>
+                          </label>
+                        )}
                         {photoError && (
                           <p className="text-[11px] font-medium text-rose-600 mt-1">{photoError}</p>
                         )}
@@ -3792,7 +4018,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
                       <label
                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg shadow-xs cursor-pointer transition-colors ${
-                          isTwoColumnTemplate
+                          isExecutiveTemplate
+                            ? 'bg-[#4c1d95] hover:bg-[#3b0764]'
+                            : isTwoColumnTemplate
                             ? 'bg-[#8f131b] hover:bg-[#700d14]'
                             : isElegantSerifTemplate
                             ? 'bg-slate-900 hover:bg-black'
@@ -4008,8 +4236,49 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   />
                 </div>
 
-                {isTwoColumnTemplate && (
+                {(isTwoColumnTemplate || isExecutiveTemplate) && (
                   <>
+                    {isExecutiveTemplate && (
+                      <>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Executive Tagline (Optional — rendered in italic below title)
+                          </label>
+                          <input
+                            type="text"
+                            value={resume.personalInfo.tagline || ''}
+                            onChange={(e) => updatePersonalInfo('tagline', e.target.value)}
+                            placeholder="e.g. Scaling global cloud platforms, enterprise ecosystems, and high-trust engineering teams"
+                            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Primary Industry / Sector (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={resume.executiveIndustry || ''}
+                            onChange={(e) => updateField('executiveIndustry', e.target.value)}
+                            placeholder="e.g. Enterprise Cloud & AI, FinTech, Consumer Tech"
+                            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 mb-1">
+                            Years of Leadership Experience (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={resume.executiveYearsExperience || ''}
+                            onChange={(e) => updateField('executiveYearsExperience', e.target.value)}
+                            placeholder="e.g. 16+ years"
+                            className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                          />
+                        </div>
+                      </>
+                    )}
+
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Twitter / X Handle (Optional)
@@ -4079,7 +4348,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               ],
                             })
                           }
-                          className="text-xs font-semibold text-[#8f131b] hover:underline cursor-pointer"
+                          className={`text-xs font-semibold hover:underline cursor-pointer ${
+                            isExecutiveTemplate ? 'text-[#4c1d95]' : 'text-[#8f131b]'
+                          }`}
                         >
                           + Add Custom Link
                         </button>
@@ -4099,7 +4370,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                     ),
                                   })
                                 }
-                                placeholder="Label (e.g. Google Scholar)"
+                                placeholder="Label (e.g. Board Profile)"
                                 className="sm:col-span-5 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                               />
                               <input
@@ -4113,7 +4384,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                     ),
                                   })
                                 }
-                                placeholder="https://scholar.google.com/..."
+                                placeholder="https://..."
                                 className="sm:col-span-6 px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                               />
                               <button
@@ -4147,7 +4418,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   isInternshipResumeTemplate ||
                   isEngineeringResumeTemplate ||
                   isCreativeProfessionalTemplate) &&
-                  !isTwoColumnTemplate && (
+                  !isTwoColumnTemplate &&
+                  !isExecutiveTemplate && (
                   <div className="sm:col-span-2 pt-3 border-t border-slate-200">
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
@@ -4421,6 +4693,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <h2 id="section-objective-title" className="text-lg font-bold text-slate-900">
                     {isClassicTemplate || isModernCorporateTemplate
                       ? 'Professional Summary & Personal Quote'
+                      : isExecutiveTemplate
+                      ? 'Executive Profile & Life Philosophy'
                       : isElegantSerifTemplate
                       ? 'Professional Profile'
                       : isFresherResumeTemplate
@@ -4432,6 +4706,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <p className="text-xs text-slate-500 mt-0.5">
                     {isClassicTemplate || isModernCorporateTemplate
                       ? 'Concise executive summary plus an optional centered italic opening motto / quote displayed beneath your header.'
+                      : isExecutiveTemplate
+                      ? 'Optional Life Philosophy quote (shown in Page 1 right column) and optional Executive Summary, Management Style, and Strategic Domains.'
                       : isElegantSerifTemplate
                       ? 'Optional concise editorial profile statement, academic interests, and career goals.'
                       : isFresherResumeTemplate
@@ -4449,6 +4725,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         resume.objective || '',
                         isClassicTemplate || isModernCorporateTemplate
                           ? 'Professional Summary'
+                          : isExecutiveTemplate
+                          ? 'Executive Summary'
                           : isElegantSerifTemplate
                           ? 'Professional Profile'
                           : isFresherResumeTemplate
@@ -4467,6 +4745,57 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               </div>
 
               <div className="space-y-4">
+                {isExecutiveTemplate && (
+                  <div className="p-4 rounded-lg border border-purple-200 bg-purple-50/35 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-[#4c1d95]">
+                          Life Philosophy (Page 1 Right Sidebar · Optional)
+                        </h3>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Displayed at the top of Page 1&rsquo;s right column in Executive Purple italics. Leave empty to omit cleanly.
+                        </p>
+                      </div>
+                      {resume.personalQuote?.trim() && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleOpenImprove(
+                              resume.personalQuote || '',
+                              'Executive Life Philosophy Quote',
+                              resume.personalInfo.jobTitle || resume.targetRole,
+                              (improved) => updateField('personalQuote', improved)
+                            )
+                          }
+                          className="inline-flex items-center text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 mr-1 text-indigo-600" />
+                          <span>AI Improve Quote</span>
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={resume.personalQuote || ''}
+                      onChange={(e) => updateField('personalQuote', e.target.value)}
+                      placeholder='e.g. "See things as they are, and build things as they can be."'
+                      className="w-full px-3 py-2 border border-slate-300 rounded text-sm italic bg-white focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                    />
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Philosophy Context / Leadership Principle (Optional)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={resume.philosophyExplanation || ''}
+                        onChange={(e) => updateField('philosophyExplanation', e.target.value)}
+                        placeholder="Optional brief note explaining how this philosophy shapes your executive leadership..."
+                        className="w-full p-2.5 border border-slate-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {isFresherResumeTemplate && (
                   <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70 space-y-2">
                     <div className="flex items-center justify-between">
@@ -4498,6 +4827,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     {isClassicTemplate || isModernCorporateTemplate
                       ? 'Professional Summary'
+                      : isExecutiveTemplate
+                      ? 'Executive Summary (Optional — leave empty to lead Page 1 with Experience)'
                       : isElegantSerifTemplate
                       ? 'Profile Summary'
                       : isFresherResumeTemplate
@@ -4507,7 +4838,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       : 'Objective / Summary'}
                   </label>
                   <textarea
-                    rows={5}
+                    rows={isExecutiveTemplate ? 3 : 5}
                     value={resume.objective || ''}
                     onChange={(e) => updateField('objective', e.target.value)}
                     placeholder={
@@ -4515,6 +4846,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         ? 'e.g. Final-year Computer Science undergraduate experienced in shipping backend APIs and open-source developer tools.'
                         : isEngineeringResumeTemplate
                         ? 'e.g. Final-year Mechanical Engineering undergraduate proficient in SolidWorks, ANSYS FEA, and GD&T, seeking a Design or Manufacturing Engineer role.'
+                        : isExecutiveTemplate
+                        ? 'Optional 2–3 sentence executive overview (leave blank if you want Experience right under the header like the two-page executive reference)...'
                         : 'Dedicated corporate strategy executive or engineering leader with 8+ years of experience...'
                     }
                     className="w-full p-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed font-serif"
@@ -4523,6 +4856,35 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     Leave empty if you prefer not to include a summary statement.
                   </p>
                 </div>
+
+                {isExecutiveTemplate && (
+                  <div className="pt-3 border-t border-slate-200 grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Management / Leadership Style (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={resume.managementStyle || ''}
+                        onChange={(e) => updateField('managementStyle', e.target.value)}
+                        placeholder="e.g. Data-informed capital allocation with high-autonomy product squads"
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Strategic Domains / Board Focus Areas (Optional, comma-separated)
+                      </label>
+                      <CommaArrayInput
+                        ariaLabel="Executive Strategic Domains"
+                        value={resume.strategicDomains}
+                        onChange={(items) => updateField('strategicDomains', items)}
+                        placeholder="e.g. Global P&L Transformation, Enterprise AI Governance, M&A Integration"
+                        className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#4c1d95]"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {(isClassicTemplate || isModernCorporateTemplate) && (
                   <div className="pt-3 border-t border-slate-200">
@@ -4795,11 +5157,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           isElegantSerifTemplate ||
                           isFresherResumeTemplate ||
                           isInternshipResumeTemplate ||
-                          isEngineeringResumeTemplate) && (
+                          isEngineeringResumeTemplate ||
+                          isExecutiveTemplate) && (
                           <>
                             <div>
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                Academic Awards &amp; Honors (Optional)
+                                {isExecutiveTemplate
+                                  ? 'Academic Distinctions & Honors (Optional)'
+                                  : 'Academic Awards & Honors (Optional)'}
                               </label>
                               <input
                                 type="text"
@@ -5727,25 +6092,44 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </div>
                         )}
 
-                        {isModernCorporateTemplate && (
+                        {(isModernCorporateTemplate || isExecutiveTemplate) && (
                           <>
-                            <div>
-                              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                Department / Practice Area (Optional)
-                              </label>
-                              <input
-                                type="text"
-                                value={exp.department || ''}
-                                onChange={(e) =>
-                                  updateExperience(exp.id, { department: e.target.value })
-                                }
-                                placeholder="e.g. European Industrials & Infrastructure"
-                                className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
-                              />
-                            </div>
+                            {isModernCorporateTemplate ? (
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                  Department / Practice Area (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={exp.department || ''}
+                                  onChange={(e) =>
+                                    updateExperience(exp.id, { department: e.target.value })
+                                  }
+                                  placeholder="e.g. European Industrials & Infrastructure"
+                                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                                />
+                              </div>
+                            ) : (
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                                  Team / Org Size (Optional)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={exp.teamSize || ''}
+                                  onChange={(e) =>
+                                    updateExperience(exp.id, { teamSize: e.target.value })
+                                  }
+                                  placeholder="e.g. Team of 240+ across 6 offices"
+                                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
+                                />
+                              </div>
+                            )}
                             <div className="sm:col-span-2">
                               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                                Key Results Summary (Optional)
+                                {isExecutiveTemplate
+                                  ? 'Verified Business Impact / Revenue or Growth Outcome (Optional)'
+                                  : 'Key Results Summary (Optional)'}
                               </label>
                               <input
                                 type="text"
@@ -5779,7 +6163,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                         </label>
                       </div>
 
-                      {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
+                      {(isClassicTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) && (
                         <div>
                           <div className="flex items-center justify-between mb-1">
                             <label className="text-xs font-semibold text-slate-700">
@@ -5809,7 +6193,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             onChange={(e) =>
                               updateExperience(exp.id, { description: e.target.value })
                             }
-                            placeholder="e.g. Core platform architecture team managing regulated financial workloads."
+                            placeholder="e.g. Led global platform strategy and enterprise partnerships across EMEA and North America."
                             className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white"
                           />
                         </div>
@@ -6889,7 +7273,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               />
                             </div>
 
-                            {(isTwoColumnTemplate || isElegantSerifTemplate) && (
+                            {(isTwoColumnTemplate || isElegantSerifTemplate || isExecutiveTemplate) && (
                               <>
                                 <div>
                                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -7472,7 +7856,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             </section>
           )}
 
-          {/* 6a. A Day of My Life (Two Column Professional - Optional) */}
+          {/* 6a. A Day of My Life (Two Column Professional & Executive Resume - Optional) */}
           {activeSection === 'daily-life' && (
             <section aria-labelledby="section-daily-title">
               <div className="border-b border-slate-200 pb-3 mb-5 flex flex-wrap items-center justify-between gap-2">
@@ -7481,7 +7865,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     A Day of My Life (Optional)
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Optionally illustrate how you balance your daily routine in a clean donut chart. Total hours cannot exceed 24 hours.
+                    {effectiveDailyMode === 'percentage'
+                      ? 'Illustrate your executive time split (%) in the purple donut chart. Total allocation cannot exceed 100%.'
+                      : 'Optionally illustrate how you balance your daily routine in a clean donut chart. Total hours cannot exceed 24 hours.'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -7496,6 +7882,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     className={`px-2.5 py-1.5 text-xs font-semibold border rounded cursor-pointer transition-colors ${
                       resume.showDailyActivityChart === false
                         ? 'bg-white text-slate-600 border-slate-300'
+                        : isExecutiveTemplate
+                        ? 'bg-[#4c1d95]/10 text-[#4c1d95] border-[#4c1d95]/30'
                         : 'bg-[#8f131b]/10 text-[#8f131b] border-[#8f131b]/30'
                     }`}
                   >
@@ -7512,25 +7900,72 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </div>
               </div>
 
-              {/* 24-hour Balance Summary & Strict Ceiling Feedback */}
+              {isExecutiveTemplate && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border border-purple-200 bg-purple-50/40 text-xs">
+                  <span className="font-semibold text-slate-700">Allocation Unit Mode:</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => updateField('dailyActivityMode', 'percentage')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold border cursor-pointer ${
+                        effectiveDailyMode === 'percentage'
+                          ? 'bg-[#4c1d95] text-white border-[#4c1d95]'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50'
+                      }`}
+                    >
+                      Percentage Split (% · Max 100%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateField('dailyActivityMode', 'hours')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold border cursor-pointer ${
+                        effectiveDailyMode === 'hours'
+                          ? 'bg-[#4c1d95] text-white border-[#4c1d95]'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50'
+                      }`}
+                    >
+                      Daily Hours (h · Max 24h)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Balance Summary & Strict Ceiling Feedback */}
               <div
                 className={`mb-4 p-3.5 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-                  !dailyValidation.valid && dailyValidation.totalHours > 24
+                  !dailyValidation.valid &&
+                  (effectiveDailyMode === 'percentage'
+                    ? dailyValidation.totalPercentage > 100
+                    : dailyValidation.totalHours > 24)
                     ? 'bg-rose-50 border-rose-300 text-rose-900'
                     : 'bg-slate-50 border-slate-200 text-slate-800'
                 }`}
               >
                 <div className="flex items-center gap-2 text-xs">
-                  {dailyValidation.totalHours > 24 && (
+                  {((effectiveDailyMode === 'percentage' && dailyValidation.totalPercentage > 100) ||
+                    (effectiveDailyMode === 'hours' && dailyValidation.totalHours > 24)) && (
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   )}
                   <div>
-                    <span className="font-bold">
-                      Total Allocated: {dailyValidation.totalHours} / 24 hours
-                    </span>
-                    <span className="ml-2 text-slate-600">
-                      (Remaining: {dailyValidation.remainingHours}h)
-                    </span>
+                    {effectiveDailyMode === 'percentage' ? (
+                      <>
+                        <span className="font-bold">
+                          Total Allocated: {dailyValidation.totalPercentage} / 100%
+                        </span>
+                        <span className="ml-2 text-slate-600">
+                          (Remaining: {dailyValidation.remainingPercentage}%)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-bold">
+                          Total Allocated: {dailyValidation.totalHours} / 24 hours
+                        </span>
+                        <span className="ml-2 text-slate-600">
+                          (Remaining: {dailyValidation.remainingHours}h)
+                        </span>
+                      </>
+                    )}
                     {!dailyValidation.valid && dailyValidation.error && (
                       <div className="text-rose-700 font-semibold mt-1" role="alert">
                         {dailyValidation.error}
@@ -7557,62 +7992,90 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <button
                     type="button"
                     onClick={addDailyActivity}
-                    className="text-xs font-bold text-[#8f131b] hover:underline cursor-pointer"
+                    className={`text-xs font-bold hover:underline cursor-pointer ${
+                      isExecutiveTemplate ? 'text-[#4c1d95]' : 'text-[#8f131b]'
+                    }`}
                   >
                     + Add your first daily activity
                   </button>
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  {resume.dailyActivities.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
-                    >
-                      <div className="sm:col-span-8">
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                          Activity Label *
-                        </label>
-                        <input
-                          type="text"
-                          value={item.activity}
-                          onChange={(e) =>
-                            updateDailyActivity(item.id, { activity: e.target.value })
-                          }
-                          placeholder="e.g. Deep research & coding, Teaching, Exercise, Sleep & rest"
-                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                        />
+                  {resume.dailyActivities.map((item) => {
+                    const numericVal =
+                      effectiveDailyMode === 'percentage'
+                        ? item.percentage ?? item.hours
+                        : item.hours;
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-3 border border-slate-200 rounded-lg bg-slate-50/50 grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center"
+                      >
+                        <div className={isExecutiveTemplate ? 'sm:col-span-5' : 'sm:col-span-8'}>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                            Activity Label *
+                          </label>
+                          <input
+                            type="text"
+                            value={item.activity}
+                            onChange={(e) =>
+                              updateDailyActivity(item.id, { activity: e.target.value })
+                            }
+                            placeholder="e.g. Product & Engineering Reviews, Board Governance, Sleep"
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                        {isExecutiveTemplate && (
+                          <div className="sm:col-span-4">
+                            <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                              Short Context (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={item.description || ''}
+                              onChange={(e) =>
+                                updateDailyActivity(item.id, { description: e.target.value })
+                              }
+                              placeholder="e.g. Executive leadership & strategy"
+                              className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                            />
+                          </div>
+                        )}
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                            {effectiveDailyMode === 'percentage' ? 'Share (%) *' : 'Hours per day *'}
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={effectiveDailyMode === 'percentage' ? 100 : 24}
+                            step={effectiveDailyMode === 'percentage' ? 1 : 0.5}
+                            value={Number.isFinite(numericVal) ? numericVal : 0}
+                            onChange={(e) => {
+                              const nextNum = Number(e.target.value);
+                              updateDailyActivity(
+                                item.id,
+                                effectiveDailyMode === 'percentage'
+                                  ? { percentage: nextNum }
+                                  : { hours: nextNum }
+                              );
+                            }}
+                            className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                          />
+                        </div>
+                        <div className="sm:col-span-1 flex justify-end pt-4 sm:pt-3">
+                          <button
+                            type="button"
+                            onClick={() => deleteDailyActivity(item.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                            title="Delete activity"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="sm:col-span-3">
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
-                          Hours per day *
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={24}
-                          step={0.5}
-                          value={item.hours}
-                          onChange={(e) =>
-                            updateDailyActivity(item.id, {
-                              hours: Number(e.target.value),
-                            })
-                          }
-                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                        />
-                      </div>
-                      <div className="sm:col-span-1 flex justify-end pt-4 sm:pt-3">
-                        <button
-                          type="button"
-                          onClick={() => deleteDailyActivity(item.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
-                          title="Delete activity"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -7670,7 +8133,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             </section>
           )}
 
-          {/* 6c. Strengths Keyword Chips (Two Column Professional) */}
+          {/* 6c. Strengths Keyword Chips (Two Column Professional & Executive Resume) */}
           {activeSection === 'strengths' && (
             <section aria-labelledby="section-strengths-title">
               <div className="border-b border-slate-200 pb-3 mb-5">
@@ -7680,7 +8143,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isModernCorporateTemplate
                     ? 'Add executive or functional core competencies to render as clean ATS-friendly text inside the ModernCV layout (never shown as skill bars or pills). No competencies are ever auto-assigned.'
-                    : 'Add your own strengths or key skills to display as crisp outlined keyword tags in the right sidebar. No strengths are ever auto-assigned.'}
+                    : 'Add your own strengths or key leadership skills to display as crisp outlined keyword tags in the right sidebar. No strengths are ever auto-assigned.'}
                 </p>
               </div>
 
@@ -7695,7 +8158,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       addStrengthChip();
                     }
                   }}
-                  placeholder="Type a strength or comma-separated strengths (e.g. Hard-working, C++, Systems Design)"
+                  placeholder={
+                    isExecutiveTemplate
+                      ? 'Type a leadership strength or comma-separated tags (e.g. P&L Ownership, Board Governance)'
+                      : 'Type a strength or comma-separated strengths (e.g. Hard-working, C++, Systems Design)'
+                  }
                   className="flex-1 px-3 py-2 border border-slate-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
                 <button
@@ -7707,6 +8174,40 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <span>Add Strength</span>
                 </button>
               </div>
+
+              {isExecutiveTemplate && (
+                <div className="mb-4 p-3 rounded-lg border border-purple-200 bg-purple-50/40">
+                  <div className="text-[11px] font-semibold text-slate-600 mb-2">
+                    Quick Executive Suggestions (click to add — never auto-selected):
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {EXECUTIVE_STRENGTH_SUGGESTIONS.map((sugg) => {
+                      const exists = (resume.strengths || []).some(
+                        (s) => s.toLowerCase() === sugg.toLowerCase()
+                      );
+                      return (
+                        <button
+                          key={sugg}
+                          type="button"
+                          disabled={exists}
+                          onClick={() => {
+                            if (!exists) {
+                              updateField('strengths', [...(resume.strengths || []), sugg]);
+                            }
+                          }}
+                          className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${
+                            exists
+                              ? 'bg-purple-100 text-[#4c1d95] border-purple-300 opacity-60 cursor-default'
+                              : 'bg-white text-slate-700 border-slate-300 hover:border-[#4c1d95] hover:text-[#4c1d95] cursor-pointer'
+                          }`}
+                        >
+                          {exists ? `✓ ${sugg}` : `+ ${sugg}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {(!resume.strengths || resume.strengths.length === 0) ? (
                 <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg">
@@ -7738,7 +8239,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
             </section>
           )}
 
-          {/* 6b. Languages (Classic Professional & Two Column Professional) */}
+          {/* 6b. Languages (Classic, Two Column, Creative, Executive) */}
           {activeSection === 'languages' && (
             <section aria-labelledby="section-languages-title">
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
@@ -7747,7 +8248,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     Languages
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {isTwoColumnTemplate || isCreativeProfessionalTemplate
+                    {isTwoColumnTemplate || isCreativeProfessionalTemplate || isExecutiveTemplate
                       ? 'Confirm your proficiency level (renders 5-dot visual ratings). Leave as Unconfirmed to hide dots cleanly.'
                       : 'Spoken languages with standardized proficiency levels and optional certificates/comments.'}
                   </p>
@@ -7824,7 +8325,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           </select>
                         </div>
                         <div className="sm:col-span-3">
-                          {isTwoColumnTemplate || isCreativeProfessionalTemplate ? (
+                          {isTwoColumnTemplate || isCreativeProfessionalTemplate || isExecutiveTemplate ? (
                             <div>
                               <span className="block text-[11px] font-semibold text-slate-600 mb-1">
                                 5-Dot Preview
@@ -7836,7 +8337,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                       const cx = (dot - 1) * 14 + 7;
                                       const filled = dotScore >= dot;
                                       const half = !filled && dotScore >= dot - 0.5;
-                                      const dotColor = isCreativeProfessionalTemplate ? '#1d4ed8' : '#8f131b';
+                                      const dotColor = isExecutiveTemplate
+                                        ? '#4c1d95'
+                                        : isCreativeProfessionalTemplate
+                                        ? '#1d4ed8'
+                                        : '#8f131b';
                                       return (
                                         <g key={dot}>
                                           <circle cx={cx} cy={7} r={5.5} fill="#e5e7eb" stroke={dotColor} strokeWidth={1} />
@@ -9862,12 +10367,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-custom-title" className="text-lg font-bold text-slate-900">
-                    {isCreativeProfessionalTemplate
+                    {isCreativeProfessionalTemplate || isExecutiveTemplate
                       ? 'Projects & Additional Sections'
                       : 'Additional Information & Custom Sections'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {isCreativeProfessionalTemplate
+                    {isCreativeProfessionalTemplate || isExecutiveTemplate
                       ? 'Add custom sections or jump directly to Projects, Leadership, Volunteer, or Memberships.'
                       : 'Create custom sections (Certifications, Awards, Volunteer Work, Workshops, Publications, etc.).'}
                   </p>
@@ -9882,8 +10387,14 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </button>
               </div>
 
-              {isCreativeProfessionalTemplate && (
-                <div className="mb-5 p-3.5 rounded-lg border border-blue-200 bg-blue-50/40 flex flex-wrap items-center gap-2 text-xs">
+              {(isCreativeProfessionalTemplate || isExecutiveTemplate) && (
+                <div
+                  className={`mb-5 p-3.5 rounded-lg border flex flex-wrap items-center gap-2 text-xs ${
+                    isExecutiveTemplate
+                      ? 'border-purple-200 bg-purple-50/40'
+                      : 'border-blue-200 bg-blue-50/40'
+                  }`}
+                >
                   <span className="font-semibold text-slate-700">Optional Overflow Sections:</span>
                   {(
                     [
@@ -9897,7 +10408,11 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                       key={item.id}
                       type="button"
                       onClick={() => setActiveSection(item.id)}
-                      className="px-2.5 py-1 rounded border border-blue-200 bg-white hover:bg-blue-50 text-blue-800 font-semibold cursor-pointer"
+                      className={`px-2.5 py-1 rounded border bg-white font-semibold cursor-pointer ${
+                        isExecutiveTemplate
+                          ? 'border-purple-200 hover:bg-purple-50 text-[#4c1d95]'
+                          : 'border-blue-200 hover:bg-blue-50 text-blue-800'
+                      }`}
                     >
                       Edit {item.label} ({item.count})
                     </button>
@@ -10165,7 +10680,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-awards-title" className="text-lg font-bold text-slate-900">
-                    {isTwoColumnTemplate
+                    {isTwoColumnTemplate || isExecutiveTemplate
                       ? 'Most Proud Of (Achievements & Awards)'
                       : isSoftwareDevTemplate
                       ? 'Achievements'
@@ -10178,6 +10693,8 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                   <p className="text-xs text-slate-500 mt-0.5">
                     {isTwoColumnTemplate
                       ? 'Highlight proud milestones, honors, or recognition with selectable burgundy sidebar icons.'
+                      : isExecutiveTemplate
+                      ? 'Highlight landmark executive achievements, growth milestones, board honors, or charitable impact with Executive Purple icons.'
                       : isSoftwareDevTemplate
                       ? 'Hackathon wins, engineering awards, or scholarships shown under ADDITIONAL → Achievements. Optional.'
                       : isInternshipResumeTemplate
@@ -10194,7 +10711,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 >
                   <Plus className="w-3.5 h-3.5 mr-1" />
                   <span>
-                    {isTwoColumnTemplate
+                    {isTwoColumnTemplate || isExecutiveTemplate
                       ? 'Add Milestone'
                       : isSoftwareDevTemplate
                       ? 'Add Achievement'
@@ -10226,7 +10743,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                     >
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-700">
-                          {isTwoColumnTemplate || isSoftwareDevTemplate
+                          {isTwoColumnTemplate || isSoftwareDevTemplate || isExecutiveTemplate
                             ? 'Achievement Entry'
                             : 'Award Entry'}
                         </span>
@@ -10268,7 +10785,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             type="text"
                             value={ach.title}
                             onChange={(e) => updateAward(ach.id, { title: e.target.value })}
-                            placeholder="e.g. NSF Graduate Research Fellowship"
+                            placeholder="e.g. Fortune 50 Most Powerful Executive Honoree"
                             className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
                           />
                         </div>
@@ -10286,7 +10803,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           />
                         </div>
 
-                        {isTwoColumnTemplate && (
+                        {(isTwoColumnTemplate || isExecutiveTemplate) && (
                           <div className="sm:col-span-3">
                             <span className="block text-[11px] font-semibold text-slate-700 mb-1">
                               Sidebar Accent Icon
@@ -10296,6 +10813,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                 [
                                   { value: 'trophy', label: 'Trophy', Icon: Trophy },
                                   { value: 'heart', label: 'Heart', Icon: Heart },
+                                  ...(isExecutiveTemplate
+                                    ? [{ value: 'chart' as const, label: 'Growth / Chart', Icon: TrendingUp }]
+                                    : []),
                                   { value: 'award', label: 'Ribbon / Award', Icon: Award },
                                   { value: 'star', label: 'Star', Icon: Star },
                                 ] as const
@@ -10308,7 +10828,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                                     onClick={() => updateAward(ach.id, { icon: value })}
                                     className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border cursor-pointer transition-colors ${
                                       selected
-                                        ? 'bg-[#8f131b] text-white border-[#8f131b]'
+                                        ? isExecutiveTemplate
+                                          ? 'bg-[#4c1d95] text-white border-[#4c1d95]'
+                                          : 'bg-[#8f131b] text-white border-[#8f131b]'
                                         : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'
                                     }`}
                                   >
@@ -10319,6 +10841,59 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               })}
                             </div>
                           </div>
+                        )}
+
+                        {isExecutiveTemplate && (
+                          <>
+                            <div className="sm:col-span-3">
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Milestone Description / Scope (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.description || ''}
+                                onChange={(e) => updateAward(ach.id, { description: e.target.value })}
+                                placeholder="e.g. Scaled global enterprise adoption and cross-border partner revenue"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Challenge (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.challenge || ''}
+                                onChange={(e) => updateAward(ach.id, { challenge: e.target.value })}
+                                placeholder="e.g. Fragmented regional ops"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Action Taken (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.actionTaken || ''}
+                                onChange={(e) => updateAward(ach.id, { actionTaken: e.target.value })}
+                                placeholder="e.g. Unified global operating model"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">
+                                Measurable Outcome (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={ach.outcome || ''}
+                                onChange={(e) => updateAward(ach.id, { outcome: e.target.value })}
+                                placeholder="e.g. +34% YoY recurring margin"
+                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                              />
+                            </div>
+                          </>
                         )}
 
                         {isElegantSerifTemplate && (
@@ -11352,13 +11927,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               <div className="border-b border-slate-200 pb-3 mb-5 flex items-center justify-between">
                 <div>
                   <h2 id="section-ref-title" className="text-lg font-bold text-slate-900">
-                    {isTwoColumnTemplate ? 'Referees' : 'References'}
+                    {isTwoColumnTemplate || isExecutiveTemplate ? 'Referees' : 'References'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Optional academic advisors, dissertation committee members, or professional supervisors.
+                    Optional board members, executive sponsors, academic advisors, or direct supervisors.
                   </p>
                 </div>
-                {((!isClassicTemplate && !isTwoColumnTemplate && !isElegantSerifTemplate && !isModernCorporateTemplate) ||
+                {((!isClassicTemplate && !isTwoColumnTemplate && !isElegantSerifTemplate && !isModernCorporateTemplate && !isExecutiveTemplate) ||
                   (resume.referencesDisplayMode || 'detailed') === 'detailed') && (
                   <button
                     type="button"
@@ -11371,7 +11946,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 )}
               </div>
 
-              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
+              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) && (
                 <div className="mb-5 p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
                   <div className="text-xs font-bold text-slate-700 mb-2">
                     References Display Mode
@@ -11407,7 +11982,9 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                           onClick={() => updateField('referencesDisplayMode', opt.value)}
                           className={`p-2.5 text-left rounded-lg border transition-colors cursor-pointer ${
                             active
-                              ? isTwoColumnTemplate
+                              ? isExecutiveTemplate
+                                ? 'bg-white border-[#4c1d95] ring-1 ring-[#4c1d95]'
+                                : isTwoColumnTemplate
                                 ? 'bg-white border-[#8f131b] ring-1 ring-[#8f131b]'
                                 : isElegantSerifTemplate
                                 ? 'bg-white border-slate-900 ring-1 ring-slate-900'
@@ -11426,12 +12003,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                 </div>
               )}
 
-              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) &&
+              {(isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) &&
               resume.referencesDisplayMode === 'on-request' ? (
                 <div className="p-6 text-center border border-slate-200 bg-slate-50 rounded-lg text-xs text-slate-600">
                   Your CV will display: <strong className="text-slate-900">References available upon request.</strong>
                 </div>
-              ) : (isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) &&
+              ) : (isClassicTemplate || isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) &&
                 resume.referencesDisplayMode === 'hidden' ? (
                 <div className="p-6 text-center border border-dashed border-slate-300 rounded-lg text-xs text-slate-500">
                   The Referees section is currently omitted from your CV. Select another display mode above to show it.
@@ -11439,7 +12016,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
               ) : (!resume.references || resume.references.length === 0) ? (
                 <div className="p-8 text-center border border-dashed border-slate-300 rounded-lg">
                   <p className="text-xs text-slate-500">
-                    No references added. In Academic CVs, references are optional and can be provided on request.
+                    No references added. In Executive and Academic CVs, references are optional and can be provided on request.
                   </p>
                   <button
                     onClick={addReference}
@@ -11488,7 +12065,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             type="text"
                             value={r.jobTitle}
                             onChange={(e) => updateReference(r.id, { jobTitle: e.target.value })}
-                            placeholder="e.g. Professor of Computer Science & Genetics"
+                            placeholder="e.g. Board Chair & Senior Advisor"
                             className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                           />
                         </div>
@@ -11501,7 +12078,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             type="text"
                             value={r.department || ''}
                             onChange={(e) => updateReference(r.id, { department: e.target.value })}
-                            placeholder="e.g. Department of Computer Science"
+                            placeholder="e.g. Audit & Governance Committee"
                             className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                           />
                         </div>
@@ -11516,7 +12093,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             onChange={(e) =>
                               updateReference(r.id, { organization: e.target.value })
                             }
-                            placeholder="e.g. Stanford University"
+                            placeholder="e.g. Vertex Cloud Holdings"
                             className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                           />
                         </div>
@@ -11544,12 +12121,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                             onChange={(e) =>
                               updateReference(r.id, { relationship: e.target.value })
                             }
-                            placeholder="e.g. Doctoral Dissertation Advisor"
+                            placeholder="e.g. Independent Board Chair"
                             className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                           />
                         </div>
 
-                        {(isElegantSerifTemplate || isModernCorporateTemplate) && (
+                        {(isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) && (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Phone Number (Optional)
@@ -11558,13 +12135,13 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               type="tel"
                               value={r.phone || ''}
                               onChange={(e) => updateReference(r.id, { phone: e.target.value })}
-                              placeholder="e.g. +44 1223 337733"
+                              placeholder="e.g. +1 (650) 555-0192"
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-sm bg-white"
                             />
                           </div>
                         )}
 
-                        {(isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate) && (
+                        {(isTwoColumnTemplate || isElegantSerifTemplate || isModernCorporateTemplate || isExecutiveTemplate) && (
                           <div className="sm:col-span-2">
                             <label className="block text-xs font-semibold text-slate-700 mb-1">
                               Mailing Address (Optional — multi-line supported)
@@ -11573,7 +12150,7 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
                               rows={2}
                               value={r.address || ''}
                               onChange={(e) => updateReference(r.id, { address: e.target.value })}
-                              placeholder="Gates Computer Science Bldg, Room 412&#10;Stanford, CA 94305"
+                              placeholder="1200 Executive Plaza&#10;San Francisco, CA 94105"
                               className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white leading-relaxed"
                             />
                           </div>
@@ -11587,40 +12164,70 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
           )}
 
           {/* Section Navigation Buttons at bottom */}
-          <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                const idx = navSections.findIndex((s) => s.id === activeSection);
-                if (idx > 0) setActiveSection(navSections[idx - 1].id);
-              }}
-              disabled={activeSection === navSections[0]?.id}
-              className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded disabled:opacity-40 transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 mr-1" />
-              <span>Previous Section</span>
-            </button>
+          {(() => {
+            const navIdx = navSections.findIndex((s) => s.id === activeSection);
+            const fallbackParentId: EditorSectionId | null =
+              (isCreativeProfessionalTemplate || isExecutiveTemplate) && navIdx === -1
+                ? isCreativeProfessionalTemplate && activeSection === 'awards'
+                  ? 'certifications'
+                  : 'custom-sections'
+                : null;
+            const parentIdx = fallbackParentId
+              ? navSections.findIndex((s) => s.id === fallbackParentId)
+              : -1;
+            const prevTarget =
+              navIdx > 0
+                ? navSections[navIdx - 1].id
+                : fallbackParentId;
+            const nextTarget =
+              navIdx >= 0 && navIdx < navSections.length - 1
+                ? navSections[navIdx + 1].id
+                : parentIdx >= 0 && parentIdx < navSections.length - 1
+                ? navSections[parentIdx + 1].id
+                : null;
+            const isFinalStep =
+              navIdx === navSections.length - 1 ||
+              (navIdx === -1 && fallbackParentId !== null && nextTarget === null);
 
-            <button
-              type="button"
-              onClick={() => {
-                const idx = navSections.findIndex((s) => s.id === activeSection);
-                if (idx >= 0 && idx < navSections.length - 1) {
-                  setActiveSection(navSections[idx + 1].id);
-                } else {
-                  void handlePreviewClick();
-                }
-              }}
-              className="inline-flex items-center px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs transition-colors cursor-pointer"
-            >
-              <span>
-                {activeSection === navSections[navSections.length - 1]?.id
-                  ? `Finish & View ${activeTemplate.name}`
-                  : 'Next Section'}
-              </span>
-              <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </button>
-          </div>
+            return (
+              <div className="mt-8 pt-4 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (prevTarget) setActiveSection(prevTarget);
+                  }}
+                  disabled={!prevTarget}
+                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+                  <span>
+                    {fallbackParentId === 'certifications'
+                      ? 'Back to Certificates & Grants'
+                      : fallbackParentId === 'custom-sections'
+                      ? 'Back to Projects & Additional'
+                      : 'Previous Section'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (nextTarget) {
+                      setActiveSection(nextTarget);
+                    } else {
+                      void handlePreviewClick();
+                    }
+                  }}
+                  className="inline-flex items-center px-4 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded shadow-xs transition-colors cursor-pointer"
+                >
+                  <span>
+                    {isFinalStep ? `Finish & View ${activeTemplate.name}` : 'Next Section'}
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+            );
+          })()}
         </main>
       </div>
 

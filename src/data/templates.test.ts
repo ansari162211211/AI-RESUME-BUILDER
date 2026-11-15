@@ -8,6 +8,8 @@ import {
   ELEGANT_SERIF_ORDER,
   ELEGANT_SERIF_RIGHT_ORDER,
   ENGINEERING_RESUME_ORDER,
+  EXECUTIVE_ORDER,
+  EXECUTIVE_SIDEBAR_ORDER,
   FRESHER_RESUME_ORDER,
   INTERNSHIP_LEFT_ORDER,
   INTERNSHIP_RESUME_ORDER,
@@ -32,6 +34,7 @@ import {
   SAMPLE_ENGINEERING_ECE_CV,
   SAMPLE_ENGINEERING_MECHANICAL_CV,
   SAMPLE_ENGINEERING_RESUME_CV,
+  SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
@@ -89,8 +92,8 @@ import {
 } from '../utils/resumePresentation';
 import type { Resume } from '../types/resume';
 
-test('keeps Templates 1 through 12 active in TEMPLATE_DEFINITIONS', () => {
-  assert.equal(TEMPLATE_DEFINITIONS.length, 12);
+test('keeps Templates 1 through 13 active in TEMPLATE_DEFINITIONS', () => {
+  assert.equal(TEMPLATE_DEFINITIONS.length, 13);
   assert.equal(TEMPLATE_DEFINITIONS[0].id, 'academic-cv');
   assert.equal(TEMPLATE_DEFINITIONS[0].name, 'Academic CV');
   assert.equal(TEMPLATE_DEFINITIONS[1].id, 'classic-professional');
@@ -115,10 +118,11 @@ test('keeps Templates 1 through 12 active in TEMPLATE_DEFINITIONS', () => {
   assert.equal(TEMPLATE_DEFINITIONS[10].name, 'Engineering Resume');
   assert.equal(TEMPLATE_DEFINITIONS[11].id, 'creative-professional');
   assert.equal(TEMPLATE_DEFINITIONS[11].name, 'Creative Professional');
+  assert.equal(TEMPLATE_DEFINITIONS[12].id, 'executive-resume');
+  assert.equal(TEMPLATE_DEFINITIONS[12].name, 'Executive Resume');
 
   const removedIds = [
     'modern-minimalist',
-    'executive-resume',
     'research-scholar',
     'simple-one-page',
   ];
@@ -165,6 +169,7 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(resolveTemplateId('internship-resume'), 'internship-resume');
   assert.equal(resolveTemplateId('engineering-resume'), 'engineering-resume');
   assert.equal(resolveTemplateId('creative-professional'), 'creative-professional');
+  assert.equal(resolveTemplateId('executive-resume'), 'executive-resume');
   assert.equal(resolveTemplateId('unknown-id'), 'academic-cv');
   assert.equal(getTemplateById('harvard-style').id, 'harvard-style');
   assert.equal(getTemplateById('harvard-style').name, 'Harvard Style');
@@ -180,6 +185,8 @@ test('resolves legacy, unknown, and valid template identifiers cleanly', () => {
   assert.equal(getTemplateById('engineering-resume').name, 'Engineering Resume');
   assert.equal(getTemplateById('creative-professional').id, 'creative-professional');
   assert.equal(getTemplateById('creative-professional').name, 'Creative Professional');
+  assert.equal(getTemplateById('executive-resume').id, 'executive-resume');
+  assert.equal(getTemplateById('executive-resume').name, 'Executive Resume');
   assert.equal(getTemplateById('academic-cv').name, 'Academic CV');
   assert.equal(getTemplateById('classic-professional').name, 'Classic Professional');
   assert.equal(getTemplateById('jakes-resume').name, "Jake's Resume");
@@ -1358,6 +1365,100 @@ test('Creative Professional (Template 12) configures blue-rule two-column layout
   assert.equal(visibleMin.includes('languages'), false);
   assert.equal(visibleMin.includes('publications'), false);
 });
+
+test('Executive Resume (Template 13) configures Executive Purple styling, two-column AltaCV structure, optional photo hiding, and referee privacy modes', () => {
+  const execTpl = getTemplateById('executive-resume');
+  assert.equal(execTpl.id, 'executive-resume');
+  assert.equal(execTpl.name, 'Executive Resume');
+  assert.equal(execTpl.layout, 'main-left-sidebar-right');
+  assert.equal(execTpl.headerVariant, 'two-column-header');
+  assert.equal(execTpl.defaultCustomization.fontFamily, 'sans');
+  assert.equal(execTpl.defaultCustomization.textColor, '#111827');
+  assert.equal(execTpl.defaultCustomization.accentColor, '#4c1d95');
+  assert.equal(execTpl.defaultCustomization.headingStyle, 'executive-purple-rule');
+  assert.deepEqual(execTpl.sectionOrder, EXECUTIVE_ORDER);
+  assert.deepEqual(execTpl.sidebarSections, EXECUTIVE_SIDEBAR_ORDER);
+  assert.ok(execTpl.categories.includes('Professional'));
+  assert.ok(execTpl.categories.includes('Academic CV'));
+
+  assert.equal(getSectionDisplayTitle('objective', 'executive-resume'), 'EXECUTIVE SUMMARY');
+  assert.equal(getSectionDisplayTitle('experience', 'executive-resume'), 'EXPERIENCE');
+  assert.equal(getSectionDisplayTitle('daily-life', 'executive-resume'), 'A DAY OF MY LIFE');
+  assert.equal(getSectionDisplayTitle('philosophy', 'executive-resume'), 'LIFE PHILOSOPHY');
+  assert.equal(getSectionDisplayTitle('achievements', 'executive-resume'), 'MOST PROUD OF');
+  assert.equal(getSectionDisplayTitle('strengths', 'executive-resume'), 'STRENGTHS');
+  assert.equal(getSectionDisplayTitle('languages', 'executive-resume'), 'LANGUAGES');
+  assert.equal(getSectionDisplayTitle('education', 'executive-resume'), 'EDUCATION');
+  assert.equal(getSectionDisplayTitle('publications', 'executive-resume'), 'PUBLICATIONS');
+  assert.equal(getSectionDisplayTitle('references', 'executive-resume'), 'REFEREES');
+
+  const execCv: Resume = {
+    ...SAMPLE_EXECUTIVE_RESUME_CV,
+    id: 'exec_1',
+    userId: 'u_1',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  };
+
+  // Sample never fabricates a fictional photoUrl
+  assert.equal(Boolean(execCv.personalInfo.photoUrl?.trim()), false);
+
+  const contacts = buildTwoColumnContactItems(execCv.personalInfo);
+  assert.ok(contacts.some((c) => c.kind === 'email' && c.url?.startsWith('mailto:')));
+  assert.ok(contacts.some((c) => c.kind === 'phone' && c.url?.startsWith('tel:')));
+  assert.ok(contacts.some((c) => c.kind === 'linkedin'));
+  assert.ok(contacts.some((c) => c.kind === 'website'));
+  assert.ok(contacts.some((c) => c.kind === 'twitter'));
+
+  const visibleFull = getOrderedVisibleSections(execCv, execTpl);
+  assert.ok(visibleFull.includes('experience'));
+  assert.ok(visibleFull.includes('daily-life'));
+  assert.ok(visibleFull.includes('philosophy'));
+  assert.ok(visibleFull.includes('achievements'));
+  assert.ok(visibleFull.includes('strengths'));
+  assert.ok(visibleFull.includes('languages'));
+  assert.ok(visibleFull.includes('education'));
+  assert.ok(visibleFull.includes('publications'));
+  assert.ok(visibleFull.includes('references'));
+
+  // Referees privacy modes: 'on-request' visible with empty references; 'hidden' omitted cleanly
+  assert.equal(
+    isSectionVisibleAndPopulated(
+      { ...execCv, references: [], referencesDisplayMode: 'on-request' },
+      'references',
+      'executive-resume'
+    ),
+    true
+  );
+  assert.equal(
+    isSectionVisibleAndPopulated(
+      { ...execCv, referencesDisplayMode: 'hidden' },
+      'references',
+      'executive-resume'
+    ),
+    false
+  );
+
+  // Empty optional sections omit cleanly without altering required core sections
+  const minimalExec: Resume = {
+    ...execCv,
+    objective: '',
+    personalQuote: '',
+    philosophyExplanation: '',
+    dailyActivities: [],
+    achievements: [],
+    strengths: [],
+    languages: [],
+    publications: [],
+    projects: [],
+    customSections: [],
+    references: [],
+    referencesDisplayMode: 'hidden',
+  };
+  const visibleMin = getOrderedVisibleSections(minimalExec, execTpl);
+  assert.deepEqual(visibleMin, ['experience', 'education']);
+});
+
 
 
 

@@ -197,6 +197,8 @@ export default function App() {
             ? 'engineering-resume'
             : template.id === 'creative-professional'
             ? 'creative-professional'
+            : template.id === 'executive-resume'
+            ? 'executive-resume'
             : template.categories.includes('Student & Fresher')
             ? 'fresher'
             : template.categories.includes('Technical & Developer')
@@ -226,6 +228,8 @@ export default function App() {
             ? 'Engineering Resume'
             : template.id === 'creative-professional'
             ? 'Creative Professional Resume'
+            : template.id === 'executive-resume'
+            ? 'Executive Resume'
             : `${template.name} CV`,
           seedType,
           user.displayName || undefined,

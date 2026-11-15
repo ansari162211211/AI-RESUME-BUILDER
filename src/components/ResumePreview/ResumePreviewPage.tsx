@@ -52,6 +52,8 @@ const HEADING_STYLE_OPTIONS: { value: TemplateHeadingStyle; label: string }[] = 
   { value: 'clean-caps', label: 'Clean Minimal Caps' },
   { value: 'italic-serif', label: 'Editorial Italic' },
   { value: 'internship-rule', label: 'Internship Bold Rule' },
+  { value: 'creative-blue-rule', label: 'Creative Blue + Rule' },
+  { value: 'executive-purple-rule', label: 'Executive Purple + Rule' },
 ];
 
 export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({

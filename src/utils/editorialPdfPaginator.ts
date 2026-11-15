@@ -14,6 +14,7 @@ import {
   getInternshipResearchAndProjectEntries,
   getInternshipSkillRows,
   getVisibleSkills,
+  groupPublicationsForTwoColumn,
 } from './resumePresentation';
 
 export interface EditorialPdfScale {
@@ -96,33 +97,56 @@ export function estimateCreativeHeaderHeightPt(
   contactItemCount: number,
   scale: EditorialPdfScale
 ): number {
-  const nameHeight = scale.namePt * 1.18;
+  const nameHeight = scale.namePt * 1.12;
   const titleLines = [resume.personalInfo?.jobTitle, resume.personalInfo?.specialization]
     .filter((s) => Boolean(s?.trim()))
     .join(' · ');
-  const titleHeight = titleLines ? scale.jobTitlePt * 1.35 + 3 : 0;
-  const taglineHeight = resume.personalInfo?.tagline?.trim() ? scale.metaPt * 1.4 + 2 : 0;
-  const contactRows = contactItemCount === 0 ? 0 : Math.ceil(contactItemCount / 3.2);
-  const contactHeight = contactRows * (scale.metaPt * 1.35 + 4) + (contactRows > 0 ? 4 : 0);
-  const quoteLines = wrappedLines(resume.personalQuote, 72);
-  const quoteHeight = quoteLines > 0 ? quoteLines * (scale.metaPt * 1.35) + 6 : 0;
-  return Math.ceil(nameHeight + titleHeight + taglineHeight + contactHeight + quoteHeight + 18);
+  const titleHeight = titleLines ? scale.jobTitlePt * 1.25 + 2.5 : 0;
+  const taglineHeight = resume.personalInfo?.tagline?.trim() ? scale.metaPt * 1.3 + 3.5 : 0;
+  const contactRows = contactItemCount === 0 ? 0 : Math.ceil(contactItemCount / 4.2);
+  const contactHeight = contactRows * (scale.metaPt * 1.3 + 2.5) + (contactRows > 0 ? 2 : 0);
+  const quoteLines = wrappedLines(resume.personalQuote, 100);
+  const quoteHeight = quoteLines > 0 ? quoteLines * (scale.metaPt * 1.32) + 4 : 0;
+  return Math.ceil(nameHeight + titleHeight + taglineHeight + contactHeight + quoteHeight + 14);
+}
+
+export function estimateExecutiveHeaderHeightPt(
+  resume: Resume,
+  contactItemCount: number,
+  scale: EditorialPdfScale
+): number {
+  const nameHeight = (scale.namePt + 1) * 1.1;
+  const titleHeight = resume.personalInfo?.jobTitle?.trim() ? (scale.jobTitlePt + 0.5) * 1.25 + 2 : 0;
+  const taglineLines = wrappedLines(resume.personalInfo?.tagline, 96);
+  const taglineHeight = taglineLines > 0 ? taglineLines * (scale.metaPt * 1.28) + 3.5 : 0;
+  const contactRows = contactItemCount === 0 ? 0 : Math.ceil(contactItemCount / 4.0);
+  const contactHeight = contactRows * ((scale.metaPt - 0.25) * 1.3 + 2.5);
+  const leftHeight = nameHeight + titleHeight + taglineHeight + contactHeight;
+  const hasPhoto = Boolean(resume.personalInfo?.photoUrl?.trim() && !resume.personalInfo?.hidePhoto);
+  const photoHeight = hasPhoto ? (resume.personalInfo?.photoShape === 'portrait' ? 84 : 68) : 0;
+  return Math.ceil(Math.max(leftHeight, photoHeight) + 10);
 }
 
 function buildSectionAtomicUnits(
   sectionKey: ResumeSectionKey,
   resume: Resume,
   scale: EditorialPdfScale,
-  mode: 'editorial' | 'internship' | 'creative' = 'editorial'
+  mode: 'editorial' | 'internship' | 'creative' | 'executive' = 'editorial'
 ): AtomicUnit[] {
-  const headingPt = scale.sectionGapPt + (scale.headingPt + 0.5) * 1.25 + 8;
+  const headingPt =
+    mode === 'creative'
+      ? scale.sectionGapPt + scale.headingPt * 1.15 + 6
+      : mode === 'executive'
+      ? scale.sectionGapPt + (scale.headingPt + 0.5) * 1.2 + 8
+      : scale.sectionGapPt + (scale.headingPt + 0.5) * 1.25 + 8;
   const bodyLinePt = scale.bodyPt * scale.lineHeight;
   const metaLinePt = scale.metaPt * 1.32;
   const titleLinePt = scale.entryTitlePt * 1.26;
 
-  // Body width in date-rail (~186pt) vs full column (~248pt)
-  const railChars = mode === 'internship' ? 48 : mode === 'creative' ? 38 : 42;
-  const fullChars = 54;
+  // Body width in date-rail (~186pt) / executive right col (~206pt) vs left/full column (~313pt)
+  const railChars =
+    mode === 'internship' ? 48 : mode === 'creative' ? 50 : mode === 'executive' ? 46 : 42;
+  const fullChars = mode === 'creative' ? 68 : mode === 'executive' ? 74 : 54;
 
   switch (sectionKey) {
     case 'objective': {
@@ -143,12 +167,65 @@ function buildSectionAtomicUnits(
       if (resume.careerGoals?.trim()) {
         pt += wrappedLines(`Career Goals: ${resume.careerGoals.trim()}`, fullChars) * bodyLinePt;
       }
+      if (mode === 'executive') {
+        const extraLines =
+          (resume.managementStyle?.trim() ? 1 : 0) +
+          (Array.isArray(resume.strategicDomains) && resume.strategicDomains.filter((d) => d.trim()).length > 0 ? 1 : 0);
+        if (resume.managementStyle?.trim()) {
+          pt += wrappedLines(`Management Style: ${resume.managementStyle.trim()}`, fullChars) * bodyLinePt + 2;
+        }
+        if (Array.isArray(resume.strategicDomains) && resume.strategicDomains.filter((d) => d.trim()).length > 0) {
+          pt += wrappedLines(`Strategic Focus: ${resume.strategicDomains.filter((d) => d.trim()).join(' · ')}`, fullChars) * bodyLinePt + 2;
+        }
+        if (paragraphs.length === 0 && extras === 0 && extraLines === 0) return [];
+        return [{ sectionKey, itemIndex: 0, itemCount: 1, includeHeading: true, heightPt: Math.ceil(pt) }];
+      }
       if (paragraphs.length === 0 && extras === 0) return [];
       return [{ sectionKey, itemIndex: 0, itemCount: 1, includeHeading: true, heightPt: Math.ceil(pt) }];
     }
 
     case 'education': {
-      if (mode === 'internship' || mode === 'creative') {
+      if (mode === 'executive') {
+        const list = resume.education || [];
+        return list.map((edu, idx) => {
+          let pt = scale.entryGapPt + (idx > 0 ? 5 : 1);
+          pt += wrappedLines(`${edu.degree}${edu.specialization ? `, ${edu.specialization}` : ''}`, railChars) * titleLinePt;
+          if (edu.institution?.trim()) pt += wrappedLines(edu.institution, railChars) * metaLinePt + 1;
+          if (edu.startDate || edu.endDate || edu.current || edu.location) pt += metaLinePt + 1.5;
+          if (edu.grade?.trim()) pt += wrappedLines(edu.grade, railChars) * bodyLinePt + 1;
+          if (edu.honors?.trim() || edu.achievements?.trim()) {
+            pt += wrappedLines(edu.honors || edu.achievements || '', railChars) * bodyLinePt + 1;
+          }
+          if (edu.description?.trim()) pt += wrappedLines(edu.description, railChars) * bodyLinePt + 1;
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: list.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        });
+      }
+      if (mode === 'creative') {
+        const list = getInternshipEducationEntries(resume);
+        return list.map((edu, idx) => {
+          let pt = scale.entryGapPt + 1;
+          pt += wrappedLines(edu.heading, railChars) * titleLinePt;
+          const instLoc = [edu.institution, edu.location].filter(Boolean).join(' · ');
+          if (instLoc) pt += wrappedLines(instLoc, railChars) * metaLinePt + 0.5;
+          edu.subDetails.forEach((d) => {
+            pt += wrappedLines(d, railChars) * bodyLinePt + 0.5;
+          });
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: list.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        });
+      }
+      if (mode === 'internship') {
         const list = getInternshipEducationEntries(resume);
         return list.map((edu, idx) => {
           let pt = scale.entryGapPt + 6;
@@ -198,6 +275,50 @@ function buildSectionAtomicUnits(
     case 'experience': {
       const list = resume.experience || [];
       return list.map((exp, idx) => {
+        if (mode === 'executive') {
+          let pt = scale.entryGapPt + (idx > 0 ? 5 : 1);
+          pt += wrappedLines(exp.position, fullChars - 4) * titleLinePt;
+          pt += wrappedLines(`${exp.company}${exp.employmentType ? ` (${exp.employmentType})` : ''}`, fullChars) * metaLinePt + 0.5;
+          if (exp.startDate || exp.endDate || exp.current || exp.location || exp.teamSize) {
+            pt += metaLinePt + 2;
+          }
+          if (exp.description?.trim()) pt += wrappedLines(exp.description, fullChars) * bodyLinePt + 1.5;
+          if (exp.results?.trim()) pt += wrappedLines(exp.results, fullChars) * bodyLinePt + 1.5;
+          (exp.highlights || []).filter((h) => h.trim()).forEach((h) => {
+            pt += wrappedLines(h, fullChars - 4) * bodyLinePt + 2;
+          });
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: list.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        }
+        if (mode === 'creative') {
+          let pt = scale.entryGapPt;
+          pt += wrappedLines(`${exp.position}${exp.employmentType ? ` (${exp.employmentType})` : ''}`, 48) * titleLinePt;
+          const compLoc = [exp.company, exp.location].filter(Boolean).join(' · ');
+          if (compLoc) pt += wrappedLines(compLoc, railChars) * metaLinePt;
+          if (exp.description?.trim()) pt += wrappedLines(exp.description, railChars) * (bodyLinePt * 0.96) + 1;
+          const demonstrated = Array.isArray(exp.skillsDemonstrated)
+            ? exp.skillsDemonstrated
+            : typeof exp.skillsDemonstrated === 'string' && exp.skillsDemonstrated
+            ? [exp.skillsDemonstrated]
+            : [];
+          const tech = [...(exp.technologies || []), ...demonstrated].filter(Boolean);
+          if (tech.length > 0) pt += wrappedLines(tech.join(' · '), railChars + 2) * (metaLinePt * 0.96) + 0.5;
+          (exp.highlights || []).filter((h) => h.trim()).forEach((h) => {
+            pt += wrappedLines(h, railChars - 2) * (bodyLinePt * 0.96) + 1;
+          });
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: list.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        }
         let pt = scale.entryGapPt + 4;
         pt += wrappedLines(`${exp.position}${exp.employmentType ? ` (${exp.employmentType})` : ''}`, 36) * titleLinePt;
         pt += wrappedLines(exp.company, railChars) * metaLinePt;
@@ -288,17 +409,54 @@ function buildSectionAtomicUnits(
     }
 
     case 'publications': {
-      const list =
-        mode === 'creative' ? getCreativeTalksAndPublications(resume) : resume.publications || [];
+      if (mode === 'executive') {
+        const groups = groupPublicationsForTwoColumn(resume.publications || []);
+        const flatPubs = groups.flatMap((g, gIdx) =>
+          g.items.map((pub, itemIdx) => ({ group: g, pub, isFirstInGroup: itemIdx === 0, gIdx }))
+        );
+        return flatPubs.map((entry, idx) => {
+          const { pub, isFirstInGroup, gIdx } = entry;
+          let pt = 4 + (isFirstInGroup ? 16 : 0) + (isFirstInGroup && gIdx > 0 ? 7 : 0);
+          const citationLine = `${pub.authors || ''} (${pub.year || ''}). "${pub.title || ''}" ${
+            pub.journalOrConference || pub.publisher || ''
+          } ${pub.volume || ''} ${pub.location || ''}`;
+          pt += wrappedLines(citationLine, fullChars - 2) * bodyLinePt;
+          if (pub.doi?.trim() || pub.url?.trim()) pt += metaLinePt * 0.5;
+          if (pub.description?.trim()) pt += wrappedLines(pub.description, fullChars - 2) * metaLinePt;
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: flatPubs.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        });
+      }
+      if (mode === 'creative') {
+        const list = getCreativeTalksAndPublications(resume);
+        return list.map((pub, idx) => {
+          let pt = 4;
+          pt += wrappedLines(pub.title, fullChars - 8) * titleLinePt;
+          const metaLine = [pub.journalOrConference || pub.publisher, pub.authors].filter(Boolean).join(' · ');
+          if (metaLine) pt += wrappedLines(metaLine, fullChars) * metaLinePt + 0.5;
+          if (pub.description?.trim()) pt += wrappedLines(pub.description, fullChars) * bodyLinePt + 1;
+          if (pub.doi?.trim() || pub.url?.trim()) pt += metaLinePt + 0.5;
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: list.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        });
+      }
+      const list = resume.publications || [];
       return list.map((pub, idx) => {
         let pt = 4 + 2;
         pt += wrappedLines(pub.title, railChars) * bodyLinePt;
         if (pub.authors?.trim()) pt += wrappedLines(pub.authors, railChars) * metaLinePt;
         if (pub.journalOrConference?.trim() || pub.publisher?.trim()) {
           pt += wrappedLines(pub.journalOrConference || pub.publisher, railChars) * metaLinePt;
-        }
-        if (mode === 'creative' && pub.description?.trim()) {
-          pt += wrappedLines(pub.description, railChars) * bodyLinePt;
         }
         if (pub.doi?.trim() || pub.url?.trim()) pt += metaLinePt;
         return {
@@ -314,6 +472,28 @@ function buildSectionAtomicUnits(
     case 'achievements': {
       const list = resume.achievements || [];
       return list.map((ach, idx) => {
+        if (mode === 'executive') {
+          let pt = scale.entryGapPt + (idx > 0 ? 5 : 1);
+          pt += wrappedLines(ach.title, railChars - 4) * titleLinePt;
+          const detailLine = [
+            ach.issuer,
+            ach.date ? `(${ach.date})` : '',
+            ach.description,
+            ach.challenge ? `Challenge: ${ach.challenge}` : '',
+            ach.actionTaken ? `Action: ${ach.actionTaken}` : '',
+            ach.outcome ? `Outcome: ${ach.outcome}` : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          if (detailLine) pt += wrappedLines(detailLine, railChars - 4) * bodyLinePt + 1;
+          return {
+            sectionKey,
+            itemIndex: idx,
+            itemCount: list.length,
+            includeHeading: idx === 0,
+            heightPt: Math.ceil((idx === 0 ? headingPt : 0) + pt),
+          };
+        }
         let pt = scale.entryGapPt + 2;
         pt += wrappedLines(ach.title, 36) * titleLinePt;
         if (ach.issuer?.trim() || ach.category?.trim()) {
@@ -332,16 +512,63 @@ function buildSectionAtomicUnits(
       });
     }
 
+    case 'daily-life': {
+      const hasValidSlices = (resume.dailyActivities || []).some((d) => {
+        const val = mode === 'executive' ? d.percentage ?? d.hours : d.hours;
+        return Boolean(d.activity?.trim() && typeof val === 'number' && val > 0);
+      });
+      if (!hasValidSlices || resume.showDailyActivityChart === false) return [];
+      return [
+        {
+          sectionKey,
+          itemIndex: 0,
+          itemCount: 1,
+          includeHeading: true,
+          heightPt: Math.ceil(headingPt + 158),
+        },
+      ];
+    }
+
+    case 'philosophy': {
+      const quote = (resume.personalQuote || '').trim();
+      const explanation = (resume.philosophyExplanation || '').trim();
+      if (!quote && !explanation) return [];
+      let pt = headingPt + 4;
+      if (quote) pt += wrappedLines(`"${quote}"`, mode === 'executive' ? 42 : 32) * (bodyLinePt * 1.15);
+      if (explanation) pt += wrappedLines(explanation, mode === 'executive' ? 46 : 36) * metaLinePt + 3;
+      return [{ sectionKey, itemIndex: 0, itemCount: 1, includeHeading: true, heightPt: Math.ceil(pt) }];
+    }
+
+    case 'strengths': {
+      const items = (resume.strengths || []).map((s) => s.trim()).filter(Boolean);
+      if (items.length === 0) return [];
+      const totalChars = items.reduce((acc, s) => acc + s.length + 5, 0);
+      const tagRows = Math.max(1, Math.ceil(totalChars / (mode === 'executive' ? 42 : 28)));
+      return [
+        {
+          sectionKey,
+          itemIndex: 0,
+          itemCount: 1,
+          includeHeading: true,
+          heightPt: Math.ceil(headingPt + tagRows * 18 + 6),
+        },
+      ];
+    }
+
     case 'skills': {
       if (mode === 'creative') {
         const groups = getCreativeCategorizedSkills(resume);
         return groups.map((grp, idx) => {
-          let pt = scale.entryGapPt + metaLinePt + 4;
+          let pt = 2 + metaLinePt;
           grp.items.forEach((it) => {
-            pt += wrappedLines(it.name, fullChars) * bodyLinePt + 2;
-            if (it.description?.trim()) {
-              pt += wrappedLines(it.description, fullChars) * metaLinePt;
-            }
+            const inlineLine = [
+              it.name,
+              it.organization?.trim() ? `(${it.organization.trim()})` : '',
+              it.description?.trim() ? `— ${it.description.trim()}` : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
+            pt += wrappedLines(inlineLine, fullChars) * (bodyLinePt * 0.96) + 1;
           });
           return {
             sectionKey,
@@ -394,9 +621,9 @@ function buildSectionAtomicUnits(
         const pair = circles.slice(r * 2, r * 2 + 2);
         const maxDescLines = Math.max(
           1,
-          ...pair.map((p) => wrappedLines(p.description || p.name, 22))
+          ...pair.map((p) => wrappedLines(p.description || p.name, mode === 'creative' ? 26 : 22))
         );
-        const rowPt = 48 + maxDescLines * metaLinePt + 8;
+        const rowPt = (mode === 'creative' ? 34 : 42) + 10 + maxDescLines * (metaLinePt * 0.88) + 4;
         units.push({
           sectionKey,
           itemIndex: r,
@@ -410,20 +637,23 @@ function buildSectionAtomicUnits(
 
     case 'skill-bars': {
       const bars = getCreativeHorizontalSkillBars(resume);
-      return bars.map((b, idx) => ({
-        sectionKey,
-        itemIndex: idx,
-        itemCount: bars.length,
-        includeHeading: idx === 0,
-        heightPt: Math.ceil((idx === 0 ? headingPt : 0) + bodyLinePt + 7),
-      }));
+      return bars.map((b, idx) => {
+        const labelLines = Math.max(1, wrappedLines(b.name, 22));
+        return {
+          sectionKey,
+          itemIndex: idx,
+          itemCount: bars.length,
+          includeHeading: idx === 0,
+          heightPt: Math.ceil((idx === 0 ? headingPt : 0) + labelLines * (bodyLinePt * 0.96) + 4),
+        };
+      });
     }
 
     case 'communication': {
       const comms = getCreativeCommunicationSkills(resume);
       return comms.map((c, idx) => {
-        let pt = bodyLinePt + 4;
-        if (c.proficiency?.trim()) pt += metaLinePt;
+        const skillLines = Math.max(1, wrappedLines(c.skill, 38));
+        let pt = skillLines * bodyLinePt + 3.5;
         if (c.context?.trim()) pt += wrappedLines(c.context, fullChars) * metaLinePt;
         return {
           sectionKey,
@@ -441,7 +671,7 @@ function buildSectionAtomicUnits(
         const line = `${lang.language}${lang.proficiency ? ` — ${lang.proficiency}` : ''}${
           lang.comment ? ` (${lang.comment})` : ''
         }`;
-        const pt = wrappedLines(line, fullChars) * bodyLinePt + (mode === 'creative' ? 5 : 2.5);
+        const pt = wrappedLines(line, fullChars) * bodyLinePt + (mode === 'creative' ? 4 : 2.5);
         return {
           sectionKey,
           itemIndex: idx,
@@ -456,9 +686,10 @@ function buildSectionAtomicUnits(
       if (mode === 'creative') {
         const items = getCreativeCertificatesAndGrants(resume);
         return items.map((c, idx) => {
-          let pt = scale.entryGapPt + wrappedLines(c.title, railChars) * bodyLinePt + 3;
-          if (c.issuer) pt += wrappedLines(c.issuer, railChars) * metaLinePt;
-          if (c.description) pt += wrappedLines(c.description, railChars) * metaLinePt;
+          let pt = 3.5 + wrappedLines(c.title, fullChars - 8) * bodyLinePt;
+          if (c.issuer) pt += wrappedLines(c.issuer, fullChars) * metaLinePt;
+          if (c.description) pt += wrappedLines(c.description, fullChars) * metaLinePt + 0.5;
+          if (c.url) pt += metaLinePt + 0.5;
           return {
             sectionKey,
             itemIndex: idx,
@@ -648,7 +879,7 @@ function packColumnUnits(
   scale: EditorialPdfScale,
   firstPageMaxPt: number,
   nextPageMaxPt: number,
-  mode: 'editorial' | 'internship' | 'creative' = 'editorial'
+  mode: 'editorial' | 'internship' | 'creative' | 'executive' = 'editorial'
 ): EditorialPdfSectionSlice[][] {
   const units: AtomicUnit[] = [];
   sectionKeys.forEach((k) => {
@@ -697,12 +928,14 @@ export function paginateEditorialPdfColumns(params: {
   resume: Resume;
   scale: EditorialPdfScale;
   headerHeightPt: number;
-  mode?: 'editorial' | 'internship' | 'creative';
+  mode?: 'editorial' | 'internship' | 'creative' | 'executive';
 }): EditorialPdfPagePlan[] {
   const { leftSections, rightSections, resume, scale, headerHeightPt, mode = 'editorial' } = params;
-  const pageVerticalPaddingPt = scale.marginTopPt + scale.marginBottomPt + 24;
-  // 20pt safety buffer above the footer to prevent any border/text touch
-  const nextPageMaxPt = Math.max(260, A4_HEIGHT_PT - pageVerticalPaddingPt - 20);
+  const pageVerticalPaddingPt =
+    scale.marginTopPt + scale.marginBottomPt + (mode === 'creative' ? 4 : mode === 'executive' ? 12 : 24);
+  // Safety buffer above the footer to prevent any border/text touch
+  const footerSafetyPt = mode === 'creative' ? 6 : mode === 'executive' ? 14 : 20;
+  const nextPageMaxPt = Math.max(260, A4_HEIGHT_PT - pageVerticalPaddingPt - footerSafetyPt);
   const firstPageMaxPt = Math.max(220, nextPageMaxPt - headerHeightPt);
 
   const leftPages = packColumnUnits(leftSections, resume, scale, firstPageMaxPt, nextPageMaxPt, mode);

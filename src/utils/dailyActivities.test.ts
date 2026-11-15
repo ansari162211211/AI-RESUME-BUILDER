@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  EXECUTIVE_PURPLE_DONUT_PALETTE,
   computeDonutChartSegments,
+  getDonutPalette,
   getLanguageDotScore,
   validateDailyActivities,
 } from './dailyActivities';
@@ -52,7 +54,35 @@ test('validateDailyActivities rejects totals exceeding 24 hours and non-positive
   assert.equal(missingName.invalidEntries.length, 1);
 });
 
-test('computeDonutChartSegments generates valid SVG arc paths and separated leader label coordinates', () => {
+test('validateDailyActivities supports percentage mode (<= 100%) and rejects totals exceeding 100%', () => {
+  const validPct = validateDailyActivities(
+    [
+      { id: 'p1', activity: 'Corporate Strategy', hours: 35, percentage: 35 },
+      { id: 'p2', activity: 'Product Innovation', hours: 25, percentage: 25 },
+      { id: 'p3', activity: 'Board & Investors', hours: 20, percentage: 20 },
+      { id: 'p4', activity: 'Talent & Culture', hours: 20, percentage: 20 },
+    ],
+    'percentage'
+  );
+  assert.equal(validPct.valid, true);
+  assert.equal(validPct.mode, 'percentage');
+  assert.equal(validPct.totalPercentage, 100);
+  assert.equal(validPct.remainingPercentage, 0);
+  assert.equal(validPct.validItems.length, 4);
+
+  const overPct = validateDailyActivities(
+    [
+      { id: 'p1', activity: 'Strategy', hours: 60, percentage: 60 },
+      { id: 'p2', activity: 'Operations', hours: 55, percentage: 55 },
+    ],
+    'percentage'
+  );
+  assert.equal(overPct.valid, false);
+  assert.equal(overPct.totalPercentage, 115);
+  assert.ok(overPct.error?.includes('exceeds 100%'));
+});
+
+test('computeDonutChartSegments generates valid SVG arc paths and uses EXECUTIVE_PURPLE_DONUT_PALETTE for #4c1d95', () => {
   const geom = computeDonutChartSegments(
     [
       { id: '1', activity: 'Daytime job', hours: 8 },
@@ -72,6 +102,22 @@ test('computeDonutChartSegments generates valid SVG arc paths and separated lead
     assert.ok(seg.pathD.endsWith('Z'), 'Arc path must be closed');
     assert.ok(seg.color.startsWith('#'));
   }
+
+  assert.deepEqual(getDonutPalette('#4c1d95'), EXECUTIVE_PURPLE_DONUT_PALETTE);
+
+  const execGeom = computeDonutChartSegments(
+    [
+      { id: 'e1', activity: 'Corporate Strategy', hours: 40, percentage: 40 },
+      { id: 'e2', activity: 'Product Innovation', hours: 35, percentage: 35 },
+      { id: 'e3', activity: 'Executive Leadership', hours: 25, percentage: 25 },
+    ],
+    { accentColor: '#4c1d95', mode: 'percentage' }
+  );
+  assert.equal(execGeom.totalHours, 100);
+  assert.equal(execGeom.segments.length, 3);
+  assert.equal(execGeom.segments[0].color, EXECUTIVE_PURPLE_DONUT_PALETTE[0]);
+  assert.equal(execGeom.segments[1].color, EXECUTIVE_PURPLE_DONUT_PALETTE[1]);
+  assert.equal(execGeom.segments[2].color, EXECUTIVE_PURPLE_DONUT_PALETTE[2]);
 
   // Empty activities yield empty segments cleanly
   const empty = computeDonutChartSegments([]);

@@ -1,6 +1,7 @@
 import type {
   CreativeProfession,
   EngineeringBranch,
+  ExecutiveRoleType,
   InterviewChatMessage,
   InternshipTrack,
   Resume,
@@ -156,6 +157,39 @@ export function mergeResumeUpdates(
   if (typeof u.proficiencyHeadingOverride === 'string' && u.proficiencyHeadingOverride.trim()) {
     updated.proficiencyHeadingOverride = u.proficiencyHeadingOverride.trim();
   }
+  if (
+    u.executiveRoleType === 'ceo' ||
+    u.executiveRoleType === 'cto' ||
+    u.executiveRoleType === 'cfo' ||
+    u.executiveRoleType === 'coo' ||
+    u.executiveRoleType === 'hr-director' ||
+    u.executiveRoleType === 'marketing-director' ||
+    u.executiveRoleType === 'founder' ||
+    u.executiveRoleType === 'other'
+  ) {
+    updated.executiveRoleType = u.executiveRoleType;
+  }
+  if (typeof u.customExecutiveRole === 'string' && u.customExecutiveRole.trim()) {
+    updated.customExecutiveRole = u.customExecutiveRole.trim();
+  }
+  if (typeof u.executiveIndustry === 'string' && u.executiveIndustry.trim()) {
+    updated.executiveIndustry = u.executiveIndustry.trim();
+  }
+  if (typeof u.executiveYearsExperience === 'string' && u.executiveYearsExperience.trim()) {
+    updated.executiveYearsExperience = u.executiveYearsExperience.trim();
+  }
+  if (typeof u.philosophyExplanation === 'string' && u.philosophyExplanation.trim()) {
+    updated.philosophyExplanation = u.philosophyExplanation.trim();
+  }
+  if (typeof u.managementStyle === 'string' && u.managementStyle.trim()) {
+    updated.managementStyle = u.managementStyle.trim();
+  }
+  if (Array.isArray(u.strategicDomains) && u.strategicDomains.length > 0) {
+    updated.strategicDomains = dedupeStrings(base.strategicDomains, u.strategicDomains);
+  }
+  if (u.dailyActivityMode === 'hours' || u.dailyActivityMode === 'percentage') {
+    updated.dailyActivityMode = u.dailyActivityMode;
+  }
 
   if (Array.isArray(u.learningActivities) && u.learningActivities.length > 0) {
     const sanitizedLearning = u.learningActivities
@@ -271,14 +305,28 @@ export function mergeResumeUpdates(
     );
   }
   if (Array.isArray(u.dailyActivities) && u.dailyActivities.length > 0) {
+    const mode =
+      u.dailyActivityMode ||
+      base.dailyActivityMode ||
+      (base.template === 'executive-resume' ? 'percentage' : 'hours');
     const sanitized = u.dailyActivities
-      .filter((d) => typeof d?.activity === 'string' && d.activity.trim() && Number(d.hours) > 0)
+      .filter((d) => {
+        if (!d || typeof d.activity !== 'string' || !d.activity.trim()) return false;
+        const val = mode === 'percentage' ? Number(d.percentage ?? d.hours) : Number(d.hours);
+        return Number.isFinite(val) && val > 0;
+      })
       .map((d, i) => ({
         id: d.id || `day_${Date.now()}_${i}`,
         activity: d.activity.trim(),
-        hours: Number(d.hours),
+        hours: Number(d.hours) > 0 ? Number(d.hours) : Number(d.percentage ?? 0),
+        ...(d.percentage !== undefined || mode === 'percentage'
+          ? { percentage: Number(d.percentage ?? d.hours) }
+          : {}),
+        ...(typeof d.description === 'string' && d.description.trim()
+          ? { description: d.description.trim() }
+          : {}),
       }));
-    const check = validateDailyActivities(sanitized);
+    const check = validateDailyActivities(sanitized, mode);
     if (check.valid && check.validItems.length > 0) {
       updated.dailyActivities = check.validItems;
       updated.showDailyActivityChart = true;
@@ -1811,6 +1859,582 @@ export function buildAdaptiveCreativeFallback(
   const spec =
     CREATIVE_PROFESSION_PROMPTS[profession][nextSection] ||
     CREATIVE_PROFESSION_PROMPTS[profession].personalInfo;
+
+  return {
+    reply: spec.reply,
+    structuredUpdates,
+    isSectionCompleted: wantsSkip,
+    nextSection,
+    suggestedChips: spec.chips,
+  };
+}
+
+export const EXECUTIVE_SECTION_FLOW = [
+  'personalInfo',
+  'philosophy',
+  'experience',
+  'achievements',
+  'strengths',
+  'daily-life',
+  'education',
+  'languages',
+  'publications',
+  'references',
+  'custom-sections',
+];
+
+export function detectExecutiveRoleFromText(text: string): ExecutiveRoleType | null {
+  const lower = text.trim().toLowerCase();
+  if (!lower) return null;
+  if (/\b(chief executive|\bceo\b|managing director|president\s*&?\s*ceo|board chair|general manager)\b/.test(lower)) {
+    return 'ceo';
+  }
+  if (/\b(chief technology|\bcto\b|chief information|\bcio\b|vp of engineering|vp engineering|head of engineering|chief architect)\b/.test(lower)) {
+    return 'cto';
+  }
+  if (/\b(chief financial|\bcfo\b|vp of finance|vp finance|treasurer|controller|head of finance)\b/.test(lower)) {
+    return 'cfo';
+  }
+  if (/\b(chief operating|\bcoo\b|vp of operations|vp operations|head of operations|chief of staff)\b/.test(lower)) {
+    return 'coo';
+  }
+  if (/\b(hr director|chief people|chief human resources|\bchro\b|vp of people|vp human resources|talent executive)\b/.test(lower)) {
+    return 'hr-director';
+  }
+  if (/\b(chief marketing|\bcmo\b|marketing director|vp of marketing|vp growth|chief revenue|\bcro\b|brand director)\b/.test(lower)) {
+    return 'marketing-director';
+  }
+  if (/\b(co-?founder|founder|entrepreneur|principal partner|managing partner)\b/.test(lower)) {
+    return 'founder';
+  }
+  if (/\b(other executive|custom executive|senior advisor|nonprofit director|board director)\b/.test(lower)) {
+    return 'other';
+  }
+  return null;
+}
+
+export const EXECUTIVE_ROLE_PROMPTS: Record<
+  ExecutiveRoleType,
+  Record<string, { reply: string; chips: string[] }>
+> = {
+  ceo: {
+    personalInfo: {
+      reply:
+        'CEO / Managing Director profile selected. Share your full name, executive title, short tagline, location, email, phone, and LinkedIn or board link.',
+      chips: ['Share executive contact details', 'Add LinkedIn & Website', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'What guiding executive quote or leadership philosophy defines how you lead, and optionally what 1–2 sentence executive summary or management style would you like?',
+      chips: ['Add leadership quote & ethos', 'Add Executive Summary', 'Next: Executive Experience'],
+    },
+    experience: {
+      reply:
+        'Walk me through your senior executive roles: title, company, dates, location, organization/team size you confirmed, and measurable business or transformation results.',
+      chips: ['Add CEO / GM tenure', 'Add VP / Board role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, share 2–4 defining leadership milestones (title, brief challenge, action taken, and real outcome — no invented numbers).',
+      chips: ['Turnaround / Market Expansion', 'Product & Organizational Scale', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'Which executive STRENGTHS & core competencies would you like shown as clean outline tags (e.g., Corporate Strategy, Board Governance, P&L Ownership, M&A)?',
+      chips: ['Corporate Strategy, P&L, M&A', 'Board Governance, Scaling', 'Next: Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: For A DAY OF MY LIFE, how do you split your executive week in % (total <= 100%) or hours (<= 24h) — or skip cleanly?',
+      chips: ['Strategy 35%, Operations 25%, Product 25%, Talent 15%', 'Skip Day of My Life', 'Next: Education'],
+    },
+    education: {
+      reply:
+        'Share your university degrees (MBA, B.S., etc.), institutions, dates, locations, and any academic distinctions or honors.',
+      chips: ['Add MBA / Executive Degree', 'Add Undergraduate Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: Which spoken LANGUAGES should appear with 5-dot proficiency ratings (only include levels you explicitly confirm, e.g., Native, Fluent, Conversational)?',
+      chips: ['English (Native)', 'English (Native), Spanish (Conversational)', 'Skip Languages'],
+    },
+    publications: {
+      reply:
+        'Optional: Share any keynotes, executive articles, interviews, books, or research under PUBLICATIONS & SPEAKING (title, venue/publisher, year).',
+      chips: ['Add Keynote / Article', 'Skip Publications', 'Next: Referees'],
+    },
+    references: {
+      reply:
+        'Under REFEREES on Page 2, would you like to add board/peer referee details, display "Available upon request", or hide this section cleanly?',
+      chips: ['Show "Available upon request"', 'Add Board / Executive Referee', 'Hide Referees'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Would you like to add Board Advisory roles, Projects, Philanthropy/Volunteering, or Custom Sections — or finish in the editor?',
+      chips: ['Add Board Advisory Role', 'Ready to review in editor'],
+    },
+  },
+  cto: {
+    personalInfo: {
+      reply:
+        'CTO / VP Engineering profile selected. Share your full name, executive technology title, tagline, city/country, email, phone, and LinkedIn or GitHub URL.',
+      chips: ['Share CTO contact info', 'Add LinkedIn & GitHub', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'Share a concise engineering leadership quote or philosophy (My Life Philosophy), plus an optional short technical executive summary.',
+      chips: ['Add technology philosophy quote', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Detail your CTO / VP Engineering roles: title, company, dates, location, confirmed engineering headcount, and real architectural or business impact.',
+      chips: ['Add CTO / SVP Role', 'Add VP Engineering Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, highlight 2–4 landmark technical transformations, platform launches, or scaling achievements with real outcomes.',
+      chips: ['Platform Reliability Milestone', 'Engineering Org Scale Milestone', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'Which leadership & architectural STRENGTHS should appear as tags (e.g., Platform Architecture, Cloud Strategy, AI Systems, Engineering Culture)?',
+      chips: ['Cloud Strategy, Platform Scale, Security', 'Engineering Leadership, Product Vision', 'Next: Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: How is your typical week divided in % (<= 100%) or hours (<= 24h) across Architecture, Product Strategy, Talent, and Executive Alignment?',
+      chips: ['Architecture 30%, Strategy 30%, Hiring 20%, Ops 20%', 'Skip Day of My Life', 'Next: Education'],
+    },
+    education: {
+      reply:
+        'List your degrees (M.S./B.S. in CS/Engineering, etc.), institutions, dates, and academic honors.',
+      chips: ['Add CS / Engineering Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: Share spoken LANGUAGES and your confirmed proficiency level (e.g., Native, Fluent, Intermediate).',
+      chips: ['English (Native)', 'Skip Languages', 'Next: Publications'],
+    },
+    publications: {
+      reply:
+        'Optional: Add technical keynotes, patents, books, or engineering blog publications with venue and year.',
+      chips: ['Add Patent / Keynote Talk', 'Skip Publications', 'Next: Referees'],
+    },
+    references: {
+      reply:
+        'For REFEREES on Page 2, choose whether to add specific executive referees, show "Available upon request", or hide the section.',
+      chips: ['Show "Available upon request"', 'Add Technical / CEO Referee', 'Hide Referees'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add Technical Advisory boards, OSS initiatives, or custom executive highlights before reviewing your 2-page PDF.',
+      chips: ['Add Technical Advisory Board', 'Ready to review in editor'],
+    },
+  },
+  cfo: {
+    personalInfo: {
+      reply:
+        'CFO / Finance Executive profile selected. Share your full name, title, concise tagline, location, email, phone, and LinkedIn profile.',
+      chips: ['Share CFO contact info', 'Add LinkedIn URL', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'Share your financial leadership quote or stewardship philosophy, plus an optional executive summary and governance focus.',
+      chips: ['Add financial stewardship philosophy', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Share your CFO / VP Finance roles: company, title, dates, confirmed finance team scope, and verified outcomes (audits, capital raises, M&A, controls).',
+      chips: ['Add CFO Tenure', 'Add VP Finance / Treasurer Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, note 2–4 milestone achievements such as capital raises, M&A integrations, IPO readiness, or cost governance with real facts.',
+      chips: ['Capital Markets / M&A Milestone', 'FP&A & Audit Transformation', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'Select your executive finance STRENGTHS (e.g., Capital Allocation, FP&A, M&A Integration, Risk Governance, Investor Relations).',
+      chips: ['FP&A, Capital Markets, Governance', 'Investor Relations, M&A', 'Next: Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: Break down your time allocation in % (<= 100%) or hours (<= 24h) across Strategy, Board & Investors, Risk, and Team Leadership — or skip.',
+      chips: ['Board & Investors 35%, Strategy 30%, Ops 35%', 'Skip Day of My Life', 'Next: Education'],
+    },
+    education: {
+      reply:
+        'Share your Finance/Accounting/MBA degrees, CPA/CFA credentials, institutions, years, and honors.',
+      chips: ['Add MBA / Finance Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: List spoken LANGUAGES and your confirmed proficiency level.',
+      chips: ['English (Native)', 'Skip Languages', 'Next: Publications'],
+    },
+    publications: {
+      reply:
+        'Optional: Include investor panels, financial whitepapers, or speaking engagements.',
+      chips: ['Add Finance Panel / Article', 'Skip Publications', 'Next: Referees'],
+    },
+    references: {
+      reply:
+        'For REFEREES on Page 2, add audit committee/CEO referees, set "Available upon request", or hide the block.',
+      chips: ['Show "Available upon request"', 'Add Audit Chair / CEO Referee', 'Hide Referees'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add Audit Committee memberships, CPA/CFA boards, or custom notes.',
+      chips: ['Add Audit / Board Seat', 'Ready to review in editor'],
+    },
+  },
+  coo: {
+    personalInfo: {
+      reply:
+        'COO / Operations Executive profile selected. Share your full name, title, tagline, location, email, phone, and LinkedIn profile.',
+      chips: ['Share COO contact info', 'Add LinkedIn URL', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'What operational philosophy or quote anchors your leadership approach, and would you like a concise Executive Summary alongside it?',
+      chips: ['Add operational philosophy', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Share your COO / VP Operations roles: company, title, dates, confirmed org size managed, and key operational transformations.',
+      chips: ['Add COO / EVP Ops Role', 'Add Operations Leadership Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, describe 2–4 operational scaling, supply chain, or cross-functional efficiency wins based on confirmed outcomes.',
+      chips: ['Global Scaling Milestone', 'Cross-Functional Execution Win', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'List your core operational STRENGTHS (e.g., Operational Excellence, Scaling Teams, P&L Execution, Supply Chain, Change Management).',
+      chips: ['Operational Scaling, P&L, Execution', 'Change Management, Vendor Strategy', 'Next: Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: Share your time split in % (<= 100%) or hours (<= 24h) — or skip straight to Education.',
+      chips: ['Operations 40%, Strategy 30%, People 30%', 'Skip Day of My Life', 'Next: Education'],
+    },
+    education: {
+      reply:
+        'Add your degrees, institutions, dates, and academic honors.',
+      chips: ['Add MBA / Engineering Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: List spoken LANGUAGES with your confirmed proficiency ratings.',
+      chips: ['English (Native)', 'Skip Languages', 'Next: Publications'],
+    },
+    publications: {
+      reply:
+        'Optional: Share operations talks, articles, or industry panels.',
+      chips: ['Skip Publications', 'Add Speaking Engagement'],
+    },
+    references: {
+      reply:
+        'Configure Page 2 REFEREES: detailed referee cards, "Available upon request", or hidden.',
+      chips: ['Show "Available upon request"', 'Add Executive Referee', 'Hide Referees'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add advisory work, initiatives, or review your executive resume.',
+      chips: ['Ready to review in editor'],
+    },
+  },
+  'hr-director': {
+    personalInfo: {
+      reply:
+        'CHRO / HR Director profile selected. Share your full name, people leadership title, tagline, location, email, phone, and LinkedIn.',
+      chips: ['Share People Exec contacts', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'Share your guiding quote on culture, leadership, or talent, plus an optional Executive Summary.',
+      chips: ['Add People Leadership Quote', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Share your CHRO / VP People roles: organization, dates, confirmed workforce/team scope, and culture/talent outcomes.',
+      chips: ['Add CHRO / VP People Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, share 2–4 executive people initiatives (talent scaling, retention programs, DEI, M&A cultural integration).',
+      chips: ['Org Scaling / Retention Initiative', 'Executive Coaching & DEI Win', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'List your People Executive STRENGTHS (e.g., Organizational Design, Executive Recruiting, Culture Strategy, Compensation).',
+      chips: ['Org Design, Talent Strategy, Culture', 'Skip to Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: Specify your time split in % (<= 100%) or hours (<= 24h) across Talent, Executive Coaching, Strategy, and Culture — or skip.',
+      chips: ['Talent 35%, Culture 30%, Coaching 20%, Ops 15%', 'Skip Day of My Life'],
+    },
+    education: {
+      reply:
+        'Share your degrees, HR/organizational certifications, institutions, and distinctions.',
+      chips: ['Add Master / MBA Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: List spoken LANGUAGES with your confirmed proficiency levels.',
+      chips: ['English (Native)', 'Skip Languages'],
+    },
+    publications: {
+      reply:
+        'Optional: Add people-leadership articles, HR summits, or panels.',
+      chips: ['Skip Publications', 'Add HR Keynote'],
+    },
+    references: {
+      reply:
+        'Under REFEREES, add executive references, choose "Available upon request", or hide the section.',
+      chips: ['Show "Available upon request"', 'Add CEO / Board Referee'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add nonprofit boards, SHRM fellowships, or custom sections.',
+      chips: ['Ready to review in editor'],
+    },
+  },
+  'marketing-director': {
+    personalInfo: {
+      reply:
+        'CMO / Marketing Executive profile selected. Share your full name, executive marketing title, tagline, location, email, phone, website, and LinkedIn.',
+      chips: ['Share CMO contacts & site', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'Share your brand or growth leadership quote (My Life Philosophy) and an optional Executive Summary.',
+      chips: ['Add Brand Philosophy Quote', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Share your CMO / VP Marketing roles: company, title, dates, confirmed marketing team scope, and verifiable brand or pipeline achievements.',
+      chips: ['Add CMO / VP Marketing Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, list 2–4 marquee brand transformations, category launches, or GTM milestones.',
+      chips: ['Category Launch Milestone', 'Global Brand Rebrand', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'List your executive marketing STRENGTHS (e.g., Brand Positioning, Category Creation, GTM Strategy, Revenue Marketing).',
+      chips: ['Brand Strategy, GTM, Demand Leadership', 'Next: Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: Share your weekly executive split in % (<= 100%) or hours (<= 24h) — or skip cleanly.',
+      chips: ['Brand 35%, GTM 30%, Team 20%, Partners 15%', 'Skip Day of My Life'],
+    },
+    education: {
+      reply:
+        'Add your degrees, institutions, dates, and academic honors.',
+      chips: ['Add MBA / Communications Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: List spoken LANGUAGES and confirmed proficiency levels.',
+      chips: ['English (Native)', 'Skip Languages'],
+    },
+    publications: {
+      reply:
+        'Optional: Share keynotes, media interviews, case studies, or books.',
+      chips: ['Add Keynote / Interview', 'Skip Publications'],
+    },
+    references: {
+      reply:
+        'Set Page 2 REFEREES to detailed cards, "Available upon request", or hidden.',
+      chips: ['Show "Available upon request"', 'Add Executive Referee'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add advisory boards or review your 2-page Executive Resume.',
+      chips: ['Ready to review in editor'],
+    },
+  },
+  founder: {
+    personalInfo: {
+      reply:
+        'Founder / Co-Founder profile selected. Share your full name, founder/executive title, venture tagline, location, email, phone, and website/LinkedIn.',
+      chips: ['Share Founder contacts & site', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'Share your entrepreneurial quote or leadership ethos (My Life Philosophy), plus an optional Executive Summary.',
+      chips: ['Add Founder Quote & Vision', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Walk through your founder ventures and senior leadership roles: company, title, dates, team size built, and confirmed product/fundraising/acquisition milestones.',
+      chips: ['Add Co-Founder / CEO Role', 'Add Early Exec Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, highlight 2–4 milestones such as zero-to-one launches, exits, partnerships, or industry awards.',
+      chips: ['Product Launch / Acquisition', 'Partnership & Growth Milestone', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'Choose your founder STRENGTHS (e.g., 0-to-1 Product, Fundraising, Go-To-Market, Hiring Executive Teams, Strategic Partnerships).',
+      chips: ['0-to-1 Product, Fundraising, Partnerships', 'Strategy, Hiring, Storytelling'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: Show how your time splits in % (<= 100%) or hours (<= 24h) across Product, Customers, Investors, and Team — or skip.',
+      chips: ['Product 35%, Customers 25%, Strategy 25%, Investors 15%', 'Skip Day of My Life'],
+    },
+    education: {
+      reply:
+        'Add your university degrees, fellowships, or honors.',
+      chips: ['Add Degree & Honors', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: List spoken LANGUAGES with your confirmed proficiency levels.',
+      chips: ['English (Native)', 'Skip Languages'],
+    },
+    publications: {
+      reply:
+        'Optional: Add founder talks, essays, patents, or podcasts.',
+      chips: ['Add Keynote / Essay', 'Skip Publications'],
+    },
+    references: {
+      reply:
+        'For REFEREES on Page 2, add investor/board referees, set "Available upon request", or hide the section.',
+      chips: ['Show "Available upon request"', 'Add Investor / Board Referee'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add angel investments, non-profit boards, or review in the editor.',
+      chips: ['Ready to review in editor'],
+    },
+  },
+  other: {
+    personalInfo: {
+      reply:
+        'Executive Resume ready. What is your executive role/title, full name, tagline, city/country, email, phone, and LinkedIn or website?',
+      chips: ['Share executive title & contacts', 'Next: Life Philosophy'],
+    },
+    philosophy: {
+      reply:
+        'Share a personal leadership quote (My Life Philosophy) and an optional short Executive Summary.',
+      chips: ['Add Philosophy Quote', 'Add Executive Summary', 'Next: Experience'],
+    },
+    experience: {
+      reply:
+        'Share your executive roles: job title, organization, dates, location, confirmed team scope, and strategic impact.',
+      chips: ['Add Senior Executive Role', 'Next: Most Proud Of'],
+    },
+    achievements: {
+      reply:
+        'Under MOST PROUD OF, share 2–4 career-defining milestones (title, challenge, action taken, and real outcome).',
+      chips: ['Add Leadership Milestone', 'Next: Strengths'],
+    },
+    strengths: {
+      reply:
+        'List your executive STRENGTHS & strategic domains to display as crisp outline tags.',
+      chips: ['Executive Leadership, Governance, Strategy', 'Next: Day of My Life'],
+    },
+    'daily-life': {
+      reply:
+        'Optional: Add your executive time breakdown in % (<= 100%) or hours (<= 24h) — or skip cleanly.',
+      chips: ['Skip Day of My Life', 'Next: Education'],
+    },
+    education: {
+      reply:
+        'Add your academic degrees, institutions, years, and honors.',
+      chips: ['Add University Degree', 'Next: Languages'],
+    },
+    languages: {
+      reply:
+        'Optional: List spoken LANGUAGES and confirmed proficiency levels.',
+      chips: ['Skip Languages', 'Next: Publications'],
+    },
+    publications: {
+      reply:
+        'Optional: Share keynotes, articles, books, or patents under PUBLICATIONS & SPEAKING.',
+      chips: ['Skip Publications', 'Next: Referees'],
+    },
+    references: {
+      reply:
+        'For Page 2 REFEREES, add specific referees, choose "Available upon request", or hide the section.',
+      chips: ['Show "Available upon request"', 'Hide Referees'],
+    },
+    'custom-sections': {
+      reply:
+        'Final optional step: Add Board Seats, Projects, or Additional Sections before reviewing your two-page A4 Executive PDF.',
+      chips: ['Ready to review in editor'],
+    },
+  },
+};
+
+export function buildAdaptiveExecutiveFallback(
+  userMessage: string,
+  currentResume: Partial<Resume>,
+  activeSection: string,
+  sectionFlow: string[] = EXECUTIVE_SECTION_FLOW
+): {
+  reply: string;
+  structuredUpdates: Partial<Resume>;
+  isSectionCompleted: boolean;
+  nextSection: string;
+  suggestedChips: string[];
+} {
+  const detectedRole = detectExecutiveRoleFromText(userMessage);
+  const role: ExecutiveRoleType =
+    detectedRole || currentResume.executiveRoleType || 'ceo';
+  const structuredUpdates: Partial<Resume> = detectedRole
+    ? { executiveRoleType: detectedRole }
+    : {};
+
+  const trimmedLower = userMessage.trim().toLowerCase();
+  const wantsSkip =
+    /\b(skip|next section|move to|don't have|none|pass)\b/.test(trimmedLower);
+
+  const curIdx = Math.max(0, sectionFlow.indexOf(activeSection));
+  const jumpMatch = trimmedLower.match(/(?:skip\s+to|move\s+to|go\s+to|jump\s+to)\s+(.+)$/);
+  const jumpTarget = jumpMatch ? jumpMatch[1] : wantsSkip ? trimmedLower : '';
+  let resolvedIdx = curIdx;
+
+  if (/(custom[- ]?section|project|board|additional|review|done)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('custom-sections'));
+  } else if (/(philosophy|summary|quote|objective)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('philosophy'));
+  } else if (/experience/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('experience'));
+  } else if (/(proud|achievement|award|milestone)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('achievements'));
+  } else if (/strength|competenc/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('strengths'));
+  } else if (/(day|daily|donut|chart)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('daily-life'));
+  } else if (/(education|degree)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('education'));
+  } else if (/language/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('languages'));
+  } else if (/(publication|talk|speaking|article)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('publications'));
+  } else if (/(referee|reference)/.test(jumpTarget) && wantsSkip) {
+    resolvedIdx = Math.max(0, sectionFlow.indexOf('references'));
+  } else if (wantsSkip && curIdx < sectionFlow.length - 1) {
+    resolvedIdx = curIdx + 1;
+  }
+
+  if (wantsSkip && !jumpMatch && resolvedIdx === curIdx && curIdx < sectionFlow.length - 1) {
+    resolvedIdx = curIdx + 1;
+  }
+
+  const nextSection = sectionFlow[resolvedIdx] || activeSection;
+  const spec =
+    EXECUTIVE_ROLE_PROMPTS[role][nextSection] ||
+    EXECUTIVE_ROLE_PROMPTS[role].personalInfo;
 
   return {
     reply: spec.reply,

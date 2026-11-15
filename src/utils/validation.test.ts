@@ -20,6 +20,7 @@ import {
   SAMPLE_ENGINEERING_ECE_CV,
   SAMPLE_ENGINEERING_MECHANICAL_CV,
   SAMPLE_ENGINEERING_RESUME_CV,
+  SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_FRESHER_RESUME_CV,
   SAMPLE_HARVARD_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
@@ -594,3 +595,56 @@ test('analyzeResumeSections evaluates Creative Professional (Template 12) across
   assert.equal(incompleteCreative.sections.find((s) => s.sectionId === 'education')?.status, 'needs_details');
   assert.equal(incompleteCreative.sections.find((s) => s.sectionId === 'skills')?.status, 'needs_details');
 });
+
+test('analyzeResumeSections & calculateResumeCompleteness evaluate Executive Resume (Template 13) across 11 steps with % validation and zero optional penalty', () => {
+  const fullReport = analyzeResumeSections(SAMPLE_EXECUTIVE_RESUME_CV);
+  assert.equal(fullReport.sections.length, 11);
+  assert.equal(fullReport.overallStatus, 'excellent');
+  assert.ok(fullReport.overallScore >= 95);
+
+  // Percentage mode > 100% triggers needs_review on daily-life
+  const overPctReport = analyzeResumeSections({
+    ...SAMPLE_EXECUTIVE_RESUME_CV,
+    dailyActivityMode: 'percentage',
+    dailyActivities: [
+      { id: 'd1', activity: 'Corporate Strategy', hours: 65, percentage: 65 },
+      { id: 'd2', activity: 'Board Governance', hours: 50, percentage: 50 },
+    ],
+  });
+  const dailySec = overPctReport.sections.find((s) => s.sectionId === 'daily-life');
+  assert.equal(dailySec?.status, 'needs_review');
+  assert.ok(dailySec?.statusLabel.includes('Exceeds 100%'));
+
+  // Minimal executive resume with empty optional sections does not penalize completeness
+  const minimalExec = {
+    template: 'executive-resume',
+    executiveRoleType: 'cto' as const,
+    personalInfo: SAMPLE_EXECUTIVE_RESUME_CV.personalInfo,
+    experience: SAMPLE_EXECUTIVE_RESUME_CV.experience,
+    education: SAMPLE_EXECUTIVE_RESUME_CV.education,
+    personalQuote: '',
+    philosophyExplanation: '',
+    objective: '',
+    achievements: [],
+    strengths: [],
+    dailyActivities: [],
+    languages: [],
+    publications: [],
+    projects: [],
+    leadership: [],
+    volunteer: [],
+    memberships: [],
+    customSections: [],
+    references: [],
+    referencesDisplayMode: 'on-request' as const,
+  };
+  const minimalReport = analyzeResumeSections(minimalExec);
+  for (const optId of ['objective', 'awards', 'strengths', 'daily-life', 'languages', 'publications', 'custom-sections']) {
+    const sec = minimalReport.sections.find((s) => s.sectionId === optId);
+    assert.equal(sec?.isOptional, true);
+    assert.equal(sec?.status, 'optional_empty');
+  }
+  assert.equal(minimalReport.sections.find((s) => s.sectionId === 'references')?.status, 'complete');
+  assert.ok(calculateResumeCompleteness(minimalExec) >= 75);
+});
+

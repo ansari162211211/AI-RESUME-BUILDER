@@ -159,6 +159,7 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
     const isInternshipResumeTemplate = template === 'internship-resume';
     const isEngineeringResumeTemplate = template === 'engineering-resume';
     const isCreativeProfessionalTemplate = template === 'creative-professional';
+    const isExecutiveResumeTemplate = template === 'executive-resume';
     const roleLabel = isJakesTemplate
       ? "technical software engineering resume editor (ATS & Jake's Resume LaTeX specialist)"
       : isSoftwareDevTemplate
@@ -177,6 +178,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'senior engineering technical hiring advisor (B.E./B.Tech/M.Tech engineering resume specialist across Mechanical, CSE/IT, ECE, EE, Civil, and Chemical branches)'
       : isCreativeProfessionalTemplate
       ? 'senior creative, editorial, and technical portfolio CV editor (modern two-column Creative Professional resume specialist)'
+      : isExecutiveResumeTemplate
+      ? 'senior C-suite executive and board resume editor (two-page Executive Resume AltaCV specialist)'
       : isClassicTemplate
       ? 'traditional European/Classic Professional CV editor (clear, crisp, structured career advisor)'
       : isTwoColumnTemplate
@@ -200,6 +203,8 @@ app.post('/api/gemini/improve-text', async (req: Request, res: Response) => {
       ? 'Engineering Resume (Monochrome Single-Column B.E./B.Tech/M.Tech ATS Resume)'
       : isCreativeProfessionalTemplate
       ? 'Creative Professional Two-Column Editorial Resume'
+      : isExecutiveResumeTemplate
+      ? 'Executive Resume (Two-Page C-Suite & Leadership CV)'
       : isClassicTemplate
       ? 'Classic Professional Multi-Page CV'
       : isTwoColumnTemplate
@@ -219,6 +224,8 @@ REQUIREMENTS:
 1. ${
       isJakesTemplate || isSoftwareDevTemplate
         ? 'Make each bullet crisp, high-impact, action-verb-led, and ATS-friendly (ideal 1-2 lines).'
+        : isExecutiveResumeTemplate
+        ? 'Elevate the language with authoritative C-suite executive gravitas, strategic ownership, board/organizational clarity, and concise two-column scannability—while strictly NEVER inventing financial figures, revenue/growth percentages, team sizes, quotes, or achievements not present in the original text.'
         : isCreativeProfessionalTemplate
         ? 'Craft crisp, modern, scannable prose suited for a balanced 2-column editorial CV (short date-rail timeline entries, concise communication summaries, and authentic taglines without inflating facts or percentages).'
         : isEngineeringResumeTemplate
@@ -316,6 +323,7 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
     const isInternshipResumeTemplate = currentResume?.template === 'internship-resume';
     const isEngineeringResumeTemplate = currentResume?.template === 'engineering-resume';
     const isCreativeProfessionalTemplate = currentResume?.template === 'creative-professional';
+    const isExecutiveResumeTemplate = currentResume?.template === 'executive-resume';
     const advisorName = isJakesTemplate
       ? 'Technical Resume Advisor'
       : isSoftwareDevTemplate
@@ -334,6 +342,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Engineering Resume Advisor'
       : isCreativeProfessionalTemplate
       ? 'Creative Professional CV Advisor'
+      : isExecutiveResumeTemplate
+      ? 'Executive Resume Advisor'
       : isClassicTemplate
       ? 'Classic Professional CV Advisor'
       : isTwoColumnTemplate
@@ -357,6 +367,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'Engineering Resume (Monochrome Technical ATS Resume)'
       : isCreativeProfessionalTemplate
       ? 'Creative Professional Resume (Editorial Two-Column CV)'
+      : isExecutiveResumeTemplate
+      ? 'Executive Resume (Two-Page C-Suite & Leadership CV)'
       : isClassicTemplate
       ? 'Classic Professional CV'
       : isTwoColumnTemplate
@@ -380,6 +392,8 @@ app.post('/api/gemini/interview-step', async (req: Request, res: Response) => {
       ? 'engineering-resume'
       : isCreativeProfessionalTemplate
       ? 'creative-professional'
+      : isExecutiveResumeTemplate
+      ? 'executive-resume'
       : isClassicTemplate
       ? 'classic-professional'
       : isTwoColumnTemplate
@@ -400,10 +414,18 @@ ${JSON.stringify({
   customEngineeringBranch: currentResume.customEngineeringBranch,
   creativeProfession: currentResume.creativeProfession,
   customCreativeProfession: currentResume.customCreativeProfession,
+  executiveRoleType: currentResume.executiveRoleType,
+  customExecutiveRole: currentResume.customExecutiveRole,
+  executiveIndustry: currentResume.executiveIndustry,
+  executiveYearsExperience: currentResume.executiveYearsExperience,
+  dailyActivityMode: currentResume.dailyActivityMode,
   harvardLeadershipFirst: currentResume.harvardLeadershipFirst,
   personalInfo: currentResume.personalInfo,
   personalQuote: currentResume.personalQuote ? 'Present' : 'Empty',
+  philosophyExplanation: currentResume.philosophyExplanation ? 'Present' : 'Empty',
   objective: currentResume.objective ? 'Present' : 'Empty',
+  managementStyle: currentResume.managementStyle ? 'Present' : 'Empty',
+  strategicDomainsCount: currentResume.strategicDomains?.length || 0,
   educationCount: currentResume.education?.length || 0,
   studyAbroadCount: currentResume.studyAbroad?.length || 0,
   highSchoolCount: currentResume.highSchool?.length || 0,
@@ -446,6 +468,7 @@ ${JSON.stringify({
 INTERVIEW GUIDELINES:
 1. Conduct a friendly, structured interview. Ask one or two focused questions at a time—do not overwhelm the user with a huge list of questions.
 2. Probe for DEPTH and specificity matching the active template:
+   - For Executive Resume ("executive-resume"): Ask ONE focused question at a time across these 11 sections: \`personalInfo\`, \`philosophy\` (MY LIFE PHILOSOPHY quote + \`philosophyExplanation\` + optional \`objective\`/\`managementStyle\`/\`strategicDomains\`), \`experience\` (EXPERIENCE with optional \`teamSize\` and \`results\`), \`achievements\` (MOST PROUD OF with \`icon\`: 'trophy'|'heart'|'chart'|'award'|'star', \`challenge\`, \`actionTaken\`, \`outcome\`), \`strengths\` (STRENGTHS outline tags), \`daily-life\` (A DAY OF MY LIFE optional percentage <= 100% or hours <= 24h), \`education\` (EDUCATION with optional \`honors\`), \`languages\` (LANGUAGES 5-dot scale), \`publications\` (PUBLICATIONS & SPEAKING), \`references\` (REFEREES with \`referencesDisplayMode\` 'detailed'|'on-request'|'hidden'), \`custom-sections\` (Board Roles, Projects, Leadership, Volunteer, Memberships & Custom Sections). Detect \`executiveRoleType\` early ('ceo' | 'cto' | 'cfo' | 'coo' | 'hr-director' | 'marketing-director' | 'founder' | 'other'). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent financial/revenue figures, percentages, team sizes, personal quotes, \`dailyActivities\` numbers, language dot scores, or referee contacts! Only save values explicitly stated by the user. Accept skipping any optional section cleanly.
    - For Creative Professional ("creative-professional"): Ask ONE focused question at a time across: \`personalInfo\`, \`experience\` (SHORT RESUME), \`education\` (DEGREES), \`skills\` (SKILLS), \`proficiency-circles\` (Dynamic Circular Proficiency Heading), \`skill-bars\` (SKILLS & PROFICIENCY), \`communication\` (COMMUNICATION SKILLS), \`certifications\` (CERTIFICATES & GRANTS), \`languages\` (LANGUAGES), \`publications\` (TALKS & PUBLICATIONS), \`custom-sections\`. Detect \`creativeProfession\` early ('developer' | 'designer' | 'cybersecurity' | 'marketing' | 'researcher' | 'engineer' | 'other') and extract factual fields (\`creativeSkillItems\`, \`circularProficiencies\`, \`creativeSkillBars\`, \`communicationSkills\`, \`personalInfo.specialization\`, \`personalInfo.tagline\`, \`personalQuote\`). ABSOLUTE ZERO-FABRICATION RULE: NEVER invent percentages (0-100) for \`circularProficiencies\` or \`creativeSkillBars\`, never invent quotes, metrics, or unconfirmed language levels! Only include percentage ratings if the user explicitly stated a number.
    - For Engineering Resume ("engineering-resume"): Ask ONE focused question at a time across these 9 steps: \`personalInfo\`, \`objective\`, \`education\`, \`skills\`, \`projects\`, \`experience\`, \`leadership\`, \`achievements\`, \`custom-sections\`. Detect \`engineeringBranch\` early ('mechanical' | 'cse-it' | 'ece' | 'ee' | 'civil' | 'chemical' | 'other', plus optional \`customEngineeringBranch\`) and adapt terminology naturally (e.g., SolidWorks/ANSYS/GD&T for Mechanical, DSA/React/APIs for CSE/IT, Verilog/STM32/KiCad for ECE, MATLAB/ETAP/PLC for EE, AutoCAD/STAAD.Pro/ETABS for Civil, Aspen Plus/HYSYS for Chemical). Collect:
      * Header (\`personalInfo\`: \`fullName\`, \`city\`, \`phone\`, \`email\`, \`linkedin\`, \`github\`, \`website\`, \`customLinks\` — zero photo).
@@ -571,7 +594,44 @@ app.post('/api/gemini/analyze-completeness', async (req: Request, res: Response)
     const isInternshipResumeTemplate = resume?.template === 'internship-resume';
     const isEngineeringResumeTemplate = resume?.template === 'engineering-resume';
     const isCreativeProfessionalTemplate = resume?.template === 'creative-professional';
-    const auditPrompt = isCreativeProfessionalTemplate
+    const isExecutiveResumeTemplate = resume?.template === 'executive-resume';
+    const auditPrompt = isExecutiveResumeTemplate
+      ? `You are a senior executive search partner and board advisor reviewing an Executive Resume (Two-Column AltaCV Executive C-Suite CV).
+Analyze this Executive Resume across its 11 structured sections:
+(header, philosophy [optional My Life Philosophy & Executive Summary], experience [Executive Experience], achievements [optional Most Proud Of], strengths [optional Executive Strengths], daily-life [optional A Day of My Life in % or hours], education, languages [optional Languages], publications [optional Publications & Speaking], references [optional Referees], custom-sections [optional Board Advisory, Projects, Leadership & Custom Sections]).
+
+EXECUTIVE ROLE: ${resume.executiveRoleType || 'ceo'}${resume.customExecutiveRole ? ` (${resume.customExecutiveRole})` : ''}
+
+RESUME DATA:
+${JSON.stringify({ ...resume, personalInfo: { ...resume.personalInfo, photoUrl: resume.personalInfo?.photoUrl ? '[uploaded]' : '' } })}
+
+AUDIT CRITERIA:
+1. Use exact sectionId values: 'header', 'philosophy', 'experience', 'achievements', 'strengths', 'daily-life', 'education', 'languages', 'publications', 'references', 'custom-sections'.
+2. Evaluate each section status: 'complete' | 'needs_details' | 'optional_empty' | 'needs_review'.
+3. NEVER penalize empty optional sections ('philosophy', 'achievements', 'strengths', 'daily-life', 'languages', 'publications', 'references', 'custom-sections') or referees set to 'on-request' / 'hidden'.
+4. If dailyActivities exceeds 100% (percentage mode) or 24h (hours mode), flag 'daily-life' as 'needs_review'.
+5. NEVER suggest fabricating financial/revenue figures, percentages, quotes, unconfirmed language levels, or referee contacts.
+6. Calculate overallScore (0 to 100) and top 3-4 concise, factual executive recommendations.
+
+Return ONLY a valid JSON object matching:
+{
+  "overallScore": number,
+  "overallStatus": "excellent" | "good" | "in_progress" | "needs_work",
+  "topRecommendations": string[],
+  "sections": [
+    {
+      "sectionId": string,
+      "name": string,
+      "status": "complete" | "needs_details" | "optional_empty" | "needs_review",
+      "statusLabel": string,
+      "score": number,
+      "isOptional": boolean,
+      "issues": string[],
+      "suggestions": string[]
+    }
+  ]
+}`
+      : isCreativeProfessionalTemplate
       ? `You are a senior creative, editorial, and technical hiring advisor reviewing a Creative Professional Two-Column CV.
 Analyze this Creative Professional Resume across its structured sections:
 (header, experience [Short Resume], education [Degrees], skills [Categorized Skills, Circular Proficiencies, Horizontal Skill Bars], communication [optional Communication Skills], certifications [optional Certificates & Grants], languages [optional Languages], publications [optional Talks & Publications], custom-sections [optional Projects, Leadership, Volunteer & Custom Sections]).

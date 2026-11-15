@@ -699,6 +699,74 @@ export function calculateResumeCompleteness(resume: Partial<Resume>): number {
     return Math.min(100, score);
   }
 
+  if (resume.template === 'executive-resume') {
+    let score = 0;
+    const pi = resume.personalInfo;
+    if (pi) {
+      if (pi.fullName?.trim()) score += 10;
+      if (pi.email?.trim()) score += 6;
+      if (pi.jobTitle?.trim()) score += 4;
+      if (
+        pi.phone?.trim() ||
+        pi.city?.trim() ||
+        pi.location?.trim() ||
+        pi.linkedin?.trim() ||
+        pi.website?.trim()
+      ) {
+        score += 4;
+      }
+    }
+
+    const completeExp = (resume.experience || []).filter(
+      (e) =>
+        (e.company?.trim() || e.position?.trim()) &&
+        (Boolean(e.description?.trim()) ||
+          Boolean(e.results?.trim()) ||
+          (e.highlights || []).some((h) => h.trim().length > 0))
+    ).length;
+    const anyExp = (resume.experience || []).filter(
+      (e) => e.company?.trim() || e.position?.trim()
+    ).length;
+    if (completeExp >= 2) score += 32;
+    else if (completeExp === 1) score += 24;
+    else if (anyExp >= 1) score += 14;
+
+    const edu = resume.education || [];
+    const validEdu = edu.filter((e) => e.institution?.trim() && e.degree?.trim()).length;
+    if (validEdu >= 1) score += 22;
+    else if (edu.length >= 1) score += 12;
+
+    let bonus = 0;
+    if (resume.personalQuote?.trim() || resume.philosophyExplanation?.trim()) bonus += 3;
+    if ((resume.achievements || []).some((a) => a.title?.trim())) bonus += 4;
+    const strengthCount = (resume.strengths || []).filter((s) => s.trim()).length;
+    if (strengthCount >= 2) bonus += 4;
+    else if (strengthCount === 1) bonus += 2;
+    const dailyMode = resume.dailyActivityMode || 'percentage';
+    const dailyVal = validateDailyActivities(resume.dailyActivities || [], dailyMode);
+    if (dailyVal.validItems.length > 0 && dailyVal.valid) bonus += 4;
+    if ((resume.languages || []).some((l) => l.language?.trim())) bonus += 3;
+    if ((resume.publications || []).some((p) => p.title?.trim())) bonus += 3;
+    if (
+      resume.referencesDisplayMode === 'on-request' ||
+      (resume.references || []).some((r) => r.fullName?.trim())
+    ) {
+      bonus += 3;
+    }
+    if (
+      resume.objective?.trim() ||
+      resume.managementStyle?.trim() ||
+      (resume.strategicDomains || []).some((d) => d.trim()) ||
+      (resume.projects || []).some((p) => p.title?.trim()) ||
+      (resume.customSections || []).some((cs) => cs.title?.trim())
+    ) {
+      bonus += 2;
+    }
+    score += Math.min(22, bonus);
+
+    return Math.min(100, score);
+  }
+
   let score = 0;
   const totalWeight = 100;
 
@@ -4174,7 +4242,314 @@ function analyzeCreativeProfessionalSections(
   };
 }
 
+function analyzeExecutiveResumeSections(
+  resume: Partial<Resume>
+): import('../types/resume').CvCompletenessReport {
+  const sections: import('../types/resume').SectionAnalysis[] = [];
+  const recs: string[] = [];
+
+  // 1. Executive Identity
+  const pi = resume.personalInfo;
+  const piIssues: string[] = [];
+  const piSuggestions: string[] = [];
+  let piScore = 0;
+  if (pi?.fullName?.trim()) piScore += 40;
+  else piIssues.push('Full name is missing.');
+  if (pi?.email?.trim()) piScore += 30;
+  else piIssues.push('Executive email address is missing.');
+  if (pi?.jobTitle?.trim()) piScore += 30;
+  else piIssues.push('Executive designation / title is missing.');
+
+  if (!pi?.phone?.trim()) piSuggestions.push('Add a direct phone number or office line.');
+  if (!pi?.linkedin?.trim() && !pi?.website?.trim()) {
+    piSuggestions.push('Add LinkedIn or personal executive website links.');
+  }
+
+  sections.push({
+    sectionId: 'header',
+    name: '1. Executive Identity',
+    status: piScore >= 90 ? 'complete' : 'needs_details',
+    statusLabel: piScore >= 90 ? 'Completed' : piScore > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: piScore,
+    issues: piIssues,
+    suggestions: piSuggestions,
+  });
+  if (piScore < 90) {
+    recs.push('Complete your full name, executive title, and email in Executive Identity.');
+  }
+
+  // 2. Executive Profile & Philosophy (Optional)
+  const hasPhilosophyOrSummary = Boolean(
+    resume.personalQuote?.trim() ||
+      resume.philosophyExplanation?.trim() ||
+      resume.objective?.trim() ||
+      resume.managementStyle?.trim() ||
+      (resume.strategicDomains || []).some((d) => d.trim())
+  );
+  sections.push({
+    sectionId: 'objective',
+    name: '2. Executive Profile & Philosophy',
+    status: hasPhilosophyOrSummary ? 'complete' : 'optional_empty',
+    statusLabel: hasPhilosophyOrSummary ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasPhilosophyOrSummary ? 100 : 0,
+    issues: [],
+    suggestions: !hasPhilosophyOrSummary
+      ? [
+          'Optional: Add your Life Philosophy quote for the top-right sidebar, or an Executive Summary if desired.',
+        ]
+      : [],
+  });
+
+  // 3. Professional Experience
+  const exp = resume.experience || [];
+  let expStatus: import('../types/resume').SectionStatus = 'needs_details';
+  let expScore = 0;
+  const expIssues: string[] = [];
+  const expSuggestions: string[] = [];
+  if (exp.length > 0) {
+    const completeExp = exp.filter(
+      (e) =>
+        Boolean(e.company?.trim() && e.position?.trim()) &&
+        (Boolean(e.description?.trim()) ||
+          Boolean(e.results?.trim()) ||
+          (e.highlights || []).some((h) => h.trim().length > 0))
+    );
+    if (completeExp.length === exp.length) {
+      expStatus = 'complete';
+      expScore = 100;
+    } else {
+      expStatus = 'needs_details';
+      expScore = 65;
+      expIssues.push('Each executive role should include organization, title, and key responsibilities or impact bullets.');
+      recs.push('Add executive responsibilities and business outcomes under Professional Experience.');
+    }
+  } else {
+    expIssues.push('Add at least one executive or leadership role under Professional Experience.');
+    recs.push('Add your leadership and board history under Professional Experience.');
+  }
+  sections.push({
+    sectionId: 'experience',
+    name: '3. Professional Experience',
+    status: expStatus,
+    statusLabel:
+      expStatus === 'complete' ? 'Completed' : exp.length > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: expScore,
+    issues: expIssues,
+    suggestions: expSuggestions,
+  });
+
+  // 4. Most Proud Of (Optional)
+  const ach = resume.achievements || [];
+  sections.push({
+    sectionId: 'awards',
+    name: '4. Most Proud Of',
+    status: ach.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: ach.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: ach.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      ach.length === 0
+        ? ['Optional: Highlight landmark business milestones, awards, or leadership honors.']
+        : [],
+  });
+
+  // 5. Strengths & Competencies (Optional)
+  const strengths = (resume.strengths || []).filter((s) => s.trim().length > 0);
+  sections.push({
+    sectionId: 'strengths',
+    name: '5. Strengths & Competencies',
+    status: strengths.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: strengths.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: strengths.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      strengths.length === 0
+        ? ['Optional: Select or add core executive strengths displayed as outlined tags.']
+        : [],
+  });
+
+  // 6. A Day of My Life (Optional - supports % <= 100 or hours <= 24)
+  const dailyMode = resume.dailyActivityMode || 'percentage';
+  const dailyVal = validateDailyActivities(resume.dailyActivities || [], dailyMode);
+  let dailyStatus: import('../types/resume').SectionStatus = 'optional_empty';
+  let dailyLabel = 'Optional / Skipped';
+  let dailyScore = 0;
+  const dailyIssues: string[] = [];
+  const dailySuggestions: string[] = [];
+  if (!dailyVal.valid && (resume.dailyActivities || []).length > 0) {
+    dailyStatus = 'needs_review';
+    dailyLabel =
+      dailyMode === 'percentage'
+        ? dailyVal.totalPercentage > 100
+          ? `Exceeds 100% (${dailyVal.totalPercentage}%)`
+          : `Invalid (${dailyVal.totalPercentage}%)`
+        : dailyVal.totalHours > 24
+        ? `Exceeds 24h (${dailyVal.totalHours}h)`
+        : `Invalid (${dailyVal.totalHours}h)`;
+    dailyScore = 40;
+    if (dailyVal.error) dailyIssues.push(dailyVal.error);
+    recs.push(
+      dailyMode === 'percentage'
+        ? 'Adjust time allocation percentages in "A Day of My Life" so total does not exceed 100%.'
+        : 'Adjust daily hours in "A Day of My Life" so total does not exceed 24h.'
+    );
+  } else if (dailyVal.validItems.length > 0) {
+    dailyStatus = 'complete';
+    dailyLabel = resume.showDailyActivityChart === false ? 'Hidden in CV' : 'Completed';
+    dailyScore = 100;
+  } else {
+    dailySuggestions.push(
+      'Optional: Allocate your executive time (%) or daily hours to display the purple donut chart.'
+    );
+  }
+  sections.push({
+    sectionId: 'daily-life',
+    name: '6. A Day of My Life',
+    status: dailyStatus,
+    statusLabel: dailyLabel,
+    isOptional: true,
+    score: dailyScore,
+    issues: dailyIssues,
+    suggestions: dailySuggestions,
+  });
+
+  // 7. Education & Executive Programs
+  const edu = resume.education || [];
+  let eduStatus: import('../types/resume').SectionStatus = 'needs_details';
+  let eduScore = 0;
+  const eduIssues: string[] = [];
+  if (edu.length > 0) {
+    const valid = edu.filter((e) => e.institution?.trim() && e.degree?.trim());
+    if (valid.length === edu.length) {
+      eduStatus = 'complete';
+      eduScore = 100;
+    } else {
+      eduStatus = 'needs_details';
+      eduScore = 55;
+      eduIssues.push('Some education entries are missing an institution or degree title.');
+    }
+  } else {
+    eduIssues.push('Add at least one university degree or executive education credential.');
+    recs.push('Add your academic degrees or executive programs under Education.');
+  }
+  sections.push({
+    sectionId: 'education',
+    name: '7. Education & Executive Programs',
+    status: eduStatus,
+    statusLabel:
+      eduStatus === 'complete' ? 'Completed' : edu.length > 0 ? 'In Progress' : 'Not Started',
+    isOptional: false,
+    score: eduScore,
+    issues: eduIssues,
+    suggestions: [],
+  });
+
+  // 8. Languages (Optional)
+  const langs = (resume.languages || []).filter((l) => l.language?.trim());
+  sections.push({
+    sectionId: 'languages',
+    name: '8. Languages',
+    status: langs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: langs.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: langs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      langs.length === 0
+        ? ['Optional: Add spoken languages with explicit 5-dot proficiency scores.']
+        : [],
+  });
+
+  // 9. Publications & Presentations (Optional)
+  const pubs = (resume.publications || []).filter((p) => p.title?.trim());
+  sections.push({
+    sectionId: 'publications',
+    name: '9. Publications & Presentations',
+    status: pubs.length > 0 ? 'complete' : 'optional_empty',
+    statusLabel: pubs.length > 0 ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: pubs.length > 0 ? 100 : 0,
+    issues: [],
+    suggestions:
+      pubs.length === 0
+        ? ['Optional: Add keynotes, articles, books, or conference proceedings for Page 2.']
+        : [],
+  });
+
+  // 10. Referees (Optional with privacy mode)
+  const refs = (resume.references || []).filter((r) => r.fullName?.trim());
+  const refMode = resume.referencesDisplayMode || (refs.length > 0 ? 'detailed' : undefined);
+  let refStatus: import('../types/resume').SectionStatus = 'optional_empty';
+  let refLabel = 'Optional / Skipped';
+  let refScore = 0;
+  if (refMode === 'hidden') {
+    refLabel = 'Hidden in CV';
+  } else if (refMode === 'on-request') {
+    refStatus = 'complete';
+    refLabel = 'Upon Request';
+    refScore = 100;
+  } else if (refs.length > 0) {
+    refStatus = 'complete';
+    refLabel = 'Completed';
+    refScore = 100;
+  }
+  sections.push({
+    sectionId: 'references',
+    name: '10. Referees',
+    status: refStatus,
+    statusLabel: refLabel,
+    isOptional: true,
+    score: refScore,
+    issues: [],
+    suggestions:
+      refScore === 0
+        ? ['Optional: List board/executive referees or select "Available Upon Request".']
+        : [],
+  });
+
+  // 11. Projects & Additional Sections (Optional)
+  const hasExtra =
+    (resume.projects || []).some((p) => p.title?.trim()) ||
+    (resume.customSections || []).some((cs) => cs.title?.trim() && cs.bullets?.some((b) => b.trim()));
+  sections.push({
+    sectionId: 'custom-sections',
+    name: '11. Projects & Additional',
+    status: hasExtra ? 'complete' : 'optional_empty',
+    statusLabel: hasExtra ? 'Completed' : 'Optional / Skipped',
+    isOptional: true,
+    score: hasExtra ? 100 : 0,
+    issues: [],
+    suggestions: !hasExtra
+      ? ['Optional: Add board initiatives, advisory projects, or custom sections.']
+      : [],
+  });
+
+  const overallScore = calculateResumeCompleteness(resume);
+  let overallStatus: 'excellent' | 'good' | 'in_progress' | 'needs_work' = 'needs_work';
+  if (overallScore >= 85) overallStatus = 'excellent';
+  else if (overallScore >= 65) overallStatus = 'good';
+  else if (overallScore >= 40) overallStatus = 'in_progress';
+
+  return {
+    overallScore,
+    overallStatus,
+    sections,
+    topRecommendations:
+      recs.length > 0
+        ? recs
+        : ['Your Executive Resume is crisp, balanced, and ready for two-page A4 PDF export.'],
+  };
+}
+
 export function analyzeResumeSections(resume: Partial<Resume>): import('../types/resume').CvCompletenessReport {
+  if (resume?.template === 'executive-resume') {
+    return analyzeExecutiveResumeSections(resume);
+  }
   if (resume?.template === 'creative-professional') {
     return analyzeCreativeProfessionalSections(resume);
   }

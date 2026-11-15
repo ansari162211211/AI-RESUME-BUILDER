@@ -191,6 +191,47 @@
           "type": "object",
           "description": "Optional internship preferences including target role, duration, work arrangement, availability, and preferred technologies."
         },
+        "executiveRoleType": {
+          "type": "string",
+          "maxLength": 32,
+          "enum": ["ceo", "cto", "cfo", "coo", "hr-director", "marketing-director", "founder", "other"],
+          "description": "Optional executive role track for Template 13 Executive Resume."
+        },
+        "customExecutiveRole": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional custom executive title when executiveRoleType is set to other."
+        },
+        "executiveIndustry": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional executive industry focus."
+        },
+        "executiveYearsExperience": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Optional years of executive leadership experience."
+        },
+        "philosophyExplanation": {
+          "type": "string",
+          "maxLength": 800,
+          "description": "Optional short explanation expanding on the user's leadership philosophy quote."
+        },
+        "managementStyle": {
+          "type": "string",
+          "maxLength": 600,
+          "description": "Optional executive management style summary."
+        },
+        "strategicDomains": {
+          "type": "array",
+          "description": "Optional strategic leadership focus domains."
+        },
+        "dailyActivityMode": {
+          "type": "string",
+          "maxLength": 16,
+          "enum": ["hours", "percentage"],
+          "description": "Whether dailyActivities values represent hours (<=24) or percentages (<=100)."
+        },
         "themeColor": {
           "type": "string",
           "maxLength": 32,

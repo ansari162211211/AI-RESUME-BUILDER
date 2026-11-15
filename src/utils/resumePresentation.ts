@@ -2398,10 +2398,18 @@ export function isSectionVisibleAndPopulated(
             (resume.academicInterests?.trim() || resume.careerGoals?.trim()))
       );
     case 'philosophy':
-      return Boolean(resume.personalQuote && resume.personalQuote.trim().length > 0);
+      return Boolean(
+        (resume.personalQuote && resume.personalQuote.trim().length > 0) ||
+          (effectiveTplId === 'executive-resume' &&
+            resume.philosophyExplanation &&
+            resume.philosophyExplanation.trim().length > 0)
+      );
     case 'daily-life': {
       if (resume.showDailyActivityChart === false) return false;
-      const validation = validateDailyActivities(resume.dailyActivities);
+      const dailyMode =
+        resume.dailyActivityMode ||
+        (effectiveTplId === 'executive-resume' ? 'percentage' : 'hours');
+      const validation = validateDailyActivities(resume.dailyActivities, dailyMode);
       return validation.valid && validation.validItems.length > 0;
     }
     case 'strengths':
@@ -2583,7 +2591,8 @@ export function getOrderedVisibleSections(
       template.id === 'fresher-resume' ||
       template.id === 'internship-resume' ||
       template.id === 'engineering-resume' ||
-      template.id === 'creative-professional') &&
+      template.id === 'creative-professional' ||
+      template.id === 'executive-resume') &&
     Array.isArray(resume.sectionOrderOverride) &&
     resume.sectionOrderOverride.length > 0
   ) {
@@ -2624,6 +2633,37 @@ export function getSectionDisplayTitle(
         return 'Technical Skills';
       case 'leadership':
         return 'Leadership / Extracurricular';
+      default:
+        break;
+    }
+  }
+
+  if (templateId === 'executive-resume') {
+    switch (key) {
+      case 'objective':
+        return 'EXECUTIVE SUMMARY';
+      case 'experience':
+        return 'EXPERIENCE';
+      case 'projects':
+        return 'PROJECTS';
+      case 'daily-life':
+        return 'A DAY OF MY LIFE';
+      case 'publications':
+        return 'PUBLICATIONS';
+      case 'philosophy':
+        return 'LIFE PHILOSOPHY';
+      case 'achievements':
+        return 'MOST PROUD OF';
+      case 'strengths':
+        return 'STRENGTHS';
+      case 'languages':
+        return 'LANGUAGES';
+      case 'education':
+        return 'EDUCATION';
+      case 'references':
+        return 'REFEREES';
+      case 'custom-sections':
+        return 'ADDITIONAL INFORMATION';
       default:
         break;
     }

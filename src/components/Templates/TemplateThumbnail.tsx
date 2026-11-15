@@ -172,6 +172,20 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
       );
     }
 
+    if (custom.headingStyle === 'executive-purple-rule' && !inverted) {
+      return (
+        <div className="mb-1">
+          <div
+            className="text-[6.2px] font-bold uppercase tracking-[0.04em]"
+            style={{ color: accent }}
+          >
+            {label}
+          </div>
+          <div className="h-[1.25px] mt-[1px]" style={{ backgroundColor: accent }} />
+        </div>
+      );
+    }
+
     if (custom.headingStyle === 'title-rule') {
       return (
         <div
@@ -493,17 +507,23 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
           </div>
         );
       }
-      case 'daily-life':
+      case 'daily-life': {
+        const isExecThumb = template.id === 'executive-resume';
+        const c1 = isExecThumb ? '#4c1d95' : '#8f131b';
+        const c2 = isExecThumb ? '#3b0764' : '#560b10';
+        const c3 = isExecThumb ? '#7c3aed' : '#b4434a';
+        const c4 = isExecThumb ? '#c4b5fd' : '#e3b5b7';
         return (
           <div className="flex items-center justify-center py-0.5">
             <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-              <circle cx="16" cy="16" r="10" fill="none" stroke="#e3b5b7" strokeWidth="6" />
-              <circle cx="16" cy="16" r="10" fill="none" stroke="#8f131b" strokeWidth="6" strokeDasharray="24 40" strokeDashoffset="0" />
-              <circle cx="16" cy="16" r="10" fill="none" stroke="#560b10" strokeWidth="6" strokeDasharray="12 52" strokeDashoffset="-24" />
-              <circle cx="16" cy="16" r="10" fill="none" stroke="#b4434a" strokeWidth="6" strokeDasharray="14 50" strokeDashoffset="-36" />
+              <circle cx="16" cy="16" r="10" fill="none" stroke={c4} strokeWidth="6" />
+              <circle cx="16" cy="16" r="10" fill="none" stroke={c1} strokeWidth="6" strokeDasharray="24 40" strokeDashoffset="0" />
+              <circle cx="16" cy="16" r="10" fill="none" stroke={c2} strokeWidth="6" strokeDasharray="12 52" strokeDashoffset="-24" />
+              <circle cx="16" cy="16" r="10" fill="none" stroke={c3} strokeWidth="6" strokeDasharray="14 50" strokeDashoffset="-36" />
             </svg>
           </div>
         );
+      }
       case 'achievements': {
         const items = (resume?.achievements && resume.achievements.length > 0
           ? resume.achievements
@@ -530,7 +550,8 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
               { id: 'l2', language: 'Spanish', proficiency: 'Advanced' },
             ]
         ).slice(0, 3);
-        const isTwoColPro = template.id === 'two-column-professional';
+        const isTwoColPro =
+          template.id === 'two-column-professional' || template.id === 'executive-resume';
         return (
           <div className="space-y-0.5">
             {langs.map((l) => (
@@ -1911,9 +1932,10 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
   }
 
   if (template.layout === 'main-left-sidebar-right') {
-    const thumbPhoto = resume?.personalInfo?.photoUrl;
+    const isExecThumb = template.id === 'executive-resume';
+    const thumbPhoto = !resume?.personalInfo?.hidePhoto ? resume?.personalInfo?.photoUrl : undefined;
     const sidebarPreviewKeys: ResumeSectionKey[] = ['philosophy', 'achievements', 'strengths', 'languages', 'education'];
-    const mainPreviewKeys: ResumeSectionKey[] = ['experience', 'projects', 'daily-life'];
+    const mainPreviewKeys: ResumeSectionKey[] = ['experience', 'daily-life'];
 
     return (
       <div
@@ -1933,13 +1955,19 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({
             </div>
           </div>
           {thumbPhoto ? (
-            <div
-              className="w-6 h-6 rounded-full p-[1.5px] shrink-0"
-              style={{ backgroundColor: '#f3ebd3', border: '0.5px solid #e5c57a' }}
-            >
-              <img src={thumbPhoto} alt="" className="w-full h-full object-cover rounded-full" />
-            </div>
-          ) : (
+            isExecThumb ? (
+              <div className="w-6 h-6 rounded-full overflow-hidden shrink-0">
+                <img src={thumbPhoto} alt="" className="w-full h-full object-cover rounded-full" />
+              </div>
+            ) : (
+              <div
+                className="w-6 h-6 rounded-full p-[1.5px] shrink-0"
+                style={{ backgroundColor: '#f3ebd3', border: '0.5px solid #e5c57a' }}
+              >
+                <img src={thumbPhoto} alt="" className="w-full h-full object-cover rounded-full" />
+              </div>
+            )
+          ) : isExecThumb ? null : (
             <div
               className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-[4px] font-bold"
               style={{ backgroundColor: '#f3ebd3', border: '0.5px solid #e5c57a', color: accent }}

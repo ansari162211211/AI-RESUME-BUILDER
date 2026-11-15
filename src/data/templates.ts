@@ -177,6 +177,29 @@ export const TWO_COLUMN_ORDER: ResumeSectionKey[] = [
   ...TWO_COLUMN_SIDEBAR_ORDER,
 ];
 
+export const EXECUTIVE_MAIN_ORDER: ResumeSectionKey[] = [
+  'objective',
+  'experience',
+  'daily-life',
+  'publications',
+  'projects',
+  'custom-sections',
+];
+
+export const EXECUTIVE_SIDEBAR_ORDER: ResumeSectionKey[] = [
+  'philosophy',
+  'achievements',
+  'strengths',
+  'languages',
+  'education',
+  'references',
+];
+
+export const EXECUTIVE_ORDER: ResumeSectionKey[] = [
+  ...EXECUTIVE_MAIN_ORDER,
+  ...EXECUTIVE_SIDEBAR_ORDER,
+];
+
 export const ELEGANT_SERIF_LEFT_ORDER: ResumeSectionKey[] = [
   'education',
   'experience',
@@ -686,6 +709,30 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       headingStyle: 'creative-blue-rule',
     },
   },
+  {
+    id: 'executive-resume',
+    name: 'Executive Resume',
+    shortTag: 'Executive AltaCV',
+    description:
+      'High-impact two-page executive CV on a crisp white canvas with royal purple section rules, executive identity header with optional portrait, experience with impact metrics, A Day of My Life purple infographic, Life Philosophy quote, Most Proud Of cards, Strengths tags, 5-dot Languages, Education, Publications, and Referees.',
+    categories: ['Professional', 'Academic CV'],
+    layout: 'main-left-sidebar-right',
+    headerVariant: 'two-column-header',
+    sectionOrder: EXECUTIVE_ORDER,
+    sidebarSections: EXECUTIVE_SIDEBAR_ORDER,
+    bulletSymbol: '•',
+    citationStyle: 'numbered',
+    skillsLayout: 'rows',
+    defaultCustomization: {
+      fontFamily: 'sans',
+      fontSize: 'standard',
+      textColor: '#111827',
+      accentColor: '#4c1d95',
+      sectionSpacing: 'balanced',
+      pageMargins: 'narrow',
+      headingStyle: 'executive-purple-rule',
+    },
+  },
 ];
 
 export const TEXT_COLOR_SWATCHES = [
@@ -695,6 +742,7 @@ export const TEXT_COLOR_SWATCHES = [
 ];
 
 export const ACCENT_COLOR_SWATCHES = [
+  { label: 'Executive Purple', value: '#4c1d95' },
   { label: 'Creative Blue', value: '#1d4ed8' },
   { label: 'Crimson Burgundy', value: '#8f131b' },
   { label: 'Classic Blue', value: '#1e4e8c' },
@@ -762,12 +810,13 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
   const isInternshipResume = templateId === 'internship-resume';
   const isEngineeringResume = templateId === 'engineering-resume';
   const isCreativeProfessional = templateId === 'creative-professional';
+  const isExecutiveResume = templateId === 'executive-resume';
   const baseFontPt =
     custom.fontSize === 'compact'
       ? 8.75
       : custom.fontSize === 'large'
       ? 10.25
-      : isTwoColumn || isElegantSerif || isInternshipResume || isCreativeProfessional
+      : isTwoColumn || isExecutiveResume || isElegantSerif || isInternshipResume || isCreativeProfessional
       ? 9.0
       : isModernCorporate || isFresherResume || isEngineeringResume
       ? 9.25
@@ -792,12 +841,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 46
       : 36
-    : isInternshipResume || isCreativeProfessional
+    : isInternshipResume
     ? custom.pageMargins === 'narrow'
       ? 26
       : custom.pageMargins === 'wide'
       ? 44
       : 34
+    : isCreativeProfessional
+    ? custom.pageMargins === 'narrow'
+      ? 18
+      : custom.pageMargins === 'wide'
+      ? 36
+      : 26
     : isEngineeringResume
     ? custom.pageMargins === 'narrow'
       ? 28
@@ -822,6 +877,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 50
       : 38
+    : isExecutiveResume
+    ? custom.pageMargins === 'narrow'
+      ? 26
+      : custom.pageMargins === 'wide'
+      ? 42
+      : 34
     : isTwoColumn
     ? custom.pageMargins === 'narrow'
       ? 28
@@ -881,6 +942,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.pageMargins === 'wide'
       ? 56
       : 44
+    : isExecutiveResume
+    ? custom.pageMargins === 'narrow'
+      ? 28
+      : custom.pageMargins === 'wide'
+      ? 44
+      : 36
     : isTwoColumn
     ? custom.pageMargins === 'narrow'
       ? 30
@@ -911,12 +978,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 12
       : 8.5
-    : isInternshipResume || isCreativeProfessional
+    : isInternshipResume
     ? custom.sectionSpacing === 'tight'
       ? 6
       : custom.sectionSpacing === 'relaxed'
       ? 11.5
       : 8
+    : isCreativeProfessional
+    ? custom.sectionSpacing === 'tight'
+      ? 5
+      : custom.sectionSpacing === 'relaxed'
+      ? 10.5
+      : 6.5
     : isEngineeringResume
     ? custom.sectionSpacing === 'tight'
       ? 5.5
@@ -941,6 +1014,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 10.5
       : 7.5
+    : isExecutiveResume
+    ? custom.sectionSpacing === 'tight'
+      ? 5.5
+      : custom.sectionSpacing === 'relaxed'
+      ? 10.5
+      : 8
     : isTwoColumn
     ? custom.sectionSpacing === 'tight'
       ? 6
@@ -970,12 +1049,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 9
       : 6.5
-    : isInternshipResume || isCreativeProfessional
+    : isInternshipResume
     ? custom.sectionSpacing === 'tight'
       ? 4
       : custom.sectionSpacing === 'relaxed'
       ? 8
       : 5.25
+    : isCreativeProfessional
+    ? custom.sectionSpacing === 'tight'
+      ? 3.25
+      : custom.sectionSpacing === 'relaxed'
+      ? 7.5
+      : 4.5
     : isEngineeringResume
     ? custom.sectionSpacing === 'tight'
       ? 3.75
@@ -999,6 +1084,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 3.75
       : custom.sectionSpacing === 'relaxed'
       ? 8
+      : 5.5
+    : isExecutiveResume
+    ? custom.sectionSpacing === 'tight'
+      ? 4
+      : custom.sectionSpacing === 'relaxed'
+      ? 7.5
       : 5.5
     : isTwoColumn
     ? custom.sectionSpacing === 'tight'
@@ -1029,12 +1120,18 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 1.38
       : 1.3
-    : isInternshipResume || isCreativeProfessional
+    : isInternshipResume
     ? custom.sectionSpacing === 'tight'
       ? 1.2
       : custom.sectionSpacing === 'relaxed'
       ? 1.36
       : 1.27
+    : isCreativeProfessional
+    ? custom.sectionSpacing === 'tight'
+      ? 1.18
+      : custom.sectionSpacing === 'relaxed'
+      ? 1.34
+      : 1.23
     : isEngineeringResume
     ? custom.sectionSpacing === 'tight'
       ? 1.18
@@ -1059,6 +1156,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : custom.sectionSpacing === 'relaxed'
       ? 1.34
       : 1.24
+    : isExecutiveResume
+    ? custom.sectionSpacing === 'tight'
+      ? 1.22
+      : custom.sectionSpacing === 'relaxed'
+      ? 1.38
+      : 1.28
     : isTwoColumn
     ? custom.sectionSpacing === 'tight'
       ? 1.24
@@ -1091,12 +1194,12 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 20 + delta * 1.4
       : isSoftwareDev
       ? 22 + delta * 1.4
-      : isTwoColumn
+      : isTwoColumn || isExecutiveResume
       ? 21 + delta * 1.4
       : 20 + delta * 1.5,
     jobTitlePt: isModernCorporate
       ? 11.5 + delta * 0.6
-      : isTwoColumn
+      : isTwoColumn || isExecutiveResume
       ? 11.25 + delta * 0.6
       : isInternshipResume || isEngineeringResume || isCreativeProfessional
       ? 10.5 + delta * 0.6
@@ -1121,10 +1224,10 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       ? 10.25 + delta * 0.5
       : isSoftwareDev
       ? 10.5 + delta * 0.5
-      : isTwoColumn
+      : isTwoColumn || isExecutiveResume
       ? 12 + delta * 0.5
       : 10 + delta * 0.5,
-    entryTitlePt: isTwoColumn
+    entryTitlePt: isTwoColumn || isExecutiveResume
       ? 9.75 + delta
       : isElegantSerif
       ? 9.25 + delta
@@ -1135,7 +1238,7 @@ export function getTypographyScale(custom: TemplateCustomization, templateId?: s
       : isFresherResume
       ? 9.0 + delta
       : 9.5 + delta,
-    entrySubtitlePt: isTwoColumn
+    entrySubtitlePt: isTwoColumn || isExecutiveResume
       ? 9 + delta
       : isElegantSerif
       ? 8.75 + delta

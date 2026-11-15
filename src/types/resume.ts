@@ -10,6 +10,7 @@ export interface PersonalInfo {
   dateOfBirth?: string;
   additionalInfo?: string;
   photoUrl?: string;
+  hidePhoto?: boolean;
   photoShape?: 'portrait' | 'square' | 'circle';
   streetAddress?: string;
   city?: string;
@@ -170,6 +171,8 @@ export interface DailyActivityItem {
   id: string;
   activity: string;
   hours: number;
+  percentage?: number;
+  description?: string;
 }
 
 export type ReferencesDisplayMode = 'detailed' | 'on-request' | 'hidden';
@@ -252,7 +255,9 @@ export interface AwardItem {
   url?: string;
   achievementDetails?: string;
   description?: string;
-  icon?: 'trophy' | 'heart' | 'award' | 'star';
+  challenge?: string;
+  actionTaken?: string;
+  icon?: 'trophy' | 'heart' | 'chart' | 'award' | 'star';
 }
 
 export type LearningActivityType =
@@ -303,6 +308,16 @@ export type CreativeProfession =
   | 'marketing'
   | 'researcher'
   | 'engineer'
+  | 'other';
+
+export type ExecutiveRoleType =
+  | 'ceo'
+  | 'cto'
+  | 'cfo'
+  | 'coo'
+  | 'hr-director'
+  | 'marketing-director'
+  | 'founder'
   | 'other';
 
 export interface CreativeSkillDetailItem {
@@ -451,7 +466,8 @@ export type TemplateHeadingStyle =
   | 'clean-caps'
   | 'italic-serif'
   | 'internship-rule'
-  | 'creative-blue-rule';
+  | 'creative-blue-rule'
+  | 'executive-purple-rule';
 
 export interface TemplateCustomization {
   fontFamily: CvFontFamily;
@@ -517,6 +533,14 @@ export interface Resume {
   learningActivities?: LearningActivityItem[];
   careerInterests?: string[];
   internshipPreferences?: InternshipPreferences;
+  executiveRoleType?: ExecutiveRoleType;
+  customExecutiveRole?: string;
+  executiveIndustry?: string;
+  executiveYearsExperience?: string;
+  philosophyExplanation?: string;
+  managementStyle?: string;
+  strategicDomains?: string[];
+  dailyActivityMode?: 'hours' | 'percentage';
   volunteer?: VolunteerItem[];
   memberships?: MembershipItem[];
   certifications: CertificationItem[];

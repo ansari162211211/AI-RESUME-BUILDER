@@ -1,20 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  EXECUTIVE_ROLE_PROMPTS,
+  EXECUTIVE_SECTION_FLOW,
   accumulateStagedUpdates,
   buildAdaptiveCreativeFallback,
   buildAdaptiveEngineeringFallback,
+  buildAdaptiveExecutiveFallback,
   buildAdaptiveInternshipFallback,
   detectCreativeProfessionFromText,
   detectEngineeringBranchFromText,
+  detectExecutiveRoleFromText,
   mergeResumeUpdates,
 } from './aiInterviewHelpers.ts';
 import {
   SAMPLE_CREATIVE_PROFESSIONAL_CV,
   SAMPLE_ENGINEERING_RESUME_CV,
+  SAMPLE_EXECUTIVE_RESUME_CV,
   SAMPLE_INTERNSHIP_RESUME_CV,
 } from '../data/sampleResumes.ts';
-import type { CreativeProfession, EngineeringBranch, Resume } from '../types/resume';
+import type { CreativeProfession, EngineeringBranch, ExecutiveRoleType, Resume } from '../types/resume';
 
 const baseInternshipResume: Resume = {
   ...SAMPLE_INTERNSHIP_RESUME_CV,
@@ -330,4 +335,106 @@ test('mergeResumeUpdates clamps Creative percentages [0, 100] and deduplicates c
   assert.equal(mergedTwice.creativeSkillItems?.length, mergedOnce.creativeSkillItems?.length);
   assert.equal(mergedTwice.communicationSkills?.length, mergedOnce.communicationSkills?.length);
 });
+
+const baseExecutiveResume: Resume = {
+  ...SAMPLE_EXECUTIVE_RESUME_CV,
+  id: 'res-test-executive',
+  userId: 'user-test',
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+};
+
+test('detectExecutiveRoleFromText accurately classifies all 8 executive roles', () => {
+  assert.equal(detectExecutiveRoleFromText('President & Chief Executive Officer'), 'ceo');
+  assert.equal(detectExecutiveRoleFromText('CTO and VP Engineering scaling cloud infrastructure'), 'cto');
+  assert.equal(detectExecutiveRoleFromText('Chief Financial Officer overseeing M&A and FP&A'), 'cfo');
+  assert.equal(detectExecutiveRoleFromText('Chief Operating Officer leading global operations'), 'coo');
+  assert.equal(detectExecutiveRoleFromText('CHRO and HR Director leading people strategy'), 'hr-director');
+  assert.equal(detectExecutiveRoleFromText('CMO and Marketing Director driving category growth'), 'marketing-director');
+  assert.equal(detectExecutiveRoleFromText('Co-Founder and Managing Partner'), 'founder');
+  assert.equal(detectExecutiveRoleFromText('Board Director & Senior Advisor'), 'other');
+  assert.equal(detectExecutiveRoleFromText('Hello let us begin'), null);
+});
+
+test('EXECUTIVE_ROLE_PROMPTS & buildAdaptiveExecutiveFallback guide all 8 roles across 11 steps cleanly', () => {
+  const roles: ExecutiveRoleType[] = [
+    'ceo',
+    'cto',
+    'cfo',
+    'coo',
+    'hr-director',
+    'marketing-director',
+    'founder',
+    'other',
+  ];
+
+  assert.equal(EXECUTIVE_SECTION_FLOW.length, 11);
+  for (const role of roles) {
+    assert.ok(EXECUTIVE_ROLE_PROMPTS[role].experience);
+    const stepRes = buildAdaptiveExecutiveFallback(
+      'Skip to Referees',
+      { ...baseExecutiveResume, executiveRoleType: role },
+      'publications',
+      EXECUTIVE_SECTION_FLOW
+    );
+    assert.equal(stepRes.nextSection, 'references');
+    assert.equal(stepRes.isSectionCompleted, true);
+    assert.ok(stepRes.reply.length > 15);
+  }
+
+  const ctoDetect = buildAdaptiveExecutiveFallback(
+    'I am applying as CTO and VP of Engineering',
+    baseExecutiveResume,
+    'personalInfo',
+    EXECUTIVE_SECTION_FLOW
+  );
+  assert.equal(ctoDetect.structuredUpdates.executiveRoleType, 'cto');
+
+  const jumpDaily = buildAdaptiveExecutiveFallback(
+    'Move to Day of My Life chart',
+    baseExecutiveResume,
+    'philosophy',
+    EXECUTIVE_SECTION_FLOW
+  );
+  assert.equal(jumpDaily.nextSection, 'daily-life');
+});
+
+test('mergeResumeUpdates merges executive fields and percentage dailyActivities without exceeding 100%', () => {
+  const validPatch: Partial<Resume> = {
+    executiveRoleType: 'cfo',
+    executiveIndustry: 'Fintech',
+    executiveYearsExperience: '14 years',
+    philosophyExplanation: 'Disciplined capital allocation unlocks sustainable growth.',
+    managementStyle: 'Transparent KPI cadences with autonomous P&L owners',
+    strategicDomains: ['Capital Markets', 'M&A Integration'],
+    dailyActivityMode: 'percentage',
+    dailyActivities: [
+      { id: 'ed1', activity: 'Capital Strategy', hours: 40, percentage: 40 },
+      { id: 'ed2', activity: 'Investor & Board', hours: 35, percentage: 35 },
+      { id: 'ed3', activity: 'Risk & Controls', hours: 25, percentage: 25 },
+    ],
+  };
+
+  const merged = mergeResumeUpdates(baseExecutiveResume, validPatch, false);
+  assert.equal(merged.executiveRoleType, 'cfo');
+  assert.equal(merged.executiveIndustry, 'Fintech');
+  assert.equal(merged.philosophyExplanation, 'Disciplined capital allocation unlocks sustainable growth.');
+  assert.equal(merged.dailyActivities?.length, 3);
+  assert.equal(merged.dailyActivities?.[0].percentage, 40);
+
+  // Exceeding 100% in percentage mode must be rejected (preserving prior valid dailyActivities)
+  const rejectedOver100 = mergeResumeUpdates(
+    merged,
+    {
+      dailyActivityMode: 'percentage',
+      dailyActivities: [
+        { id: 'bad1', activity: 'Strategy', hours: 80, percentage: 80 },
+        { id: 'bad2', activity: 'Ops', hours: 40, percentage: 40 },
+      ],
+    },
+    false
+  );
+  assert.equal(rejectedOver100.dailyActivities?.length, 3);
+});
+
 
