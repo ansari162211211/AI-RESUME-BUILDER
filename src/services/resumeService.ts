@@ -1,12 +1,15 @@
 import {
   auth,
   db,
+  isFirebaseConfigured,
   doc,
   collection,
   getDocs,
   getDoc,
   setDoc,
   deleteDoc,
+  query,
+  where,
   handleFirestoreError,
   OperationType,
 } from './firebase';
@@ -52,18 +55,28 @@ function saveLocalResumes(userId: string, resumes: Resume[]): void {
   }
 }
 
+function isAuthenticatedOwner(userId: string): boolean {
+  return Boolean(
+    isFirebaseConfigured &&
+      auth?.currentUser &&
+      userId &&
+      auth.currentUser.uid === userId
+  );
+}
+
 export async function getUserResumes(userId: string): Promise<Resume[]> {
   const collectionPath = `users/${userId}/resumes`;
   const local = getLocalResumes(userId);
 
-  // If unauthenticated or demo user, directly return local storage
-  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+  // If unauthenticated, misconfigured, or demo user, directly return user-scoped local storage
+  if (!isAuthenticatedOwner(userId)) {
     return local;
   }
 
   try {
     const colRef = collection(db, 'users', userId, 'resumes');
-    const snap = await getDocs(colRef);
+    const q = query(colRef, where('userId', '==', userId));
+    const snap = await getDocs(q);
     const list: Resume[] = [];
     snap.forEach((d) => {
       list.push(d.data() as Resume);
@@ -93,7 +106,7 @@ export async function getResume(userId: string, resumeId: string): Promise<Resum
   const localList = getLocalResumes(userId);
   const foundLocal = localList.find((r) => r.id === resumeId);
 
-  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+  if (!isAuthenticatedOwner(userId)) {
     return foundLocal || null;
   }
 
@@ -101,7 +114,11 @@ export async function getResume(userId: string, resumeId: string): Promise<Resum
     const docRef = doc(db, 'users', userId, 'resumes', resumeId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
-      return snap.data() as Resume;
+      const data = snap.data() as Resume;
+      if (data.userId && data.userId !== userId) {
+        return null;
+      }
+      return data;
     }
     return foundLocal || null;
   } catch (error) {
@@ -138,7 +155,7 @@ export async function saveResume(userId: string, resume: Resume): Promise<void> 
   saveLocalResumes(userId, currentLocal);
 
   // If user is authenticated with Firebase, persist to Firestore
-  if (auth.currentUser && auth.currentUser.uid === userId) {
+  if (isAuthenticatedOwner(userId)) {
     try {
       const docRef = doc(db, 'users', userId, 'resumes', resume.id);
       await setDoc(docRef, updatedResume);
@@ -157,7 +174,7 @@ export async function deleteResume(userId: string, resumeId: string): Promise<vo
   const filtered = currentLocal.filter((r) => r.id !== resumeId);
   saveLocalResumes(userId, filtered);
 
-  if (auth.currentUser && auth.currentUser.uid === userId) {
+  if (isAuthenticatedOwner(userId)) {
     try {
       const docRef = doc(db, 'users', userId, 'resumes', resumeId);
       await deleteDoc(docRef);

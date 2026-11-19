@@ -114,3 +114,64 @@ export async function generateCvPdfBlobUrl(
     revoke: () => URL.revokeObjectURL(url),
   };
 }
+
+/**
+ * Generates and downloads a selectable-text PDF ATS Compatibility Analysis Report.
+ */
+export async function downloadAtsReportPdf(
+  record: import('../types/ats').AtsAnalysisRecord
+): Promise<DownloadPdfResult> {
+  const safeSlug = (record.resumeName || 'resume')
+    .replace(/[^a-z0-9_-]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48);
+  const fileName = `Resume_Match_Report_${safeSlug || 'Resume'}.pdf`;
+
+  try {
+    const { AtsReportPdfDocument } = await import(
+      '../components/AtsAnalyzer/AtsReportPdfDocument'
+    );
+    const docElement = React.createElement(AtsReportPdfDocument, { record });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const instance = pdf(docElement as any);
+    const blob = await instance.toBlob();
+
+    if (!blob || blob.size === 0) {
+      throw new Error('Generated ATS report PDF is empty.');
+    }
+
+    const pdfBlob =
+      blob.type === 'application/pdf'
+        ? blob
+        : new Blob([blob], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    link.rel = 'noopener';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      if (link.parentNode) {
+        link.parentNode.removeChild(link);
+      }
+      URL.revokeObjectURL(blobUrl);
+    }, 5000);
+
+    return {
+      success: true,
+      fileName,
+      blobSize: blob.size,
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown PDF generation error';
+    console.error('Failed to generate ATS Report PDF:', err);
+    return {
+      success: false,
+      fileName,
+      error: message,
+    };
+  }
+}

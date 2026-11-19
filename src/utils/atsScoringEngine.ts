@@ -1207,16 +1207,41 @@ export function parseJobDescriptionDeterministic(
     educationRequirement = stripBulletPrefix(eduSentence).slice(0, 160);
   }
 
-  // Extract high-signal domain phrases/tokens not already in technicalSkills
-  const tokenFreq = new Map<string, number>();
-  const words = normalized
-    .replace(/[^a-z0-9+.#/-]+/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !STOPWORDS.has(w) && !/^\d+$/.test(w));
+  // Detect company names from explicit metadata or common JD phrasing so they are never flagged as missing skills
+  const excludedCompanyTokens = new Set<string>();
+  const addCompanyTokens = (name?: string) => {
+    const clean = (name || '').trim().toLowerCase();
+    if (!clean) return;
+    excludedCompanyTokens.add(clean);
+    clean
+      .split(/[\s,./&-]+/)
+      .filter((p) => p.length >= 3 && !STOPWORDS.has(p))
+      .forEach((p) => excludedCompanyTokens.add(p));
+  };
+  addCompanyTokens(meta?.companyName);
 
-  for (const w of words) {
-    tokenFreq.set(w, (tokenFreq.get(w) || 0) + 1);
+  const companyPatterns = [
+    /(?:about|join|why)\s+([A-Z][A-Za-z0-9.&-]{2,30}(?:\s+[A-Z][A-Za-z0-9.&-]{2,20})?)/g,
+    /\b([A-Z][A-Za-z0-9.&-]{2,28})\s+(?:is\s+(?:hiring|looking|seeking)|solutions|technologies|corp|inc|llc|ltd)\b/g,
+  ];
+  for (const pat of companyPatterns) {
+    for (const m of raw.matchAll(pat)) {
+      if (m[1]) addCompanyTokens(m[1]);
+    }
   }
+
+  const isExcludedNonSkill = (term: string): boolean => {
+    const lower = term.trim().toLowerCase();
+    if (!lower || STOPWORDS.has(lower) || excludedCompanyTokens.has(lower)) return true;
+    const isKnownTech = KNOWN_TECHNICAL_SKILLS.some((k) => k.toLowerCase() === lower);
+    if (isKnownTech) return false;
+    const parts = lower.split(/\s+/);
+    if (parts.some((p) => excludedCompanyTokens.has(p))) return true;
+    if (/^(additional|optional|company|organization|organisation|client|clients|duties|responsibilities|qualifications|requirements|benefits|summary|overview)$/i.test(lower)) {
+      return true;
+    }
+    return false;
+  };
 
   const highSignalKeywords: AtsJobKeyword[] = [];
   const seenKeyLower = new Set<string>();
@@ -1228,7 +1253,7 @@ export function parseJobDescriptionDeterministic(
   ) => {
     const clean = term.trim();
     const key = clean.toLowerCase();
-    if (!clean || seenKeyLower.has(key) || STOPWORDS.has(key)) return;
+    if (!clean || seenKeyLower.has(key) || isExcludedNonSkill(clean)) return;
     seenKeyLower.add(key);
     highSignalKeywords.push({ term: clean, importance, category });
   };
@@ -1239,15 +1264,6 @@ export function parseJobDescriptionDeterministic(
   certifications.forEach((c) => pushKeyword(c, 'important', 'qualification'));
   preferredSkills.forEach((s) => pushKeyword(s, 'preferred', 'technical'));
   softSkills.slice(0, 5).forEach((s) => pushKeyword(s, 'relevant', 'soft'));
-
-  // Add top repeated domain words that are meaningful nouns/verbs from JD
-  const sortedExtra = Array.from(tokenFreq.entries())
-    .filter(([word, count]) => count >= 2 && word.length >= 4 && !seenKeyLower.has(word))
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8);
-  for (const [word] of sortedExtra) {
-    pushKeyword(word.replace(/\b\w/g, (c) => c.toUpperCase()), 'relevant', 'domain');
-  }
 
   const inferredTitle =
     meta?.jobTitle?.trim() ||
@@ -1274,9 +1290,126 @@ export function parseJobDescriptionDeterministic(
     softSkills,
     certifications,
     keyResponsibilities: responsibilityLines.slice(0, 8),
-    highSignalKeywords: highSignalKeywords.slice(0, 28),
+    highSignalKeywords: highSignalKeywords.slice(0, 24),
     parsedBy: 'deterministic',
     aiNote,
+  };
+}
+
+export function mergeAiJobRequirements(
+  base: ParsedJobRequirements,
+  aiPartial: Partial<ParsedJobRequirements> | null | undefined
+): ParsedJobRequirements {
+  if (!aiPartial || typeof aiPartial !== 'object') return base;
+
+  const companyName = (aiPartial.companyName || '').trim() || base.companyName;
+  const excludedCompanyWords = new Set<string>();
+  if (companyName) {
+    const lowerComp = companyName.toLowerCase();
+    excludedCompanyWords.add(lowerComp);
+    lowerComp
+      .split(/[\s,./&-]+/)
+      .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
+      .forEach((w) => excludedCompanyWords.add(w));
+  }
+
+  const isValidSkillOrKeyword = (term: string): boolean => {
+    const lower = term.trim().toLowerCase();
+    if (!lower || STOPWORDS.has(lower) || excludedCompanyWords.has(lower)) return false;
+    const knownTech = KNOWN_TECHNICAL_SKILLS.some((k) => k.toLowerCase() === lower);
+    if (knownTech) return true;
+    const words = lower.split(/\s+/);
+    if (words.some((w) => excludedCompanyWords.has(w))) return false;
+    if (/^(additional|optional|company|team|candidates?|applicants?|requirements|responsibilities|qualifications)$/i.test(lower)) {
+      return false;
+    }
+    return term.trim().length >= 2 && term.trim().length <= 42;
+  };
+
+  const dedupeStrings = (items: unknown, enforceSkillFilter = false): string[] => {
+    if (!Array.isArray(items)) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of items) {
+      if (typeof item !== 'string') continue;
+      const trimmed = item.trim();
+      if (!trimmed) continue;
+      if (enforceSkillFilter && !isValidSkillOrKeyword(trimmed)) continue;
+      const lower = trimmed.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        out.push(trimmed);
+      }
+    }
+    return out;
+  };
+
+  const mergeLists = (a: string[], b: string[]): string[] =>
+    dedupeStrings([...a, ...b], true);
+
+  const aiMand = dedupeStrings(aiPartial.mandatorySkills, true);
+  const aiPref = dedupeStrings(aiPartial.preferredSkills, true);
+  const aiTech = dedupeStrings(aiPartial.technicalSkills, true);
+  const aiSoft = dedupeStrings(aiPartial.softSkills, true);
+  const aiCerts = dedupeStrings(aiPartial.certifications, false);
+  const aiResp = dedupeStrings(aiPartial.keyResponsibilities, false);
+
+  const kwMap = new Map<string, AtsJobKeyword>();
+  if (Array.isArray(aiPartial.highSignalKeywords)) {
+    for (const k of aiPartial.highSignalKeywords) {
+      if (!k || typeof k.term !== 'string' || !k.term.trim()) continue;
+      const cleanTerm = k.term.trim();
+      if (!isValidSkillOrKeyword(cleanTerm)) continue;
+      const imp =
+        k.importance === 'critical' ||
+        k.importance === 'important' ||
+        k.importance === 'preferred' ||
+        k.importance === 'relevant'
+          ? k.importance
+          : 'important';
+      const cat =
+        k.category === 'technical' ||
+        k.category === 'soft' ||
+        k.category === 'domain' ||
+        k.category === 'qualification' ||
+        k.category === 'action'
+          ? k.category
+          : 'technical';
+      kwMap.set(cleanTerm.toLowerCase(), {
+        term: cleanTerm,
+        importance: imp,
+        category: cat,
+      });
+    }
+  }
+  for (const baseKw of base.highSignalKeywords) {
+    if (!kwMap.has(baseKw.term.toLowerCase())) {
+      kwMap.set(baseKw.term.toLowerCase(), baseKw);
+    }
+  }
+
+  return {
+    jobTitle: (aiPartial.jobTitle || '').trim() || base.jobTitle,
+    companyName,
+    jobLocation: (aiPartial.jobLocation || '').trim() || base.jobLocation,
+    experienceLevel: (aiPartial.experienceLevel || '').trim() || base.experienceLevel,
+    industry: (aiPartial.industry || '').trim() || base.industry,
+    requiredYearsExperience:
+      typeof aiPartial.requiredYearsExperience === 'number' &&
+      Number.isFinite(aiPartial.requiredYearsExperience)
+        ? aiPartial.requiredYearsExperience
+        : base.requiredYearsExperience,
+    educationRequirement:
+      (aiPartial.educationRequirement || '').trim() || base.educationRequirement,
+    mandatorySkills: aiMand.length > 0 ? mergeLists(aiMand, base.mandatorySkills) : base.mandatorySkills,
+    preferredSkills: aiPref.length > 0 ? mergeLists(aiPref, base.preferredSkills) : base.preferredSkills,
+    technicalSkills: aiTech.length > 0 ? mergeLists(aiTech, base.technicalSkills) : base.technicalSkills,
+    softSkills: aiSoft.length > 0 ? mergeLists(aiSoft, base.softSkills) : base.softSkills,
+    certifications: aiCerts.length > 0 ? dedupeStrings([...aiCerts, ...base.certifications]) : base.certifications,
+    keyResponsibilities: aiResp.length > 0 ? aiResp.slice(0, 8) : base.keyResponsibilities,
+    highSignalKeywords: Array.from(kwMap.values()).slice(0, 24),
+    parsedBy: 'gemini-ai',
+    aiNote: (aiPartial.aiNote || '').trim() || base.aiNote,
   };
 }
 
@@ -1460,20 +1593,19 @@ export function scoreResumeAgainstJob(
 
   const keywordCategory: AtsScoreCategory = {
     key: 'keywordMatch',
-    label: 'Keyword Match',
+    label: 'Important Job Skills',
     earned: Math.min(30, Math.max(0, keywordEarned)),
     max: 30,
     percentage: Math.round((Math.min(30, Math.max(0, keywordEarned)) / 30) * 100),
     summary:
       keywordPool.length === 0
-        ? 'No specific technical keywords were identified in the job description.'
-        : `Matched ${matchedKeywords.length} of ${keywordPool.length} weighted job keywords across resume sections.`,
+        ? 'No specific technical keywords were listed in the job description.'
+        : `Matched ${matchedKeywords.length} of ${keywordPool.length} important job terms across your resume.`,
     evidence:
       matchedKeywords.length > 0
         ? matchedKeywords.slice(0, 6).map((m) => `${m.term} (${m.locations.join(', ')})`)
-        : ['No target job keywords found in current resume text.'],
-    gaps:
-      missingKeywords.slice(0, 5).map((m) => `Missing ${m.group} term: ${m.term}`),
+        : ['No target job skills found in your current resume text.'],
+    gaps: missingKeywords.slice(0, 5).map((m) => m.term),
   };
 
   // -------------------------------------------------------------------------
@@ -1573,14 +1705,14 @@ export function scoreResumeAgainstJob(
 
   const skillsCategory: AtsScoreCategory = {
     key: 'skillsMatch',
-    label: 'Skills Match',
+    label: 'Matched Skills',
     earned: skillsEarned,
     max: 20,
     percentage: Math.round((skillsEarned / 20) * 100),
     summary:
       skillTargets.length > 0
-        ? `${presentSkillCount} matched cleanly, ${partialSkillCount} partially evidenced, ${missingSkillCount} missing from target requirements.`
-        : `Resume lists ${draft.skills.length} skills; JD did not isolate specific hard-skill tokens.`,
+        ? `${presentSkillCount} matched cleanly, ${partialSkillCount} partially shown, ${missingSkillCount} missing from the job list.`
+        : `Your resume lists ${draft.skills.length} skills.`,
     evidence: skillsGap
       .filter((s) => s.status !== 'missing')
       .slice(0, 6)
@@ -1588,7 +1720,7 @@ export function scoreResumeAgainstJob(
     gaps: skillsGap
       .filter((s) => s.status === 'missing')
       .slice(0, 5)
-      .map((s) => `${s.skill} (${s.requirementLevel})`),
+      .map((s) => s.skill),
   };
 
   // -------------------------------------------------------------------------
@@ -1696,30 +1828,30 @@ export function scoreResumeAgainstJob(
 
   const expCategory: AtsScoreCategory = {
     key: 'experienceRelevance',
-    label: 'Experience Relevance',
+    label: 'Project & Experience Match',
     earned: experienceEarned,
     max: 15,
     percentage: Math.round((experienceEarned / 15) * 100),
     summary:
       allBullets.length === 0
-        ? 'Missing detailed experience or project bullet points.'
-        : `${actionVerbRate}% of ${allBullets.length} bullets start with strong action verbs; ${quantifiedBullets.length} contain verifiable metrics.`,
+        ? 'Add bullet points describing your projects or work experience.'
+        : `${actionVerbRate}% of ${allBullets.length} bullets start with clear action verbs.`,
     evidence: [
       ...(draft.experience.length > 0
-        ? [`${draft.experience.length} experience entry/entries (${yearsEstimated !== null ? `~${yearsEstimated} yrs` : 'dates need review'})`]
+        ? [`${draft.experience.length} work entry/entries (${yearsEstimated !== null ? `~${yearsEstimated} yrs` : 'dates need review'})`]
         : []),
-      ...(draft.projects.length > 0 ? [`${draft.projects.length} project(s) documented`] : []),
-      ...(titleHits.length > 0 ? [`Role alignment terms: ${titleHits.join(', ')}`] : []),
+      ...(draft.projects.length > 0 ? [`${draft.projects.length} project(s) listed`] : []),
+      ...(titleHits.length > 0 ? [`Matching role terms: ${titleHits.join(', ')}`] : []),
     ],
     gaps: [
       ...(draft.experience.length === 0 && draft.projects.length === 0
-        ? ['Missing experience and project entries (Missing information)']
+        ? ['No work experience or project entries found']
         : []),
       ...(job.requiredYearsExperience && yearsEstimated !== null && yearsEstimated < job.requiredYearsExperience
-        ? [`JD mentions ${job.requiredYearsExperience}+ yrs; resume shows ~${yearsEstimated} yrs (Qualification gap)`]
+        ? [`Job asks for ${job.requiredYearsExperience}+ yrs; resume shows ~${yearsEstimated} yrs`]
         : []),
       ...(bulletFeedback.length > 0
-        ? [`${bulletFeedback.length} bullet(s) start weakly or lack active phrasing`]
+        ? [`${bulletFeedback.length} bullet(s) can start with stronger action words`]
         : []),
     ],
   };
@@ -1789,7 +1921,7 @@ export function scoreResumeAgainstJob(
   eduEarned = Math.min(10, Math.max(0, eduEarned));
   const educationCategory: AtsScoreCategory = {
     key: 'educationQualifications',
-    label: 'Education & Qualifications',
+    label: 'Education Check',
     earned: eduEarned,
     max: 10,
     percentage: Math.round((eduEarned / 10) * 100),
@@ -1797,14 +1929,14 @@ export function scoreResumeAgainstJob(
       draft.education.length === 0
         ? 'Education section was not found in your resume.'
         : eduGaps.length === 0
-        ? 'Education and qualifications align with the role requirements.'
-        : 'Education is present with qualification or certification notes below.',
-    evidence: eduEvidence.length > 0 ? eduEvidence : ['No education entries detected.'],
+        ? 'Your education aligns with what this job asks for.'
+        : 'Education is listed with a few notes below.',
+    evidence: eduEvidence.length > 0 ? eduEvidence : ['No education entries found.'],
     gaps: eduGaps,
   };
 
   // -------------------------------------------------------------------------
-  // 5. RESUME STRUCTURE (10 pts)
+  // 5. RESUME SECTIONS (10 pts)
   // -------------------------------------------------------------------------
   const hasExpOrProj = draft.experience.length > 0 || draft.projects.length > 0;
   const hasEducation = draft.education.length > 0;
@@ -1814,40 +1946,40 @@ export function scoreResumeAgainstJob(
 
   const structureChecklist = [
     {
-      section: 'Professional Summary / Objective',
+      section: 'Summary / Objective',
       present: Boolean(draft.summary?.trim()),
       note: draft.summary?.trim()
-        ? 'Clear summary helps recruiters and ATS context indexing.'
-        : 'Adding a concise 2–3 sentence summary improves initial ATS & recruiter scan.',
+        ? 'Clear short summary helps recruiters understand your focus.'
+        : 'Adding a short 2–3 line summary makes your resume easier to scan.',
     },
     {
       section: 'Experience / Projects',
       present: hasExpOrProj,
       note: hasExpOrProj
-        ? `${draft.experience.length} experience + ${draft.projects.length} project entries structured.`
-        : 'No structured work experience or projects detected.',
+        ? `${draft.experience.length} work entry/entries and ${draft.projects.length} project(s) found.`
+        : 'No work experience or projects found.',
     },
     {
       section: 'Education',
       present: hasEducation,
       note: hasEducation
-        ? `${draft.education.length} education entry/entries detected.`
-        : 'Education section missing or unrecognized.',
+        ? `${draft.education.length} education entry/entries found.`
+        : 'Education section is missing or unclear.',
     },
     {
       section: 'Skills',
       present: hasSkills,
       note: hasSkills
-        ? `${draft.skills.length} skills extracted.`
-        : 'Dedicated Skills section improves keyword indexing accuracy.',
+        ? `${draft.skills.length} skills found.`
+        : 'Adding a clear Skills section helps employers spot what you know.',
     },
     {
-      section: 'Certifications / Achievements',
+      section: 'Certifications / Awards',
       present: draft.certifications.length > 0 || draft.achievements.length > 0,
       note:
         draft.certifications.length > 0 || draft.achievements.length > 0
-          ? 'Additional credentials cleanly separated.'
-          : 'Optional section; add only if you hold verified awards or certifications.',
+          ? 'Additional credentials are clearly listed.'
+          : 'Optional section — include only if you have certificates or awards.',
     },
   ];
 
@@ -1860,15 +1992,15 @@ export function scoreResumeAgainstJob(
 
   const structureCategory: AtsScoreCategory = {
     key: 'resumeStructure',
-    label: 'Resume Structure',
+    label: 'Resume Sections',
     earned: structureEarned,
     max: 10,
     percentage: Math.round((structureEarned / 10) * 100),
-    summary: `Found ${structureChecklist.filter((c) => c.present).length} of ${structureChecklist.length} core ATS sections.`,
+    summary: `Found ${structureChecklist.filter((c) => c.present).length} of ${structureChecklist.length} standard resume sections.`,
     evidence: structureChecklist.filter((c) => c.present).map((c) => c.section),
     gaps: structureChecklist
-      .filter((c) => !c.present && c.section !== 'Certifications / Achievements')
-      .map((c) => `${c.section} missing or needs clearer heading`),
+      .filter((c) => !c.present && c.section !== 'Certifications / Awards')
+      .map((c) => `${c.section} missing or needs a clearer heading`),
   };
 
   // -------------------------------------------------------------------------
@@ -1882,10 +2014,10 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_scanned',
       severity: 'high',
-      title: 'Scanned / Image-Based PDF Detected',
-      detail: 'Little or no selectable text layer was found inside the PDF.',
+      title: 'Resume looks like a scanned image',
+      detail: 'Text could not be highlighted directly inside this PDF.',
       recommendation:
-        'Export your resume directly as a text-selectable PDF or DOCX rather than a scanned image so ATS parsers can read your words reliably.',
+        'Save or export your resume directly as a regular PDF or Word (.docx) file so job systems can read every word.',
     });
   }
 
@@ -1894,11 +2026,11 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_two_col',
       severity: 'medium',
-      title: 'Two-Column Layout Parsing Risk',
+      title: 'Two-column layout may scramble some readers',
       detail:
-        'Modern cloud ATS platforms often read clean two-column PDFs properly, but legacy enterprise ATS parsers sometimes interleave left and right columns out of order.',
+        'Older automated application portals sometimes read across two columns in the wrong order.',
       recommendation:
-        'Consider exporting a single-column version (such as Simple One-Page, Academic CV, or Jake’s Resume) when applying via older corporate portals.',
+        'Using a single-column layout makes your resume easiest for automated systems to read.',
     });
   }
 
@@ -1907,11 +2039,11 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_visual_bars',
       severity: 'medium',
-      title: 'Visual Skill Bars / Charts Not Machine-Readable',
+      title: 'Skill bars or charts are hidden to automated readers',
       detail:
-        'Circular proficiency rings, dot ratings, or donut charts convey proficiency visually and are ignored by text-only ATS parsers.',
+        'Progress bars, circles, or charts cannot be read as text by automated job systems.',
       recommendation:
-        'Ensure every skill shown in charts or progress bars also appears as plain text inside a categorized Skills list.',
+        'Make sure every skill shown in charts or bars is also written out clearly in your Skills section.',
     });
   }
 
@@ -1920,11 +2052,11 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_tables',
       severity: 'medium',
-      title: 'Tables Detected in Document',
+      title: 'Tables may confuse resume readers',
       detail:
-        'HTML/DOCX tables can cause older ATS systems to scramble reading order or skip nested cells.',
+        'Tables can cause automated hiring systems to mix up lines or skip information.',
       recommendation:
-        'Prefer standard paragraph headings, tab-free lines, and simple bullet points over layout tables.',
+        'Use normal headings and bullet points instead of layout tables.',
     });
   }
 
@@ -1933,11 +2065,11 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_dates',
       severity: 'low',
-      title: 'Missing or Incomplete Timeline Dates',
+      title: 'Some work or school dates are missing',
       detail:
-        'One or more experience or education entries are missing start or end dates.',
+        'One or more work or education entries are missing start or end dates.',
       recommendation:
-        'Use consistent "Month Year – Month Year" or "YYYY – YYYY" formats so ATS duration calculators can compute experience length.',
+        'Include clear start and end dates (for example, Jan 2022 – Dec 2024) on each role and degree.',
     });
   }
 
@@ -1946,11 +2078,11 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_dense',
       severity: 'medium',
-      title: 'Dense Paragraphs Without Concise Bullets',
+      title: 'Long paragraphs instead of short bullet points',
       detail:
-        'Long blocks of narrative prose reduce scannability for both ATS snippet extraction and recruiters.',
+        'Large blocks of text make it harder for busy recruiters and resume readers to spot your skills.',
       recommendation:
-        'Break responsibilities and achievements into crisp 1–2 line bullet points.',
+        'Split long paragraphs into short, 1–2 line bullet points.',
     });
   }
 
@@ -1959,29 +2091,29 @@ export function scoreResumeAgainstJob(
     formattingIssues.push({
       id: 'fmt_short',
       severity: 'high',
-      title: 'Very Short Resume Content',
-      detail: 'Extracted resume text contains fewer than 300 characters.',
+      title: 'Very little resume text was found',
+      detail: 'Less than 300 characters of text could be read from your file.',
       recommendation:
-        'Verify that all sections extracted cleanly or add detailed experience, projects, and education content.',
+        'Check that your file uploaded cleanly and includes your work, project, and education details.',
     });
   }
 
   const formattingEarned = Math.min(10, Math.max(0, Math.round(10 - formattingDeduction)));
   const formattingCategory: AtsScoreCategory = {
     key: 'formattingReadability',
-    label: 'Formatting & Readability',
+    label: 'Resume Readability',
     earned: formattingEarned,
     max: 10,
     percentage: Math.round((formattingEarned / 10) * 100),
     summary:
       formattingIssues.length === 0
-        ? 'Clean, machine-readable single-column structure with standard bullets and dates.'
-        : `${formattingIssues.length} ATS formatting / readability consideration(s) identified.`,
+        ? 'Good – Your resume is easy to read.'
+        : `${formattingIssues.length} formatting issue(s) found.`,
     evidence:
       formattingIssues.length === 0
-        ? ['Text-selectable structure, consistent bullets, and clear section boundaries']
-        : [`${10 - formattingEarned} point deduction from ${formattingIssues.length} verifiable layout signal(s)`],
-    gaps: formattingIssues.map((f) => `${f.title} (${f.severity})`),
+        ? ['Clean layout, readable text, and clear bullet points']
+        : [`${formattingIssues.length} readability note(s) to check`],
+    gaps: formattingIssues.map((f) => f.title),
   };
 
   // -------------------------------------------------------------------------
@@ -2094,7 +2226,7 @@ export function scoreResumeAgainstJob(
     overallScore,
     scoreBand,
     scoreDisclaimer:
-      'Estimated ATS Compatibility Score calculated transparently across 7 weighted criteria from extracted text vs. parsed job requirements. Real employer ATS rankings vary by recruiter settings and proprietary vendor parsers.',
+      'Calculated from your uploaded resume content compared directly against this job description.',
     categories,
     matchedKeywords,
     missingKeywords,
@@ -2112,7 +2244,7 @@ export function scoreResumeAgainstJob(
     formattingIssues,
     structureChecklist,
     topPriorities: topPriorities.slice(0, 5),
-    scoreExplanation: `Total ${overallScore}/100 (${scoreBand}): ${categories
+    scoreExplanation: `${overallScore}/100 (${scoreBand}): ${categories
       .map((c) => `${c.label} ${c.earned}/${c.max}`)
       .join(' · ')}.`,
   };
@@ -2157,16 +2289,16 @@ export function generateDeterministicSuggestions(
       id: 'sug_summary_add',
       category: 'summary',
       priority: 'high',
-      title: 'Add a Factual, Role-Aligned Professional Summary',
+      title: 'Add a Short Summary at the Top',
       targetSection: 'Summary',
       targetField: 'summary',
       originalContent: '',
       suggestedContent: `${primaryRole}${skillsClause}, seeking to contribute to ${job.jobTitle}${
         job.companyName ? ` at ${job.companyName}` : ''
-      } through structured technical execution and reliable delivery.`,
+      } through reliable technical execution and teamwork.`,
       reason:
-        'A concise summary anchored solely in your verified role title and matched skills improves initial ATS indexing without adding unverified claims.',
-      relevantRequirement: `Role Alignment: ${job.jobTitle}`,
+        'A short 2–3 line summary at the top helps employers quickly see your background and main skills.',
+      relevantRequirement: `Target role: ${job.jobTitle}`,
       status: 'pending',
       source: 'rule-based',
     });
@@ -2182,14 +2314,14 @@ export function generateDeterministicSuggestions(
       id: 'sug_summary_align',
       category: 'keyword-alignment',
       priority: 'medium',
-      title: 'Surface Verified Core Skills Earlier in Summary',
+      title: 'Add Your Main Skills to Your Summary',
       targetSection: 'Summary',
       targetField: 'summary',
       originalContent: draft.summary.trim(),
-      suggestedContent: `${draft.summary.trim().replace(/\.$/, '')}. Core verified competencies include ${missingFromSummary.join(', ')}.`,
+      suggestedContent: `${draft.summary.trim().replace(/\.$/, '')}. Core skills include ${missingFromSummary.join(', ')}.`,
       reason:
-        'Surfacing skills you already possess in your Summary ensures early-section keyword indexing matches the target job phrasing.',
-      relevantRequirement: `Matched Skills: ${missingFromSummary.join(', ')}`,
+        'Mentioning skills you already have near the top makes it easier for hiring managers and resume tools to spot them right away.',
+      relevantRequirement: `Your verified skills: ${missingFromSummary.join(', ')}`,
       status: 'pending',
       source: 'rule-based',
     });
@@ -2198,7 +2330,7 @@ export function generateDeterministicSuggestions(
   // 2. Weak experience bullet rewrites (strictly zero metric fabrication)
   draft.experience.forEach((exp, expIdx) => {
     exp.highlights.forEach((bullet, bIdx) => {
-      if (suggestions.filter((s) => s.category === 'experience').length >= 4) return;
+      if (suggestions.filter((s) => s.category === 'experience').length >= 3) return;
       const trimmed = bullet.trim();
       if (!trimmed) return;
       for (const [regex, replacement] of ACTION_UPGRADE_MAP) {
@@ -2208,7 +2340,7 @@ export function generateDeterministicSuggestions(
             id: `sug_exp_${expIdx}_${bIdx}`,
             category: 'experience',
             priority: 'high',
-            title: `Strengthen Action Verb in ${exp.position || 'Experience'}`,
+            title: `Use a Stronger Action Word in ${exp.position || 'Experience'}`,
             targetSection: `Experience — ${exp.position || 'Role'}${exp.company ? ` @ ${exp.company}` : ''}`,
             targetField: 'experience-highlight',
             targetEntryIndex: expIdx,
@@ -2216,8 +2348,8 @@ export function generateDeterministicSuggestions(
             originalContent: trimmed,
             suggestedContent: rewritten.charAt(0).toUpperCase() + rewritten.slice(1),
             reason:
-              'Replaces passive phrasing with a direct action verb while preserving 100% of your original facts and avoiding fabricated metrics.',
-            relevantRequirement: 'ATS Experience & Action Verb Clarity',
+              'Starting with an action word shows what you directly built or delivered without changing any facts.',
+            relevantRequirement: 'Clear experience bullets',
             status: 'pending',
             source: 'rule-based',
           });
@@ -2239,15 +2371,15 @@ export function generateDeterministicSuggestions(
             id: `sug_proj_${pIdx}_${bIdx}`,
             category: 'projects',
             priority: 'medium',
-            title: `Use Active Phrasing in Project "${proj.title}"`,
+            title: `Make "${proj.title}" Project Bullet Clearer`,
             targetSection: `Projects — ${proj.title}`,
             targetField: 'project-highlight',
             targetEntryIndex: pIdx,
             targetBulletIndex: bIdx,
             originalContent: trimmed,
             suggestedContent: rewritten.charAt(0).toUpperCase() + rewritten.slice(1),
-            reason: 'Improves project bullet clarity for technical and ATS review without altering factual outcomes.',
-            relevantRequirement: 'Technical Project Relevance',
+            reason: 'Clear action wording helps employers quickly understand what you built.',
+            relevantRequirement: 'Project clarity',
             status: 'pending',
             source: 'rule-based',
           });
@@ -2272,14 +2404,14 @@ export function generateDeterministicSuggestions(
         id: 'sug_skills_canonical',
         category: 'skills',
         priority: 'high',
-        title: 'Include Exact Canonical Job Terminology for Existing Skills',
+        title: 'Match Full Skill Names From the Job Post',
         targetSection: 'Skills',
         targetField: 'skills-organization',
         originalContent: draft.skills.join(', '),
         suggestedContent: updatedSkills.join(', '),
         reason:
-          'Your resume already demonstrates these skills via shorthand or related aliases. Listing the exact terminology used in the job description prevents strict-string ATS misses.',
-        relevantRequirement: `Exact JD Terminology: ${termsToClarify.join(', ')}`,
+          'You already have these skills in shorthand (such as JS instead of JavaScript). Using the exact spelling from the job post ensures nothing is missed.',
+        relevantRequirement: `Exact spelling: ${termsToClarify.join(', ')}`,
         status: 'pending',
         source: 'rule-based',
       });
@@ -2287,24 +2419,24 @@ export function generateDeterministicSuggestions(
   }
 
   // 5. Formatting / Structure guidance if needed
-  for (const issue of analysis.formattingIssues.slice(0, 2)) {
+  for (const issue of analysis.formattingIssues.slice(0, 1)) {
     suggestions.push({
       id: `sug_fmt_${issue.id}`,
       category: 'structure',
       priority: issue.severity === 'high' ? 'high' : 'medium',
-      title: `ATS Formatting: ${issue.title}`,
-      targetSection: 'Structure & Formatting',
+      title: `Format Fix: ${issue.title}`,
+      targetSection: 'Resume Format Check',
       targetField: 'structure-note',
       originalContent: issue.detail,
       suggestedContent: issue.recommendation,
-      reason: 'Resolving ATS layout/date issues prevents automated parsers from skipping valid experience.',
-      relevantRequirement: 'ATS Parsing Compatibility',
+      reason: 'Fixing layout issues helps resume software read your sections cleanly.',
+      relevantRequirement: 'Easy-to-read format',
       status: 'pending',
       source: 'rule-based',
     });
   }
 
-  return suggestions;
+  return suggestions.slice(0, 5);
 }
 
 /**
@@ -2447,10 +2579,10 @@ export function buildComparisonSnapshot(
     appliedSuggestionCount,
     summaryNote:
       scoreDelta > 0
-        ? `Estimated ATS score changed by +${scoreDelta} points (${initialAnalysis.overallScore} → ${updatedAnalysis.overallScore}) across ${appliedSuggestionCount} applied revision(s).`
+        ? `Your Resume Match Score improved by +${scoreDelta} points (${initialAnalysis.overallScore} to ${updatedAnalysis.overallScore}) after applying ${appliedSuggestionCount} change(s).`
         : scoreDelta === 0
-        ? `Estimated ATS score remains ${updatedAnalysis.overallScore}/100 after applying ${appliedSuggestionCount} clarity revision(s). Content readability improved without inflating unverified skills.`
-        : `Estimated ATS score adjusted by ${scoreDelta} points (${initialAnalysis.overallScore} → ${updatedAnalysis.overallScore}) based on revised text.`,
+        ? `Your Resume Match Score remains ${updatedAnalysis.overallScore}/100 after applying ${appliedSuggestionCount} wording change(s). Readability improved without adding unverified skills.`
+        : `Your Resume Match Score updated from ${initialAnalysis.overallScore} to ${updatedAnalysis.overallScore} based on your edits.`,
   };
 }
 

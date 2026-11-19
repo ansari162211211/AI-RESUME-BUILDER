@@ -30,6 +30,7 @@ import {
 } from '../../data/templates';
 import { saveResume } from '../../services/resumeService';
 import { downloadAcademicCvPdf } from '../../services/pdfService';
+import { mapUserFacingError } from '../../utils/firebaseHelpers';
 import { analyzeResumeSections } from '../../utils/validation';
 import { MultiPageTemplatePreview } from '../Templates/MultiPageTemplatePreview';
 
@@ -116,6 +117,12 @@ export const ResumePreviewPage: React.FC<ResumePreviewPageProps> = ({
       await saveResume(updated.userId, updated);
     } catch (e) {
       console.error('Failed to save template customization', e);
+      setPdfError(
+        mapUserFacingError(
+          e,
+          'Could not save layout customization to cloud storage right now.'
+        )
+      );
     }
   };
 

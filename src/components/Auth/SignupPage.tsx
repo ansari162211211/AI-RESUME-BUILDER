@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { User, Mail, Lock, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
 import {
   auth,
+  isFirebaseConfigured,
+  firebaseConfigError,
   createUserWithEmailAndPassword,
   updateProfile,
 } from '../../services/firebase';
 import { validateSignup } from '../../utils/validation';
+import { mapFirebaseAuthError } from '../../utils/firebaseHelpers';
 
 interface SignupPageProps {
   onSuccess: () => void;
@@ -28,6 +31,14 @@ export const SignupPage: React.FC<SignupPageProps> = ({
     e.preventDefault();
     setAuthError(null);
 
+    if (!isFirebaseConfigured || !auth) {
+      setAuthError(
+        firebaseConfigError ||
+          'Account registration is unavailable because Firebase configuration is missing.'
+      );
+      return;
+    }
+
     const validation = validateSignup(fullName, email, password, confirmPassword);
     if (!validation.isValid) {
       setErrors(validation.errors);
@@ -43,29 +54,22 @@ export const SignupPage: React.FC<SignupPageProps> = ({
         password
       );
 
-      // Save display name
+      // Save display name cleanly without blocking signup if profile update fails transiently
       if (userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: fullName.trim(),
-        });
+        try {
+          await updateProfile(userCredential.user, {
+            displayName: fullName.trim(),
+          });
+        } catch (profileErr) {
+          console.warn('Could not update profile displayName immediately:', profileErr);
+        }
       }
 
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Firebase signup error:', err);
-      if (err.code === 'auth/email-already-in-use') {
-        setAuthError('An account with this email already exists. Try signing in instead.');
-      } else if (err.code === 'auth/weak-password') {
-        setAuthError('The password is too weak. Please use at least 6 characters.');
-      } else if (err.code === 'auth/invalid-email') {
-        setAuthError('Invalid email address format.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setAuthError(
-          'Email/Password signups are not enabled yet in Firebase Console. Please try Google Sign-In or Demo login on the sign-in page.'
-        );
-      } else {
-        setAuthError(err.message || 'Failed to create account. Please try again.');
-      }
+      const host = typeof window !== 'undefined' ? window.location.hostname : undefined;
+      setAuthError(mapFirebaseAuthError(err, host));
     } finally {
       setLoading(false);
     }
@@ -87,9 +91,23 @@ export const SignupPage: React.FC<SignupPageProps> = ({
           </p>
         </div>
 
+        {/* Missing Firebase Env Var Notice */}
+        {firebaseConfigError && !authError && (
+          <div
+            role="alert"
+            className="mb-6 p-3.5 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900 flex items-start space-x-2.5"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-700" />
+            <div className="leading-snug">{firebaseConfigError}</div>
+          </div>
+        )}
+
         {/* Global Error Banner */}
         {authError && (
-          <div className="mb-6 p-3.5 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-start space-x-2.5">
+          <div
+            role="alert"
+            className="mb-6 p-3.5 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-start space-x-2.5"
+          >
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <div className="leading-snug">{authError}</div>
           </div>
@@ -239,7 +257,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({
           <button
             type="button"
             onClick={onNavigateToLogin}
-            className="font-semibold text-[#0f2b5c] hover:underline"
+            className="font-semibold text-[#0f2b5c] hover:underline cursor-pointer"
           >
             Log In
           </button>

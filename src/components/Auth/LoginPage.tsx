@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { Mail, Lock, LogIn, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import {
   auth,
+  isFirebaseConfigured,
+  firebaseConfigError,
   signInWithEmailAndPassword,
   signInWithPopup,
   googleProvider,
 } from '../../services/firebase';
 import { validateLogin } from '../../utils/validation';
+import { extractErrorCode, mapFirebaseAuthError } from '../../utils/firebaseHelpers';
 import { ForgotPasswordModal } from './ForgotPasswordModal';
 
 interface LoginPageProps {
@@ -24,6 +27,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [authError, setAuthError] = useState<string | null>(null);
+  const [unauthorizedHost, setUnauthorizedHost] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
@@ -31,6 +35,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setUnauthorizedHost(null);
+
+    if (!isFirebaseConfigured || !auth) {
+      setAuthError(
+        firebaseConfigError ||
+          'Sign-in is unavailable because Firebase configuration is missing.'
+      );
+      return;
+    }
 
     const validation = validateLogin(email, password);
     if (!validation.isValid) {
@@ -43,17 +56,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Firebase login error:', err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-        setAuthError('Invalid email or password. Please verify and try again.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setAuthError('Too many failed attempts. Please reset your password or try again later.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setAuthError('Email/Password provider is not yet enabled in Firebase Console. You can use Google Sign-In or Demo mode below.');
-      } else {
-        setAuthError(err.message || 'Unable to sign in. Please try again.');
+      const host = typeof window !== 'undefined' ? window.location.hostname : undefined;
+      if (extractErrorCode(err) === 'auth/unauthorized-domain' && host) {
+        setUnauthorizedHost(host);
       }
+      setAuthError(mapFirebaseAuthError(err, host));
     } finally {
       setLoading(false);
     }
@@ -61,21 +70,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
   const handleGoogleSignIn = async () => {
     setAuthError(null);
+    setUnauthorizedHost(null);
+
+    if (!isFirebaseConfigured || !auth) {
+      setAuthError(
+        firebaseConfigError ||
+          'Google Sign-In is unavailable because Firebase configuration is missing.'
+      );
+      return;
+    }
+
     setGoogleLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
       onSuccess();
-    } catch (err: any) {
-      console.error('Google sign-in error:', err);
-      if (err.code === 'auth/unauthorized-domain') {
-        const host = typeof window !== 'undefined' ? window.location.hostname : '';
-        setAuthError(
-          `This domain (${host}) is not authorized in Firebase Authentication. Add it to Authorized domains in Firebase Console or use the Demo Account below.`
-        );
-      } else if (err.code === 'auth/popup-blocked') {
-        setAuthError('Sign-in popup was blocked by your browser. Please allow popups for this site and try again.');
-      } else if (err.code !== 'auth/popup-closed-by-user') {
-        setAuthError(err.message || 'Google Sign-In was cancelled or failed.');
+    } catch (err: unknown) {
+      const code = extractErrorCode(err);
+      const host = typeof window !== 'undefined' ? window.location.hostname : undefined;
+      if (code === 'auth/unauthorized-domain') {
+        console.warn(`Firebase Auth unauthorized domain (${host}).`);
+        if (host) setUnauthorizedHost(host);
+        setAuthError(mapFirebaseAuthError(err, host));
+      } else if (code === 'auth/popup-blocked') {
+        console.warn('Google sign-in popup blocked:', code);
+        setAuthError(mapFirebaseAuthError(err, host));
+      } else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+        console.error('Google sign-in error:', err);
+        setAuthError(mapFirebaseAuthError(err, host));
       }
     } finally {
       setGoogleLoading(false);
@@ -98,11 +119,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </p>
         </div>
 
+        {/* Missing / Partial Firebase Env Var Notice */}
+        {firebaseConfigError && !authError && (
+          <div
+            role="alert"
+            className="mb-6 p-3.5 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900 flex items-start space-x-2.5"
+          >
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-700" />
+            <div className="leading-snug">{firebaseConfigError}</div>
+          </div>
+        )}
+
         {/* Global Error Banner */}
         {authError && (
-          <div className="mb-6 p-3.5 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-start space-x-2.5">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-            <div className="leading-snug">{authError}</div>
+          <div
+            role="alert"
+            className="mb-6 p-3.5 bg-red-50 border border-red-200 rounded text-sm text-red-700 space-y-2.5"
+          >
+            <div className="flex items-start space-x-2.5">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div className="leading-snug">{authError}</div>
+            </div>
+            {unauthorizedHost && (
+              <div className="pl-7 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onDemoLogin}
+                  className="px-2.5 py-1 bg-[#0f2b5c] text-white rounded text-xs font-semibold hover:bg-[#0a1e42] cursor-pointer"
+                >
+                  Continue with Demo Account
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -242,7 +290,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <button
             type="button"
             onClick={onDemoLogin}
-            className="w-full flex items-center justify-center py-2 px-4 border border-dashed border-slate-300 hover:border-[#0f2b5c] rounded text-xs font-medium text-slate-600 hover:text-[#0f2b5c] bg-slate-50/50 hover:bg-slate-50 transition-colors"
+            className="w-full flex items-center justify-center py-2 px-4 border border-dashed border-slate-300 hover:border-[#0f2b5c] rounded text-xs font-medium text-slate-600 hover:text-[#0f2b5c] bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
             <span>Test-Drive Demo Account (Instant Access)</span>
@@ -255,41 +303,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <button
             type="button"
             onClick={onNavigateToSignup}
-            className="font-semibold text-[#0f2b5c] hover:underline"
+            className="font-semibold text-[#0f2b5c] hover:underline cursor-pointer"
           >
             Create Account
           </button>
-        </div>
-
-        {/* Temporary Auth Domain Debug Info */}
-        <div className="mt-6 p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700 space-y-1.5">
-          <div className="font-semibold text-slate-900">
-            Firebase Auth Debug Info (Temporary)
-          </div>
-          <div className="break-all">
-            <span className="font-medium text-slate-600">window.location.origin:</span>{' '}
-            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
-              {typeof window !== 'undefined' ? window.location.origin : 'N/A'}
-            </code>
-          </div>
-          <div className="break-all">
-            <span className="font-medium text-slate-600">window.location.hostname:</span>{' '}
-            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
-              {typeof window !== 'undefined' ? window.location.hostname : 'N/A'}
-            </code>
-          </div>
-          <div className="break-all">
-            <span className="font-medium text-slate-600">Firebase authDomain:</span>{' '}
-            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
-              {auth.app.options.authDomain || 'N/A'}
-            </code>
-          </div>
-          <div className="break-all">
-            <span className="font-medium text-slate-600">Firebase projectId:</span>{' '}
-            <code className="bg-white px-1 py-0.5 rounded border border-slate-200">
-              {auth.app.options.projectId || 'N/A'}
-            </code>
-          </div>
         </div>
       </div>
 

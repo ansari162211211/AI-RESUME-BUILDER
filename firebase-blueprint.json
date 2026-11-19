@@ -301,12 +301,49 @@
         }
       },
       "required": ["userId", "title"]
+    },
+    "AtsAnalysis": {
+      "title": "AtsAnalysis",
+      "description": "Saved ATS compatibility analysis comparing extracted resume content against a target job description.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "resumeName": { "type": "string", "maxLength": 160 },
+        "sourceType": { "type": "string", "enum": ["upload", "existing-resume"] },
+        "sourceResumeId": { "type": "string", "maxLength": 128 },
+        "sourceTemplateId": { "type": "string", "maxLength": 48 },
+        "jobTitle": { "type": "string", "maxLength": 160 },
+        "companyName": { "type": "string", "maxLength": 160 },
+        "jobLocation": { "type": "string", "maxLength": 160 },
+        "experienceLevel": { "type": "string", "maxLength": 64 },
+        "industry": { "type": "string", "maxLength": 120 },
+        "jobDescription": { "type": "string", "maxLength": 25000 },
+        "originalScore": { "type": "number" },
+        "latestScore": { "type": "number" },
+        "scoreBand": { "type": "string", "maxLength": 48 },
+        "improvementStatus": { "type": "string", "enum": ["initial", "improved", "in-review"] },
+        "originalDraft": { "type": "object" },
+        "workingDraft": { "type": "object" },
+        "parsedJob": { "type": "object" },
+        "initialAnalysis": { "type": "object" },
+        "latestAnalysis": { "type": "object" },
+        "suggestions": { "type": "array" },
+        "comparison": { "type": "object" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "resumeName", "jobTitle", "originalScore", "latestScore"]
     }
   },
   "firestore": {
     "/users/{userId}/resumes/{resumeId}": {
       "schema": "Resume",
       "description": "User created resumes isolated by owner user account."
+    },
+    "/users/{userId}/atsAnalyses/{analysisId}": {
+      "schema": "AtsAnalysis",
+      "description": "User ATS resume analysis history and revised drafts isolated by owner user account."
     }
   }
 }

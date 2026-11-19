@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Plus,
   LayoutTemplate,
+  FileSearch,
 } from 'lucide-react';
 import type { AuthUser } from '../../types/resume';
 
@@ -14,7 +15,8 @@ type NavView =
   | 'dashboard'
   | 'editor'
   | 'preview'
-  | 'templates';
+  | 'templates'
+  | 'ats-analyzer';
 
 interface NavbarProps {
   user: AuthUser | null;
@@ -35,22 +37,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   return (
     <header className="no-print bg-white border-b border-slate-200 sticky top-0 z-40">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
         {/* Brand */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 shrink-0">
           <button
             onClick={() => onNavigate(user ? 'dashboard' : 'login')}
-            className="flex items-center space-x-2.5 focus:outline-none group text-left"
+            className="flex items-center space-x-2 sm:space-x-2.5 focus:outline-none group text-left"
             aria-label="Resume Builder Home"
           >
-            <div className="w-9 h-9 rounded bg-[#0f2b5c] text-white flex items-center justify-center font-bold shadow-xs">
-              <FileText className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded bg-[#0f2b5c] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <div>
-              <span className="font-bold text-slate-900 tracking-tight text-lg block leading-tight">
+            <div className="min-w-0">
+              <span className="font-bold text-slate-900 tracking-tight text-base sm:text-lg block leading-tight">
                 Resume<span className="text-[#0f2b5c]">Builder</span>
               </span>
-              <span className="text-[10px] text-slate-500 font-medium tracking-wide uppercase">
+              <span className="hidden sm:block text-[10px] text-slate-500 font-medium tracking-wide uppercase">
                 Clean &amp; Functional
               </span>
             </div>
@@ -69,12 +71,26 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center space-x-2 sm:space-x-3">
+        <div className="flex items-center space-x-1 sm:space-x-3 shrink-0">
           {user ? (
             <>
               <button
+                onClick={() => onNavigate('ats-analyzer')}
+                data-testid="navbar-ats-btn"
+                className={`inline-flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 text-sm font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
+                  currentView === 'ats-analyzer'
+                    ? 'text-[#0f2b5c] bg-blue-50 font-semibold'
+                    : 'text-slate-700 hover:text-[#0f2b5c] hover:bg-slate-50'
+                }`}
+                aria-label="Open Resume Checker"
+              >
+                <FileSearch className="w-4 h-4" />
+                <span className="hidden sm:inline">Resume Checker</span>
+              </button>
+
+              <button
                 onClick={() => onNavigate('templates')}
-                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium rounded transition-colors cursor-pointer ${
+                className={`inline-flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 text-sm font-medium rounded transition-colors cursor-pointer whitespace-nowrap ${
                   currentView === 'templates'
                     ? 'text-[#0f2b5c] bg-blue-50 font-semibold'
                     : 'text-slate-700 hover:text-[#0f2b5c] hover:bg-slate-50'
@@ -88,7 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {currentView !== 'dashboard' && (
                 <button
                   onClick={() => onNavigate('dashboard')}
-                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-[#0f2b5c] hover:bg-slate-50 rounded transition-colors"
+                  className="inline-flex items-center space-x-1.5 px-2 sm:px-3 py-1.5 text-sm font-medium text-slate-700 hover:text-[#0f2b5c] hover:bg-slate-50 rounded transition-colors"
                   aria-label="Back to Dashboard"
                 >
                   <LayoutDashboard className="w-4 h-4" />
@@ -99,16 +115,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               {currentView === 'dashboard' && onNewResume && (
                 <button
                   onClick={onNewResume}
-                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 text-sm font-medium text-white bg-[#0f2b5c] hover:bg-[#0a1e42] rounded shadow-xs transition-colors"
+                  className="inline-flex items-center space-x-1.5 px-2.5 sm:px-3.5 py-1.5 text-sm font-medium text-white bg-[#0f2b5c] hover:bg-[#0a1e42] rounded shadow-xs transition-colors"
                   aria-label="Create New Resume"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>New Resume</span>
+                  <span className="hidden sm:inline">New Resume</span>
                 </button>
               )}
 
               {/* User Info & Logout */}
-              <div className="flex items-center space-x-2 pl-2 sm:pl-3 border-l border-slate-200">
+              <div className="flex items-center space-x-1 sm:space-x-2 pl-1.5 sm:pl-3 border-l border-slate-200">
                 <div className="hidden lg:block text-right">
                   <div className="text-xs font-semibold text-slate-800 truncate max-w-[140px]">
                     {user.displayName || user.email?.split('@')[0] || 'User'}

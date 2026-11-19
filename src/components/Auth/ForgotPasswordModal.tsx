@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Mail, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { auth, sendPasswordResetEmail } from '../../services/firebase';
+import {
+  auth,
+  isFirebaseConfigured,
+  firebaseConfigError,
+  sendPasswordResetEmail,
+} from '../../services/firebase';
 import { validateEmail } from '../../utils/validation';
+import { extractErrorCode, mapFirebaseAuthError } from '../../utils/firebaseHelpers';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -19,14 +25,28 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen && initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [isOpen, initialEmail]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    if (!isFirebaseConfigured || !auth) {
+      setError(
+        firebaseConfigError ||
+          'Password reset is unavailable because Firebase configuration is missing.'
+      );
+      return;
+    }
+
     if (!validateEmail(email)) {
-      setError('Please provide a valid email address.');
+      setError('Please enter a valid email address.');
       return;
     }
 
@@ -34,15 +54,14 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     try {
       await sendPasswordResetEmail(auth, email.trim());
       setSubmitted(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Password reset error:', err);
-      if (err.code === 'auth/user-not-found') {
+      const code = extractErrorCode(err);
+      if (code === 'auth/user-not-found') {
         setError('No account found with this email address.');
-      } else if (err.code === 'auth/invalid-email') {
-        setError('The email address is improperly formatted.');
       } else {
-        // Provide friendly message even in sandbox
-        setSubmitted(true);
+        const host = typeof window !== 'undefined' ? window.location.hostname : undefined;
+        setError(mapFirebaseAuthError(err, host));
       }
     } finally {
       setLoading(false);
@@ -64,8 +83,9 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     >
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative border border-slate-200">
         <button
+          type="button"
           onClick={handleResetAndClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1"
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
           aria-label="Close dialog"
         >
           <X className="w-5 h-5" />
@@ -84,8 +104,9 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               we have sent instructions to reset your password.
             </p>
             <button
+              type="button"
               onClick={handleResetAndClose}
-              className="mt-6 w-full py-2 px-4 bg-[#0f2b5c] hover:bg-[#0a1e42] text-white text-sm font-medium rounded transition-colors"
+              className="mt-6 w-full py-2 px-4 bg-[#0f2b5c] hover:bg-[#0a1e42] text-white text-sm font-medium rounded transition-colors cursor-pointer"
             >
               Back to Login
             </button>
@@ -103,13 +124,16 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             </p>
 
             {error && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 flex items-start space-x-2">
+              <div
+                role="alert"
+                className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-xs text-red-700 flex items-start space-x-2"
+              >
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4" noValidate>
               <div>
                 <label htmlFor="reset-email" className="block text-xs font-medium text-slate-700 mb-1">
                   Email address
@@ -129,14 +153,14 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 <button
                   type="button"
                   onClick={handleResetAndClose}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#0f2b5c] hover:bg-[#0a1e42] rounded transition-colors disabled:opacity-60"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#0f2b5c] hover:bg-[#0a1e42] rounded transition-colors disabled:opacity-60 cursor-pointer"
                 >
                   {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   <span>Send Reset Link</span>

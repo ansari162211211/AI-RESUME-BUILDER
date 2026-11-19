@@ -10,6 +10,10 @@ import {
   Loader2,
   Search,
   LayoutTemplate,
+  FileSearch,
+  ArrowRight,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import type { Resume, AuthUser } from '../../types/resume';
 import { getTemplateById } from '../../data/templates';
@@ -20,6 +24,7 @@ import {
   saveResume,
 } from '../../services/resumeService';
 import { calculateResumeCompleteness } from '../../utils/validation';
+import { mapUserFacingError } from '../../utils/firebaseHelpers';
 import { ConfirmModal } from '../Common/ConfirmModal';
 
 interface DashboardPageProps {
@@ -27,6 +32,7 @@ interface DashboardPageProps {
   onSelectResumeForEdit: (resume: Resume) => void;
   onSelectResumeForPreview: (resume: Resume) => void;
   onOpenTemplates?: () => void;
+  onOpenAtsAnalyzer?: (initialResume?: Resume | null) => void;
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -34,22 +40,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   onSelectResumeForEdit,
   onSelectResumeForPreview,
   onOpenTemplates,
+  onOpenAtsAnalyzer,
 }) => {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteCandidate, setDeleteCandidate] = useState<Resume | null>(null);
   const [creating, setCreating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const displayName = user.displayName || user.email?.split('@')[0] || 'User';
 
   const loadResumes = async () => {
     setLoading(true);
+    setActionError(null);
     try {
       const data = await getUserResumes(user.uid);
       setResumes(data);
     } catch (e) {
       console.error('Error fetching resumes:', e);
+      setActionError(
+        mapUserFacingError(e, 'Could not load your saved resumes right now.')
+      );
     } finally {
       setLoading(false);
     }
@@ -61,6 +73,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const handleCreateNew = async (type: 'academic' | 'experienced' | 'fresher' | 'student' | 'blank') => {
     setCreating(true);
+    setActionError(null);
     try {
       let defaultTitle = 'Academic Research Curriculum Vitae';
       if (type === 'experienced') defaultTitle = 'Senior Software Architect CV';
@@ -79,6 +92,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       onSelectResumeForEdit(newResume);
     } catch (e) {
       console.error('Error creating CV:', e);
+      setActionError(
+        mapUserFacingError(e, 'Could not create your new resume. Please try again.')
+      );
     } finally {
       setCreating(false);
     }
@@ -95,22 +111,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       updatedAt: now,
     };
 
+    setActionError(null);
     try {
       await saveResume(user.uid, duplicated);
       setResumes((prev) => [duplicated, ...prev]);
     } catch (e) {
       console.error('Error duplicating resume:', e);
+      setActionError(
+        mapUserFacingError(e, 'Could not duplicate this resume. Please try again.')
+      );
     }
   };
 
   const handleDeleteConfirm = async () => {
     if (!deleteCandidate) return;
+    setActionError(null);
     try {
       await deleteResume(user.uid, deleteCandidate.id);
       setResumes((prev) => prev.filter((r) => r.id !== deleteCandidate.id));
       setDeleteCandidate(null);
     } catch (e) {
       console.error('Error deleting resume:', e);
+      setDeleteCandidate(null);
+      setActionError(
+        mapUserFacingError(e, 'Could not delete this resume. Please try again.')
+      );
     }
   };
 
@@ -125,6 +150,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      {actionError && (
+        <div
+          role="alert"
+          className="mb-6 p-3.5 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-center justify-between gap-3"
+        >
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="p-1 text-red-500 hover:text-red-800 cursor-pointer"
+            aria-label="Dismiss error"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Welcome & Header */}
       <div className="bg-white border border-slate-200 rounded-lg p-6 sm:p-8 mb-8 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
@@ -164,6 +209,38 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Dedicated Resume Checker Entry Card */}
+      {onOpenAtsAnalyzer && (
+        <div
+          className="bg-white border border-slate-200 rounded-lg p-5 sm:p-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-300 transition-colors"
+          data-testid="dashboard-ats-card"
+        >
+          <div className="flex items-start gap-4 min-w-0">
+            <div className="w-11 h-11 rounded-lg bg-[#0f2b5c] text-white flex items-center justify-center shrink-0">
+              <FileSearch className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-slate-900">Resume Checker</h2>
+              <p className="text-xs sm:text-sm text-slate-600 mt-0.5 max-w-2xl">
+                Upload a PDF, DOCX, or TXT resume—or test any saved resume—against a job
+                description to check your match score, spot missing skills, and get simple steps to
+                improve.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onOpenAtsAnalyzer(null)}
+            data-testid="open-ats-analyzer-btn"
+            className="inline-flex items-center justify-center px-4 py-2.5 bg-[#0f2b5c] hover:bg-[#0a1e42] text-white text-sm font-semibold rounded shadow-xs transition-colors shrink-0 cursor-pointer whitespace-nowrap"
+          >
+            <span>Open Resume Checker</span>
+            <ArrowRight className="w-4 h-4 ml-1.5" />
+          </button>
+        </div>
+      )}
 
       {/* Resumes Section */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

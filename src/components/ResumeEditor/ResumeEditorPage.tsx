@@ -155,6 +155,7 @@ import {
 } from '../../utils/onePageOptimizer';
 import { getLanguageDotScore, validateDailyActivities } from '../../utils/dailyActivities';
 import { validatePhotoFile, type PhotoCropShape } from '../../utils/photoCrop';
+import { mapUserFacingError } from '../../utils/firebaseHelpers';
 import { AiImproveModal } from '../AiAssistant/AiImproveModal';
 import { AiInterviewModal } from '../AiAssistant/AiInterviewModal';
 import { UploadCvModal } from '../AiExtraction/UploadCvModal';
@@ -1073,7 +1074,12 @@ export const ResumeEditorPage: React.FC<ResumeEditorPageProps> = ({
           if (token === saveTokenRef.current) {
             console.error('Save failed:', e);
             setAutoSaveState('error');
-            setAutoSaveError(e instanceof Error ? e.message : 'Unable to save changes.');
+            setAutoSaveError(
+              mapUserFacingError(
+                e,
+                'Could not sync changes to cloud storage right now. Your edits are saved locally.'
+              )
+            );
           }
         });
 

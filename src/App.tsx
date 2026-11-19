@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   auth,
+  isFirebaseConfigured,
   onAuthStateChanged,
   signOut,
   testConnection,
@@ -19,39 +20,130 @@ import { DashboardPage } from './components/Dashboard/DashboardPage';
 import { ResumeEditorPage } from './components/ResumeEditor/ResumeEditorPage';
 import { ResumePreviewPage } from './components/ResumePreview/ResumePreviewPage';
 import { TemplatesGalleryPage } from './components/Templates/TemplatesGalleryPage';
+import { AtsAnalyzerPage } from './components/AtsAnalyzer/AtsAnalyzerPage';
 import {
   createNewResume,
   getUserResumes,
   saveResume,
 } from './services/resumeService';
 import type { TemplateDefinition } from './data/templates';
-import { Loader2 } from 'lucide-react';
+import {
+  mapUserFacingError,
+  pathToView,
+  resolveProtectedView,
+  viewToPath,
+  type AppViewMode,
+} from './utils/firebaseHelpers';
+import { AlertCircle, Loader2, X } from 'lucide-react';
 
-type ViewMode =
-  | 'login'
-  | 'signup'
-  | 'dashboard'
-  | 'editor'
-  | 'preview'
-  | 'templates';
+type ViewMode = AppViewMode;
+
+const ACTIVE_RESUME_SESSION_PREFIX = 'active_resume_id_';
+
+function saveSessionActiveResumeId(userId: string | undefined, resumeId: string | null): void {
+  if (!userId || typeof window === 'undefined') return;
+  try {
+    const key = `${ACTIVE_RESUME_SESSION_PREFIX}${userId}`;
+    if (resumeId) {
+      window.sessionStorage.setItem(key, resumeId);
+    } else {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore sessionStorage restrictions
+  }
+}
+
+function getSessionActiveResumeId(userId: string | undefined): string | null {
+  if (!userId || typeof window === 'undefined') return null;
+  try {
+    return window.sessionStorage.getItem(`${ACTIVE_RESUME_SESSION_PREFIX}${userId}`);
+  } catch {
+    return null;
+  }
+}
 
 export default function App() {
+  const initialRequestedView =
+    typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
+
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [currentView, setCurrentView] = useState<ViewMode>('login');
+  const [currentView, setCurrentView] = useState<ViewMode>(
+    initialRequestedView === 'signup' ? 'signup' : 'login'
+  );
   const [templateReturnView, setTemplateReturnView] = useState<
     'dashboard' | 'editor' | 'preview'
   >('dashboard');
   const [activeResume, setActiveResume] = useState<Resume | null>(null);
+  const [atsInitialResume, setAtsInitialResume] = useState<Resume | null>(null);
   const [userResumes, setUserResumes] = useState<Resume[]>([]);
+  const [appError, setAppError] = useState<string | null>(null);
+
+  const requestedViewRef = useRef<ViewMode | null>(initialRequestedView);
+  const activeResumeRef = useRef<Resume | null>(null);
+  activeResumeRef.current = activeResume;
+
+  const syncUrlToView = useCallback((view: ViewMode, replace = false) => {
+    if (typeof window === 'undefined') return;
+    const targetPath = viewToPath(view);
+    if (window.location.pathname === targetPath) return;
+    try {
+      if (replace) {
+        window.history.replaceState({ view }, '', targetPath);
+      } else {
+        window.history.pushState({ view }, '', targetPath);
+      }
+    } catch {
+      // Ignore history errors in restricted contexts
+    }
+  }, []);
+
+  const navigateToView = useCallback(
+    (view: ViewMode, options?: { replace?: boolean }) => {
+      requestedViewRef.current = view;
+      setCurrentView(view);
+      syncUrlToView(view, options?.replace);
+    },
+    [syncUrlToView]
+  );
+
+  // Persist active resume selection per user across refreshes
+  useEffect(() => {
+    if (user?.uid) {
+      saveSessionActiveResumeId(user.uid, activeResume?.id || null);
+    }
+  }, [user?.uid, activeResume?.id]);
 
   // Initialize Auth & Connection
   useEffect(() => {
+    if (!isFirebaseConfigured || !auth) {
+      const fallbackView = resolveProtectedView({
+        requestedView: requestedViewRef.current,
+        isAuthenticated: false,
+        hasActiveResume: false,
+      });
+      setCurrentView(fallbackView);
+      syncUrlToView(fallbackView, true);
+      setAuthLoading(false);
+      return;
+    }
+
+    let resolved = false;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!resolved) {
+        setAuthLoading(false);
+      }
+    }, 8000);
+
     testConnection().catch((err) => console.warn('Connection check:', err));
 
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser: FirebaseUser | null) => {
+        resolved = true;
+        window.clearTimeout(fallbackTimer);
+
         if (firebaseUser) {
           setUser({
             uid: firebaseUser.uid,
@@ -60,29 +152,109 @@ export default function App() {
             photoURL: firebaseUser.photoURL,
             isAnonymous: firebaseUser.isAnonymous,
           });
-          setCurrentView((prev) =>
-            prev === 'login' || prev === 'signup' ? 'dashboard' : prev
-          );
+          const requested = requestedViewRef.current;
+          // Defer redirect out of editor/preview until resumes attempt restore below if session ID exists
+          const hasSessionActiveId = Boolean(getSessionActiveResumeId(firebaseUser.uid));
+          const resolvedView =
+            (requested === 'editor' || requested === 'preview') &&
+            (Boolean(activeResumeRef.current) || hasSessionActiveId)
+              ? requested
+              : resolveProtectedView({
+                  requestedView: requested,
+                  isAuthenticated: true,
+                  hasActiveResume: Boolean(activeResumeRef.current),
+                });
+          setCurrentView(resolvedView);
+          syncUrlToView(resolvedView, true);
         } else {
-          setUser((prev) => (prev?.uid === 'demo_user_123' ? prev : null));
+          setUser((prev) => {
+            if (prev?.uid === 'demo_user_123') {
+              return prev;
+            }
+            const nextGuestView = resolveProtectedView({
+              requestedView: requestedViewRef.current,
+              isAuthenticated: false,
+              hasActiveResume: false,
+            });
+            setCurrentView(nextGuestView);
+            syncUrlToView(nextGuestView, true);
+            return null;
+          });
         }
+        setAuthLoading(false);
+      },
+      (err) => {
+        resolved = true;
+        window.clearTimeout(fallbackTimer);
+        console.warn('Auth listener error:', err);
         setAuthLoading(false);
       }
     );
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      unsubscribe();
+    };
+  }, [syncUrlToView]);
 
-  const refreshUserResumes = useCallback(async (uid: string) => {
-    try {
-      const list = await getUserResumes(uid);
-      setUserResumes(list);
-      return list;
-    } catch (e) {
-      console.error('Failed to refresh resumes:', e);
-      return [];
+  // Enforce route protection when browser Back/Forward triggers popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      const requested = pathToView(window.location.pathname);
+      requestedViewRef.current = requested;
+      const guarded = resolveProtectedView({
+        requestedView: requested,
+        isAuthenticated: Boolean(user),
+        hasActiveResume: Boolean(activeResumeRef.current),
+      });
+      setCurrentView(guarded);
+      if (viewToPath(guarded) !== window.location.pathname) {
+        syncUrlToView(guarded, true);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user, syncUrlToView]);
+
+  // Guard view transitions when auth state resolves
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user && currentView !== 'login' && currentView !== 'signup') {
+      navigateToView('login', { replace: true });
     }
-  }, []);
+  }, [authLoading, user, currentView, navigateToView]);
+
+  const refreshUserResumes = useCallback(
+    async (uid: string) => {
+      try {
+        const list = await getUserResumes(uid);
+        setUserResumes(list);
+
+        // Restore active resume on refresh when visiting /editor or /preview
+        if (!activeResumeRef.current && (currentView === 'editor' || currentView === 'preview')) {
+          const savedId = getSessionActiveResumeId(uid);
+          const restored = savedId ? list.find((r) => r.id === savedId) || null : null;
+          if (restored) {
+            setActiveResume(restored);
+          } else {
+            navigateToView('dashboard', { replace: true });
+          }
+        }
+        return list;
+      } catch (e) {
+        console.error('Failed to refresh resumes:', e);
+        setAppError(
+          mapUserFacingError(
+            e,
+            'Could not load your saved resumes from cloud storage right now.'
+          )
+        );
+        return [];
+      }
+    },
+    [currentView, navigateToView]
+  );
 
   useEffect(() => {
     if (user?.uid) {
@@ -93,15 +265,21 @@ export default function App() {
   }, [user?.uid, refreshUserResumes]);
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (e) {
-      console.warn('Signout error:', e);
+    const prevUid = user?.uid;
+    if (isFirebaseConfigured && auth) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.warn('Signout error:', e);
+      }
     }
+    saveSessionActiveResumeId(prevUid, null);
     setUser(null);
     setActiveResume(null);
+    setAtsInitialResume(null);
     setUserResumes([]);
-    setCurrentView('login');
+    setAppError(null);
+    navigateToView('login', { replace: true });
   };
 
   const handleDemoLogin = () => {
@@ -110,12 +288,17 @@ export default function App() {
       email: 'demo.developer@example.com',
       displayName: 'Alex Morgan (Demo)',
     };
+    setAppError(null);
     setUser(demoUser);
-    setCurrentView('dashboard');
+    navigateToView('dashboard');
   };
 
   const handleCreateNewResumeDirect = async () => {
-    if (!user) return;
+    if (!user) {
+      navigateToView('login');
+      return;
+    }
+    setAppError(null);
     try {
       const created = await createNewResume(
         user.uid,
@@ -126,9 +309,12 @@ export default function App() {
       );
       setActiveResume(created);
       setUserResumes((prev) => [created, ...prev]);
-      setCurrentView('editor');
+      navigateToView('editor');
     } catch (e) {
       console.error('Failed to create new CV:', e);
+      setAppError(
+        mapUserFacingError(e, 'Could not create a new resume right now. Please try again.')
+      );
     }
   };
 
@@ -136,6 +322,10 @@ export default function App() {
     fromView: 'dashboard' | 'editor' | 'preview',
     resumeOverride?: Resume | null
   ) => {
+    if (!user) {
+      navigateToView('login');
+      return;
+    }
     setTemplateReturnView(fromView);
     const target =
       fromView === 'dashboard'
@@ -148,14 +338,18 @@ export default function App() {
       await refreshUserResumes(user.uid);
     }
     setActiveResume(target || null);
-    setCurrentView('templates');
+    navigateToView('templates');
   };
 
   const handleApplyTemplate = async (
     template: TemplateDefinition,
     targetResume: Resume | null
   ) => {
-    if (!user) return;
+    if (!user) {
+      navigateToView('login');
+      return;
+    }
+    setAppError(null);
     try {
       if (targetResume) {
         const updated: Resume = {
@@ -172,7 +366,7 @@ export default function App() {
           updated,
           ...prev.filter((r) => r.id !== updated.id),
         ]);
-        setCurrentView('preview');
+        navigateToView('preview');
       } else {
         const seedType =
           template.id === 'jakes-resume'
@@ -256,14 +450,22 @@ export default function App() {
           customized,
           ...prev.filter((r) => r.id !== customized.id),
         ]);
-        setCurrentView('preview');
+        navigateToView('preview');
       }
     } catch (e) {
       console.error('Failed to apply template:', e);
+      setAppError(
+        mapUserFacingError(e, 'Could not apply this template right now. Please try again.')
+      );
     }
   };
 
   const handleNavigate = (view: ViewMode) => {
+    setAppError(null);
+    if (!user && view !== 'login' && view !== 'signup') {
+      navigateToView('login');
+      return;
+    }
     if (view === 'templates') {
       const origin =
         currentView === 'editor' || currentView === 'preview'
@@ -274,8 +476,12 @@ export default function App() {
     }
     if (view === 'dashboard') {
       setActiveResume(null);
+      setAtsInitialResume(null);
     }
-    setCurrentView(view);
+    if (view === 'ats-analyzer' && user?.uid) {
+      refreshUserResumes(user.uid);
+    }
+    navigateToView(view);
   };
 
   if (authLoading) {
@@ -303,21 +509,43 @@ export default function App() {
         activeResumeTitle={activeResume?.title}
       />
 
+      {appError && (
+        <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 pt-4">
+          <div
+            role="alert"
+            className="p-3.5 bg-red-50 border border-red-200 rounded text-sm text-red-700 flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{appError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAppError(null)}
+              className="p-1 text-red-500 hover:text-red-800 cursor-pointer"
+              aria-label="Dismiss error"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1">
         {/* Page 1: Login */}
-        {currentView === 'login' && !user && (
+        {!user && currentView !== 'signup' && (
           <LoginPage
-            onSuccess={() => setCurrentView('dashboard')}
-            onNavigateToSignup={() => setCurrentView('signup')}
+            onSuccess={() => navigateToView('dashboard')}
+            onNavigateToSignup={() => navigateToView('signup')}
             onDemoLogin={handleDemoLogin}
           />
         )}
 
         {/* Page 2: Signup */}
-        {currentView === 'signup' && !user && (
+        {!user && currentView === 'signup' && (
           <SignupPage
-            onSuccess={() => setCurrentView('dashboard')}
-            onNavigateToLogin={() => setCurrentView('login')}
+            onSuccess={() => navigateToView('dashboard')}
+            onNavigateToLogin={() => navigateToView('login')}
           />
         )}
 
@@ -327,13 +555,41 @@ export default function App() {
             user={user}
             onSelectResumeForEdit={(resume) => {
               setActiveResume(resume);
-              setCurrentView('editor');
+              navigateToView('editor');
             }}
             onSelectResumeForPreview={(resume) => {
               setActiveResume(resume);
-              setCurrentView('preview');
+              navigateToView('preview');
             }}
             onOpenTemplates={() => handleOpenTemplates('dashboard', null)}
+            onOpenAtsAnalyzer={(resumeOverride) => {
+              setAtsInitialResume(resumeOverride || null);
+              if (user?.uid) {
+                refreshUserResumes(user.uid);
+              }
+              navigateToView('ats-analyzer');
+            }}
+          />
+        )}
+
+        {/* Page: ATS Resume Analyzer */}
+        {user && currentView === 'ats-analyzer' && (
+          <AtsAnalyzerPage
+            user={user}
+            userResumes={userResumes}
+            initialResumeForAnalysis={atsInitialResume}
+            onBackToDashboard={() => {
+              setAtsInitialResume(null);
+              navigateToView('dashboard');
+            }}
+            onOpenInResumeEditor={(resume) => {
+              setActiveResume(resume);
+              setUserResumes((prev) => [
+                resume,
+                ...prev.filter((r) => r.id !== resume.id),
+              ]);
+              navigateToView('editor');
+            }}
           />
         )}
 
@@ -350,12 +606,12 @@ export default function App() {
             }}
             onPreview={(updated) => {
               setActiveResume(updated);
-              setCurrentView('preview');
+              navigateToView('preview');
             }}
             onOpenTemplates={(updated) => handleOpenTemplates('editor', updated)}
             onBackToDashboard={() => {
               setActiveResume(null);
-              setCurrentView('dashboard');
+              navigateToView('dashboard');
             }}
           />
         )}
@@ -364,10 +620,10 @@ export default function App() {
         {user && currentView === 'preview' && activeResume && (
           <ResumePreviewPage
             resume={activeResume}
-            onEdit={() => setCurrentView('editor')}
+            onEdit={() => navigateToView('editor')}
             onBackToDashboard={() => {
               setActiveResume(null);
-              setCurrentView('dashboard');
+              navigateToView('dashboard');
             }}
             onOpenTemplates={() => handleOpenTemplates('preview', activeResume)}
             onResumeUpdate={(updated) => {
@@ -394,7 +650,7 @@ export default function App() {
               if (targetView === 'dashboard') {
                 setActiveResume(null);
               }
-              setCurrentView(targetView);
+              navigateToView(targetView);
             }}
             backLabel={
               templateReturnView === 'editor' && activeResume

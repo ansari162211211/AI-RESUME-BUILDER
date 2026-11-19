@@ -303,3 +303,66 @@ JS, React, Node.js, Postgres`;
   assert.equal(editedExisting.id, 'orig_academic');
   assert.equal(editedExisting.objective, updatedDraft.summary);
 });
+
+test('company names like TechNova never appear in missing skills and suggestions stay capped at 5', () => {
+  const jdWithCompany = `Senior Frontend Engineer at TechNova
+At TechNova, TechNova engineers collaborate closely across product teams.
+TechNova is hiring a frontend engineer to build accessible React interfaces.
+Requirements:
+- 3+ years experience with React, TypeScript, GraphQL, and Jest
+- Experience collaborating in agile sprints and code reviews`;
+
+  const parsedJob = parseJobDescriptionDeterministic(jdWithCompany, {
+    jobTitle: 'Senior Frontend Engineer',
+    companyName: 'TechNova',
+  });
+
+  assert.equal(
+    parsedJob.mandatorySkills.some((s) => /technova/i.test(s)),
+    false
+  );
+  assert.equal(
+    parsedJob.preferredSkills.some((s) => /technova/i.test(s)),
+    false
+  );
+  assert.equal(
+    parsedJob.highSignalKeywords.some((k) => /technova/i.test(k.term)),
+    false
+  );
+
+  const candidateResume = `Jamie Patel
+jamie@example.com | +1 415 555 0180
+SUMMARY
+Frontend developer building web interfaces.
+EXPERIENCE
+Frontend Developer | BrightApps | 2021 - Present
+• Worked on responsive web pages using HTML, CSS, and React
+• Helped team test UI components and fix bugs
+• Responsible for integrating REST endpoints with TypeScript
+• Assisted with sprint demos and documentation
+SKILLS
+React, TypeScript, HTML, CSS`;
+
+  const draft = parseRawResumeTextToDraft(candidateResume, {
+    fileName: 'jamie.txt',
+    fileFormat: 'txt',
+  });
+  const analysis = scoreResumeAgainstJob(draft, parsedJob);
+
+  assert.equal(
+    analysis.missingKeywords.some((k) => /technova/i.test(k.term)),
+    false
+  );
+  assert.equal(
+    analysis.skillsGap.some((s) => /technova/i.test(s.skill)),
+    false
+  );
+
+  const suggestions = generateDeterministicSuggestions(draft, parsedJob, analysis);
+  assert.ok(suggestions.length <= 5, `Expected max 5 suggestions, got ${suggestions.length}`);
+  assert.ok(
+    suggestions.some((s) => s.title === 'Add Your Main Skills to Your Summary'),
+    'Expected beginner-friendly summary suggestion title'
+  );
+});
+
